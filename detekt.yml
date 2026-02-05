@@ -1,0 +1,13 @@
+﻿build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+config:
+  validation: true
+
+processors:
+  active: false
+
+style:
+  MagicNumber:
+    active: false

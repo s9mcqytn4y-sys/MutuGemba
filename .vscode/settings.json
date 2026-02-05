@@ -1,0 +1,9 @@
+﻿{
+  "editor.formatOnSave": true,
+  "[kotlin]": {
+    "editor.defaultFormatter": "rnoro.vscode-ktlint-formatter"
+  },
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.eol": "\n"
+}
