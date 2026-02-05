@@ -5,6 +5,7 @@ data class InspectionInput(
     val lineId: Long,
     val shiftId: Long,
     val partId: Long,
+    val totalCheck: Int? = null,
     val defectTypeId: Long?,
     val defectQuantity: Int?,
     val defects: List<InspectionDefectEntry> = emptyList(),

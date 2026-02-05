@@ -7,5 +7,6 @@ data class InspectionRecord(
     val shiftName: String,
     val partName: String,
     val partNumber: String,
+    val totalCheck: Int? = null,
     val createdAt: String,
 )

@@ -1,0 +1,25 @@
+ALTER TABLE inspection_record ADD COLUMN total_check INTEGER;
+
+CREATE TABLE app_user (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  position TEXT NOT NULL,
+  line_code TEXT NOT NULL REFERENCES master_line(code),
+  role TEXT NOT NULL CHECK (role IN ('USER', 'ADMIN')),
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE user_preference (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES app_user(id),
+  pref_key TEXT NOT NULL,
+  pref_value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_app_user_name ON app_user(name);
+CREATE INDEX idx_app_user_line_code ON app_user(line_code);
+CREATE UNIQUE INDEX idx_user_pref_unique ON user_preference(user_id, pref_key);

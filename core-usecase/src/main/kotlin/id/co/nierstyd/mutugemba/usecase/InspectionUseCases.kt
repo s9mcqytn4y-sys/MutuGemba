@@ -5,6 +5,8 @@ import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
+import id.co.nierstyd.mutugemba.domain.UserRole
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -28,28 +30,45 @@ data class CreateInspectionResult(
 class CreateInspectionRecordUseCase(
     private val repository: InspectionRepository,
 ) {
-    fun execute(input: InspectionInput): CreateInspectionResult {
-        val validation = validateInput(input)
-        if (validation.type == FeedbackType.ERROR) {
-            return CreateInspectionResult(record = null, feedback = validation)
+    fun execute(
+        input: InspectionInput,
+        actorRole: UserRole = UserRole.USER,
+    ): CreateInspectionResult {
+        var feedback = validateInput(input)
+        var record: InspectionRecord? = null
+        if (feedback.type != FeedbackType.ERROR) {
+            val createdAt =
+                input.createdAt
+                    .trim()
+                    .ifBlank {
+                        LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    }
+            val createdDate =
+                runCatching { LocalDateTime.parse(createdAt).toLocalDate() }
+                    .getOrElse { LocalDate.now() }
+            val hasDuplicate =
+                actorRole != UserRole.ADMIN &&
+                    repository.hasInspectionOnDate(
+                        lineId = input.lineId,
+                        partId = input.partId,
+                        date = createdDate,
+                    )
+            if (hasDuplicate) {
+                feedback = UserFeedback(FeedbackType.ERROR, "Data inspeksi hari ini sudah ada.")
+            } else {
+                val cleanedInput =
+                    input.copy(
+                        ctqValue = input.ctqValue,
+                        createdAt = createdAt,
+                    )
+                record = repository.insert(cleanedInput)
+                feedback = UserFeedback(FeedbackType.SUCCESS, "Data inspeksi tersimpan.")
+            }
         }
 
-        val createdAt =
-            input.createdAt
-                .trim()
-                .ifBlank {
-                    LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                }
-        val cleanedInput =
-            input.copy(
-                ctqValue = input.ctqValue,
-                createdAt = createdAt,
-            )
-
-        val record = repository.insert(cleanedInput)
         return CreateInspectionResult(
             record = record,
-            feedback = UserFeedback(FeedbackType.SUCCESS, "Data inspeksi tersimpan."),
+            feedback = feedback,
         )
     }
 

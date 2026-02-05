@@ -240,6 +240,7 @@ private class InspectionFormState(
             lineId = selectedLine?.id ?: 0L,
             shiftId = selectedShift?.id ?: 0L,
             partId = selectedPart?.id ?: 0L,
+            totalCheck = totalCheck,
             defectTypeId = null,
             defectQuantity = null,
             defects = defectEntries,
