@@ -1,5 +1,6 @@
 package id.co.nierstyd.mutugemba.usecase
 
+import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
@@ -62,14 +63,13 @@ class CreateInspectionRecordUseCase(
 
         return when (input.kind) {
             InspectionKind.DEFECT -> {
-                val defectTypeId = input.defectTypeId
-                val defectQuantity = input.defectQuantity
-                if (defectTypeId == null || defectTypeId <= 0L) {
-                    UserFeedback(FeedbackType.ERROR, "Pilih jenis cacat terlebih dahulu.")
-                } else if (defectQuantity == null || defectQuantity <= 0) {
-                    UserFeedback(FeedbackType.ERROR, "Jumlah cacat harus lebih dari 0.")
-                } else {
-                    UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
+                val defectEntries = resolveDefectEntries(input)
+                when {
+                    defectEntries.isEmpty() ->
+                        UserFeedback(FeedbackType.ERROR, "Isi jumlah cacat terlebih dahulu.")
+                    defectEntries.any { it.totalQuantity <= 0 } ->
+                        UserFeedback(FeedbackType.ERROR, "Jumlah cacat harus lebih dari 0.")
+                    else -> UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
                 }
             }
 
@@ -84,6 +84,24 @@ class CreateInspectionRecordUseCase(
                     UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
                 }
             }
+        }
+    }
+
+    private fun resolveDefectEntries(input: InspectionInput): List<InspectionDefectEntry> {
+        if (input.defects.isNotEmpty()) {
+            return input.defects
+        }
+        val defectTypeId = input.defectTypeId
+        val defectQuantity = input.defectQuantity
+        return if (defectTypeId != null && defectQuantity != null && defectQuantity > 0) {
+            listOf(
+                InspectionDefectEntry(
+                    defectTypeId = defectTypeId,
+                    quantity = defectQuantity,
+                ),
+            )
+        } else {
+            emptyList()
         }
     }
 }

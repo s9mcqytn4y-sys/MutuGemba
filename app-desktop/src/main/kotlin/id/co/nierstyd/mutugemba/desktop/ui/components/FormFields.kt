@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 
 @Composable
@@ -45,6 +48,27 @@ fun AppNumberField(
         onValueChange = { input -> onValueChange(filterNumberInput(input, allowDecimal)) },
         modifier = modifier,
     )
+}
+
+@Composable
+fun CompactNumberField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "0",
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { input -> onValueChange(filterNumberInput(input, false)) },
+            placeholder = { Text(placeholder) },
+            singleLine = true,
+            textStyle = TextStyle(textAlign = TextAlign.Center),
+        )
+    }
 }
 
 private fun filterNumberInput(

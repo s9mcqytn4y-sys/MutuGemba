@@ -9,8 +9,8 @@ object SampleData {
             InspectionRecord(
                 id = 1,
                 kind = InspectionKind.DEFECT,
-                lineName = "Line A",
-                shiftName = "Shift 1",
+                lineName = "Press",
+                shiftName = "Shift 1 (08:00-17:00)",
                 partName = "Housing Assy",
                 partNumber = "PN-1001",
                 createdAt = "2026-02-05T08:00:00",
@@ -18,8 +18,8 @@ object SampleData {
             InspectionRecord(
                 id = 2,
                 kind = InspectionKind.CTQ,
-                lineName = "Line A",
-                shiftName = "Shift 2",
+                lineName = "Sewing",
+                shiftName = "Shift 1 (08:00-17:00)",
                 partName = "Bracket Support",
                 partNumber = "PN-2002",
                 createdAt = "2026-02-05T09:00:00",

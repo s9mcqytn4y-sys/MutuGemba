@@ -32,9 +32,12 @@ import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
 import id.co.nierstyd.mutugemba.desktop.ui.util.toDisplayLabel
 import id.co.nierstyd.mutugemba.domain.CtqParameter
 import id.co.nierstyd.mutugemba.domain.DefectType
+import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
+import id.co.nierstyd.mutugemba.domain.InspectionDefectSlot
 import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
+import id.co.nierstyd.mutugemba.domain.InspectionTimeSlot
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
@@ -77,6 +80,11 @@ private fun InspectionScreenContent(
             title = "Input Inspeksi",
             subtitle = "Ikuti 3 langkah agar data rapi dan konsisten.",
         )
+        InfoCard(title = "Prosedur Singkat") {
+            Text("1. Pilih Line (Press / Sewing).")
+            Text("2. Isi tabel cacat sesuai jam produksi.")
+            Text("3. Konfirmasi lalu simpan.")
+        }
         WizardStepIndicator(currentStep = state.currentStep, labels = state.stepLabels)
         MilestonePanel(title = "Proses Input", items = state.milestoneItems)
 
@@ -109,11 +117,13 @@ private fun InspectionScreenContent(
     }
 }
 
+@Suppress("TooManyFunctions")
 private class InspectionFormState(
     private val dependencies: InspectionScreenDependencies,
 ) {
     private val defaults: InspectionDefaults = dependencies.defaults.getDefaults.execute()
     private val stepLabels = listOf("Konteks", "Input", "Simpan")
+    private val timeSlots = InspectionTimeSlot.standardSlots()
 
     var currentStep by mutableStateOf(1)
         private set
@@ -127,11 +137,11 @@ private class InspectionFormState(
     private var selectedLineId by mutableStateOf<Long?>(defaults.lineId)
     private var selectedShiftId by mutableStateOf<Long?>(defaults.shiftId)
     private var selectedPartId by mutableStateOf<Long?>(defaults.partId)
-    private var selectedDefectTypeId by mutableStateOf<Long?>(defaults.defectTypeId)
     private var selectedCtqParameterId by mutableStateOf<Long?>(defaults.ctqParameterId)
     private var inspectionKind by mutableStateOf(defaults.kind ?: InspectionKind.DEFECT)
-    private var defectQuantityInput by mutableStateOf("")
     private var ctqValueInput by mutableStateOf("")
+    private var totalCheckInput by mutableStateOf("")
+    private val defectSlotInputs = androidx.compose.runtime.mutableStateMapOf<DefectSlotKey, String>()
 
     var feedback by mutableStateOf<UserFeedback?>(null)
         private set
@@ -166,6 +176,7 @@ private class InspectionFormState(
         defectTypes = dependencies.masterData.getDefectTypes.execute()
         ctqParameters = dependencies.masterData.getCtqParameters.execute()
         syncSelections()
+        ensureDefectInputs()
     }
 
     fun onStepChange(nextStep: Int) {
@@ -208,7 +219,6 @@ private class InspectionFormState(
                 lineId = selectedLine?.id,
                 shiftId = selectedShift?.id,
                 partId = selectedPart?.id,
-                defectTypeId = selectedDefectType?.id,
                 ctqParameterId = selectedCtqParameter?.id,
                 kind = inspectionKind,
             ),
@@ -217,19 +227,22 @@ private class InspectionFormState(
 
     private fun resetAfterSave() {
         currentStep = 1
-        defectQuantityInput = ""
         ctqValueInput = ""
+        totalCheckInput = ""
+        defectSlotInputs.keys.toList().forEach { defectSlotInputs[it] = "" }
     }
 
     private fun buildInput(): InspectionInput {
         val createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        val defectEntries = buildDefectEntries()
         return InspectionInput(
             kind = inspectionKind,
             lineId = selectedLine?.id ?: 0L,
             shiftId = selectedShift?.id ?: 0L,
             partId = selectedPart?.id ?: 0L,
-            defectTypeId = selectedDefectType?.id,
-            defectQuantity = defectQuantity,
+            defectTypeId = null,
+            defectQuantity = null,
+            defects = defectEntries,
             ctqParameterId = selectedCtqParameter?.id,
             ctqValue = ctqValue,
             createdAt = createdAt,
@@ -239,9 +252,8 @@ private class InspectionFormState(
     private fun syncSelections() {
         selectedLineId = resolveSelection(selectedLineId, defaults.lineId, lines.map { it.id })
         selectedShiftId = resolveSelection(selectedShiftId, defaults.shiftId, shifts.map { it.id })
-        selectedPartId = resolveSelection(selectedPartId, defaults.partId, parts.map { it.id })
-        selectedDefectTypeId =
-            resolveSelection(selectedDefectTypeId, defaults.defectTypeId, defectTypes.map { it.id })
+        selectedPartId =
+            resolveSelection(selectedPartId, defaults.partId, partsForLine().map { it.id })
         selectedCtqParameterId =
             resolveSelection(selectedCtqParameterId, defaults.ctqParameterId, ctqParameters.map { it.id })
     }
@@ -253,19 +265,16 @@ private class InspectionFormState(
         get() = shifts.firstOrNull { it.id == selectedShiftId }
 
     private val selectedPart: Part?
-        get() = parts.firstOrNull { it.id == selectedPartId }
-
-    private val selectedDefectType: DefectType?
-        get() = defectTypes.firstOrNull { it.id == selectedDefectTypeId }
+        get() = partsForLine().firstOrNull { it.id == selectedPartId }
 
     private val selectedCtqParameter: CtqParameter?
         get() = ctqParameters.firstOrNull { it.id == selectedCtqParameterId }
 
-    private val defectQuantity: Int?
-        get() = defectQuantityInput.toIntOrNull()
-
     private val ctqValue: Double?
         get() = ctqValueInput.toDoubleOrNull()
+
+    private val totalCheck: Int?
+        get() = totalCheckInput.toIntOrNull()
 
     private val contextValid: Boolean
         get() = selectedLine != null && selectedShift != null && selectedPart != null
@@ -273,7 +282,12 @@ private class InspectionFormState(
     private val inputValid: Boolean
         get() =
             when (inspectionKind) {
-                InspectionKind.DEFECT -> selectedDefectType != null && (defectQuantity ?: 0) > 0
+                InspectionKind.DEFECT -> {
+                    val totalNg = totalDefectQuantity
+                    val totalCheckValue = totalCheck
+                    val totalCheckValid = totalCheckValue == null || totalCheckValue >= totalNg
+                    totalNg > 0 && totalCheckValid
+                }
                 InspectionKind.CTQ -> selectedCtqParameter != null && ctqValue != null
             }
 
@@ -326,7 +340,7 @@ private class InspectionFormState(
                         )
                     },
                 partOptions =
-                    parts.map { part ->
+                    partsForLine().map { part ->
                         DropdownOption(
                             id = part.id,
                             label = "${part.partNumber} - ${part.name}",
@@ -337,7 +351,10 @@ private class InspectionFormState(
 
     private val contextActions: ContextStepActions =
         ContextStepActions(
-            onLineSelected = { selectedLineId = it.id },
+            onLineSelected = { option ->
+                selectedLineId = option.id
+                selectedPartId = partsForLine().firstOrNull()?.id
+            },
             onShiftSelected = { selectedShiftId = it.id },
             onPartSelected = { selectedPartId = it.id },
         )
@@ -346,23 +363,21 @@ private class InspectionFormState(
         get() =
             InputStepState(
                 inspectionKind = inspectionKind,
-                selectedDefectType = selectedDefectType,
                 selectedCtqParameter = selectedCtqParameter,
-                defectQuantityInput = defectQuantityInput,
                 ctqValueInput = ctqValueInput,
+                defectTypes = defectTypes,
+                timeSlots = timeSlots,
+                defectSlotValues = defectSlotInputs.toMap(),
+                totalCheckInput = totalCheckInput,
+                totalDefectQuantity = totalDefectQuantity,
+                totalCheck = totalCheck,
+                totalOk = totalOk,
+                selectedPart = selectedPart,
             )
 
     private val inputOptions: InputStepOptions
         get() =
             InputStepOptions(
-                defectOptions =
-                    defectTypes.map { defect ->
-                        DropdownOption(
-                            id = defect.id,
-                            label = "${defect.code} - ${defect.name}",
-                            helper = "${defect.category} | ${defect.severity.toDisplayLabel()}",
-                        )
-                    },
                 ctqOptions =
                     ctqParameters.map { ctq ->
                         DropdownOption(
@@ -376,9 +391,11 @@ private class InspectionFormState(
     private val inputActions: InputStepActions =
         InputStepActions(
             onInspectionKindChanged = { inspectionKind = it },
-            onDefectTypeSelected = { selectedDefectTypeId = it.id },
             onCtqParameterSelected = { selectedCtqParameterId = it.id },
-            onDefectQuantityChanged = { defectQuantityInput = it },
+            onDefectSlotChanged = { defectId, slot, value ->
+                defectSlotInputs[DefectSlotKey(defectId, slot)] = value
+            },
+            onTotalCheckChanged = { totalCheckInput = it },
             onCtqValueChanged = { ctqValueInput = it },
         )
 
@@ -394,12 +411,88 @@ private class InspectionFormState(
                 input =
                     ConfirmInputSummary(
                         inspectionKind = inspectionKind,
-                        defectType = selectedDefectType,
+                        defects = defectSummaries,
+                        totalCheck = totalCheck,
+                        totalNg = totalDefectQuantity,
+                        totalOk = totalOk,
                         ctqParameter = selectedCtqParameter,
-                        defectQuantity = defectQuantity,
                         ctqValue = ctqValue,
                     ),
             )
+
+    private fun partsForLine(): List<Part> {
+        val line = selectedLine
+        return if (line == null) {
+            parts
+        } else {
+            parts.filter { it.lineCode == line.code }
+        }
+    }
+
+    private fun ensureDefectInputs() {
+        val validKeys =
+            buildSet {
+                defectTypes.forEach { defect ->
+                    timeSlots.forEach { slot ->
+                        add(DefectSlotKey(defect.id, slot))
+                    }
+                }
+            }
+        defectSlotInputs.keys.filter { it !in validKeys }.forEach { defectSlotInputs.remove(it) }
+        validKeys.forEach { key ->
+            defectSlotInputs.putIfAbsent(key, "")
+        }
+    }
+
+    private fun slotQuantity(
+        defectId: Long,
+        slot: InspectionTimeSlot,
+    ): Int =
+        defectSlotInputs[DefectSlotKey(defectId, slot)]
+            ?.toIntOrNull()
+            ?: 0
+
+    private fun defectRowTotal(defectId: Long): Int = timeSlots.sumOf { slot -> slotQuantity(defectId, slot) }
+
+    private val totalDefectQuantity: Int
+        get() = defectTypes.sumOf { defectRowTotal(it.id) }
+
+    private val totalOk: Int
+        get() = ((totalCheck ?: 0) - totalDefectQuantity).coerceAtLeast(0)
+
+    private val defectSummaries: List<DefectSummary>
+        get() =
+            defectTypes.mapNotNull { defect ->
+                val qty = defectRowTotal(defect.id)
+                if (qty > 0) {
+                    DefectSummary(defect = defect, quantity = qty)
+                } else {
+                    null
+                }
+            }
+
+    private fun buildDefectEntries(): List<InspectionDefectEntry> =
+        defectTypes.mapNotNull { defect ->
+            val slots =
+                timeSlots.mapNotNull { slot ->
+                    val qty = slotQuantity(defect.id, slot)
+                    if (qty > 0) {
+                        InspectionDefectSlot(slot, qty)
+                    } else {
+                        null
+                    }
+                }
+            val total = slots.sumOf { it.quantity }
+            if (total > 0) {
+                InspectionDefectEntry(
+                    defectTypeId = defect.id,
+                    quantity = total,
+                    slots = slots,
+                )
+            } else {
+                null
+            }
+        }
 }
 
 @Composable
@@ -412,6 +505,10 @@ private fun ContextStepContent(
         InfoCard(title = "Default Konteks") {
             Text("Tanggal: ${DateTimeFormats.formatDate(LocalDate.now())}")
             Text("Mode: Offline - Lokal", color = NeutralTextMuted)
+            Text(
+                "Shift: ${state.selectedShift?.let { "${it.code} - ${it.name}" } ?: "-"}",
+                color = NeutralTextMuted,
+            )
         }
 
         AppDropdown(
@@ -434,6 +531,7 @@ private fun ContextStepContent(
                 },
             onSelected = actions.onShiftSelected,
             placeholder = "Pilih Shift",
+            enabled = options.shiftOptions.size > 1,
         )
         AppDropdown(
             label = "Produk / Part",
@@ -486,29 +584,9 @@ private fun InputStepContent(
 
         when (state.inspectionKind) {
             InspectionKind.DEFECT -> {
-                AppDropdown(
-                    label = "Jenis Cacat",
-                    options = options.defectOptions,
-                    selectedOption =
-                        state.selectedDefectType?.let { defect ->
-                            DropdownOption(
-                                id = defect.id,
-                                label = "${defect.code} - ${defect.name}",
-                                helper = "${defect.category} | ${defect.severity.toDisplayLabel()}",
-                            )
-                        },
-                    onSelected = actions.onDefectTypeSelected,
-                    placeholder = "Pilih Jenis Cacat",
-                )
-                AppNumberField(
-                    spec =
-                        FieldSpec(
-                            label = "Jumlah Cacat",
-                            placeholder = "Contoh: 3",
-                            helperText = "Isi angka total cacat untuk jenis terpilih.",
-                        ),
-                    value = state.defectQuantityInput,
-                    onValueChange = actions.onDefectQuantityChanged,
+                DefectTableContent(
+                    state = state,
+                    actions = actions,
                 )
             }
 
@@ -554,11 +632,18 @@ private fun ConfirmStepContent(state: ConfirmStepState) {
             Text("Shift: ${state.context.shift?.name ?: "-"}")
             Text("Part: ${state.partLabel}")
             when (state.input.inspectionKind) {
-                InspectionKind.DEFECT ->
-                    Text(
-                        "Cacat: ${state.input.defectType?.name ?: "-"} " +
-                            "(Qty: ${state.defectQuantityLabel})",
-                    )
+                InspectionKind.DEFECT -> {
+                    if (state.input.defects.isEmpty()) {
+                        Text("Cacat: -")
+                    } else {
+                        state.input.defects.forEach { defect ->
+                            Text("Cacat: ${defect.defect.name} (Qty: ${defect.quantity})")
+                        }
+                    }
+                    Text("Total NG: ${state.input.totalNg}")
+                    Text("Total Check: ${state.input.totalCheck?.toString() ?: "-"}")
+                    Text("Total OK: ${state.totalOkLabel}")
+                }
 
                 InspectionKind.CTQ ->
                     Text(
@@ -637,24 +722,29 @@ private data class ContextStepActions(
     val onPartSelected: (DropdownOption) -> Unit,
 )
 
-private data class InputStepState(
+internal data class InputStepState(
     val inspectionKind: InspectionKind,
-    val selectedDefectType: DefectType?,
     val selectedCtqParameter: CtqParameter?,
-    val defectQuantityInput: String,
     val ctqValueInput: String,
+    val defectTypes: List<DefectType>,
+    val timeSlots: List<InspectionTimeSlot>,
+    val defectSlotValues: Map<DefectSlotKey, String>,
+    val totalCheckInput: String,
+    val totalDefectQuantity: Int,
+    val totalCheck: Int?,
+    val totalOk: Int,
+    val selectedPart: Part?,
 )
 
-private data class InputStepOptions(
-    val defectOptions: List<DropdownOption>,
+internal data class InputStepOptions(
     val ctqOptions: List<DropdownOption>,
 )
 
-private data class InputStepActions(
+internal data class InputStepActions(
     val onInspectionKindChanged: (InspectionKind) -> Unit,
-    val onDefectTypeSelected: (DropdownOption) -> Unit,
     val onCtqParameterSelected: (DropdownOption) -> Unit,
-    val onDefectQuantityChanged: (String) -> Unit,
+    val onDefectSlotChanged: (Long, InspectionTimeSlot, String) -> Unit,
+    val onTotalCheckChanged: (String) -> Unit,
     val onCtqValueChanged: (String) -> Unit,
 )
 
@@ -666,9 +756,11 @@ private data class ConfirmContextSummary(
 
 private data class ConfirmInputSummary(
     val inspectionKind: InspectionKind,
-    val defectType: DefectType?,
+    val defects: List<DefectSummary>,
+    val totalCheck: Int?,
+    val totalNg: Int,
+    val totalOk: Int,
     val ctqParameter: CtqParameter?,
-    val defectQuantity: Int?,
     val ctqValue: Double?,
 )
 
@@ -679,9 +771,19 @@ private data class ConfirmStepState(
     val partLabel: String
         get() = "${context.part?.partNumber ?: "-"} - ${context.part?.name ?: "-"}"
 
-    val defectQuantityLabel: String
-        get() = input.defectQuantity?.toString() ?: "0"
-
     val ctqValueLabel: String
         get() = formatDecimal(input.ctqValue)
+
+    val totalOkLabel: String
+        get() = input.totalCheck?.let { input.totalOk.toString() } ?: "-"
 }
+
+private data class DefectSummary(
+    val defect: DefectType,
+    val quantity: Int,
+)
+
+internal data class DefectSlotKey(
+    val defectTypeId: Long,
+    val slot: InspectionTimeSlot,
+)

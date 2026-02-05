@@ -8,4 +8,5 @@ data class Part(
     val uniqCode: String,
     val material: String,
     val picturePath: String?,
+    val lineCode: LineCode,
 )

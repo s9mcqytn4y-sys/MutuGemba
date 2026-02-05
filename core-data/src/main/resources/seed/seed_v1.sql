@@ -1,23 +1,20 @@
 ﻿-- Seed master data MutuGemba
 -- Fokus: Line, Shift, Part, Jenis Cacat, CTQ Parameter
 
-INSERT OR IGNORE INTO master_line(id, name, is_active) VALUES (1, 'Line A', 1);
-INSERT OR IGNORE INTO master_line(id, name, is_active) VALUES (2, 'Line B', 1);
-INSERT OR IGNORE INTO master_line(id, name, is_active) VALUES (3, 'Line C', 1);
+INSERT OR IGNORE INTO master_line(id, code, name, is_active)
+VALUES (1, 'PRESS', 'Press', 1);
+INSERT OR IGNORE INTO master_line(id, code, name, is_active)
+VALUES (2, 'SEWING', 'Sewing', 1);
 
 INSERT OR IGNORE INTO master_shift(id, code, name, start_time, end_time, is_active)
-VALUES (1, 'S1', 'Shift 1 (Pagi)', '07:00', '15:00', 1);
-INSERT OR IGNORE INTO master_shift(id, code, name, start_time, end_time, is_active)
-VALUES (2, 'S2', 'Shift 2 (Sore)', '15:00', '23:00', 1);
-INSERT OR IGNORE INTO master_shift(id, code, name, start_time, end_time, is_active)
-VALUES (3, 'S3', 'Shift 3 (Malam)', '23:00', '07:00', 1);
+VALUES (1, 'S1', 'Shift 1 (08:00-17:00)', '08:00', '17:00', 1);
 
-INSERT OR IGNORE INTO master_part(id, part_number, model, name, uniq_code, material, picture_path, is_active)
-VALUES (1, 'PN-1001', 'Model-A', 'Housing Assy', 'HG-A-001', 'Aluminium', NULL, 1);
-INSERT OR IGNORE INTO master_part(id, part_number, model, name, uniq_code, material, picture_path, is_active)
-VALUES (2, 'PN-2002', 'Model-B', 'Bracket Support', 'BR-B-002', 'Steel', NULL, 1);
-INSERT OR IGNORE INTO master_part(id, part_number, model, name, uniq_code, material, picture_path, is_active)
-VALUES (3, 'PN-3003', 'Model-C', 'Cover Plate', 'CP-C-003', 'ABS', NULL, 1);
+INSERT OR IGNORE INTO master_part(id, part_number, model, name, uniq_code, material, picture_path, line_code, is_active)
+VALUES (1, 'PN-1001', 'Model-Press', 'Housing Assy', 'HG-A-001', 'Aluminium', NULL, 'PRESS', 1);
+INSERT OR IGNORE INTO master_part(id, part_number, model, name, uniq_code, material, picture_path, line_code, is_active)
+VALUES (2, 'PN-2002', 'Model-Sew', 'Bracket Support', 'BR-B-002', 'Steel', NULL, 'SEWING', 1);
+INSERT OR IGNORE INTO master_part(id, part_number, model, name, uniq_code, material, picture_path, line_code, is_active)
+VALUES (3, 'PN-3003', 'Model-Press', 'Cover Plate', 'CP-C-003', 'ABS', NULL, 'PRESS', 1);
 
 INSERT OR IGNORE INTO master_defect_type(id, code, name, category, severity, is_active)
 VALUES (1, 'DF-001', 'Goresan', 'Permukaan', 'NORMAL', 1);

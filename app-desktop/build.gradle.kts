@@ -9,6 +9,7 @@ dependencies {
     implementation(project(":core-usecase"))
     implementation(project(":core-data"))
     implementation(project(":core-domain"))
+    runtimeOnly(libs.slf4j.simple)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
