@@ -1,4 +1,4 @@
-﻿package id.co.nierstyd.mutugemba.domain
+package id.co.nierstyd.mutugemba.domain
 
 data class AttachmentMetadata(
     val id: Long,

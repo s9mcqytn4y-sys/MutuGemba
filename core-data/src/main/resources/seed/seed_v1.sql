@@ -1,4 +1,4 @@
--- Seed master data MutuGemba
+﻿-- Seed master data MutuGemba
 -- Fokus: Line, Shift, Part, Jenis Cacat, CTQ Parameter
 
 INSERT OR IGNORE INTO master_line(id, name, is_active) VALUES (1, 'Line A', 1);
@@ -38,3 +38,4 @@ INSERT OR IGNORE INTO master_ctq_parameter(id, code, name, unit, lower_limit, up
 VALUES (3, 'CTQ-003', 'Berat Produk', 'gram', 95.00, 105.00, 100.00, 1);
 INSERT OR IGNORE INTO master_ctq_parameter(id, code, name, unit, lower_limit, upper_limit, target_value, is_active)
 VALUES (4, 'CTQ-004', 'Kekerasan', 'HRC', 28.00, 34.00, 31.00, 1);
+

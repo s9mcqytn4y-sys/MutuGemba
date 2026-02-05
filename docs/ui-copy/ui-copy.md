@@ -17,6 +17,15 @@ Tujuan: menjaga istilah tetap konsisten untuk user awam.
 - Pareto
 - Trend
 
+## Master Data
+- Line
+- Shift
+- Produk / Part
+- Jenis Cacat
+- Parameter CTQ
+- Jumlah Cacat
+- Nilai CTQ
+
 ## Label Wizard Input
 - Konteks
 - Input

@@ -1,4 +1,4 @@
-﻿package id.co.nierstyd.mutugemba.usecase
+package id.co.nierstyd.mutugemba.usecase
 
 class GetGreetingTextUseCase(
     private val appName: String,

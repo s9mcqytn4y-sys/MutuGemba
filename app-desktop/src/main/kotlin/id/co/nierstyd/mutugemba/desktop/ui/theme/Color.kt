@@ -1,4 +1,4 @@
-﻿package id.co.nierstyd.mutugemba.desktop.ui.theme
+package id.co.nierstyd.mutugemba.desktop.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
@@ -11,3 +11,7 @@ val NeutralSurface = Color(0xFFFFFFFF)
 val NeutralBorder = Color(0xFFE0E0E0)
 val NeutralText = Color(0xFF1F2937)
 val NeutralTextMuted = Color(0xFF6B7280)
+val StatusSuccess = Color(0xFF2E7D32)
+val StatusWarning = Color(0xFFF9A825)
+val StatusError = Color(0xFFC62828)
+val StatusInfo = Color(0xFF1565C0)

@@ -14,6 +14,8 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
+import id.co.nierstyd.mutugemba.desktop.ui.util.toDisplayLabel
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 
 @Composable
@@ -52,11 +54,16 @@ fun HomeScreen(
                             .padding(vertical = Spacing.xs),
                 ) {
                     Text(
-                        text = "${record.type} - ${record.lineName}",
+                        text = "${record.kind.toDisplayLabel()} - ${record.lineName}",
                         style = MaterialTheme.typography.body1,
                     )
                     Text(
-                        text = record.createdAt,
+                        text = "${record.partNumber} | ${record.partName} | ${record.shiftName}",
+                        style = MaterialTheme.typography.body2,
+                        color = NeutralTextMuted,
+                    )
+                    Text(
+                        text = DateTimeFormats.formatTimestamp(record.createdAt),
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )

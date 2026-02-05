@@ -33,12 +33,14 @@ class CreateInspectionRecordUseCase(
             return CreateInspectionResult(record = null, feedback = validation)
         }
 
-        val createdAt = input.createdAt.ifBlank {
-            LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        }
+        val createdAt =
+            input.createdAt
+                .trim()
+                .ifBlank {
+                    LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                }
         val cleanedInput =
             input.copy(
-                defectQuantity = input.defectQuantity?.coerceAtLeast(0),
                 ctqValue = input.ctqValue,
                 createdAt = createdAt,
             )
@@ -60,9 +62,11 @@ class CreateInspectionRecordUseCase(
 
         return when (input.kind) {
             InspectionKind.DEFECT -> {
-                if (input.defectTypeId == null || input.defectTypeId <= 0L) {
+                val defectTypeId = input.defectTypeId
+                val defectQuantity = input.defectQuantity
+                if (defectTypeId == null || defectTypeId <= 0L) {
                     UserFeedback(FeedbackType.ERROR, "Pilih jenis cacat terlebih dahulu.")
-                } else if (input.defectQuantity == null || input.defectQuantity <= 0) {
+                } else if (defectQuantity == null || defectQuantity <= 0) {
                     UserFeedback(FeedbackType.ERROR, "Jumlah cacat harus lebih dari 0.")
                 } else {
                     UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
@@ -70,9 +74,11 @@ class CreateInspectionRecordUseCase(
             }
 
             InspectionKind.CTQ -> {
-                if (input.ctqParameterId == null || input.ctqParameterId <= 0L) {
+                val ctqParameterId = input.ctqParameterId
+                val ctqValue = input.ctqValue
+                if (ctqParameterId == null || ctqParameterId <= 0L) {
                     UserFeedback(FeedbackType.ERROR, "Pilih parameter CTQ terlebih dahulu.")
-                } else if (input.ctqValue == null) {
+                } else if (ctqValue == null || ctqValue.isNaN()) {
                     UserFeedback(FeedbackType.ERROR, "Isi nilai CTQ terlebih dahulu.")
                 } else {
                     UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")

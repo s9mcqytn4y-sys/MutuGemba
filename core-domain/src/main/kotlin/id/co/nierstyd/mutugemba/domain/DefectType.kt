@@ -5,5 +5,5 @@ data class DefectType(
     val code: String,
     val name: String,
     val category: String,
-    val severity: String,
+    val severity: DefectSeverity,
 )

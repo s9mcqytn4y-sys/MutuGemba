@@ -1,4 +1,4 @@
-﻿package id.co.nierstyd.mutugemba.usecase
+package id.co.nierstyd.mutugemba.usecase
 
 class BackupDatabaseUseCase {
     fun execute(): Result<Unit> = Result.failure(UnsupportedOperationException("Backup belum tersedia"))

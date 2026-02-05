@@ -1,4 +1,4 @@
-CREATE TABLE master_shift (
+﻿CREATE TABLE master_shift (
   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL,
   name TEXT NOT NULL,
@@ -115,3 +115,4 @@ CREATE INDEX idx_inspection_created_at ON inspection_record(created_at);
 CREATE INDEX idx_inspection_defect_inspection ON inspection_defect(inspection_id);
 CREATE INDEX idx_inspection_defect_type ON inspection_defect(defect_type_id);
 CREATE INDEX idx_inspection_ctq_inspection ON inspection_ctq(inspection_id);
+
