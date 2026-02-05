@@ -7,6 +7,8 @@
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(project(":core-usecase"))
+    implementation(project(":core-data"))
+    implementation(project(":core-domain"))
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

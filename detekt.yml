@@ -8,6 +8,17 @@ config:
 processors:
   active: false
 
+complexity:
+  LongMethod:
+    threshold: 90
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 8
+
+naming:
+  FunctionNaming:
+    functionPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
 style:
   MagicNumber:
     active: false
