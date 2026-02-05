@@ -35,30 +35,39 @@ fun HeaderBar(
             Modifier
                 .fillMaxWidth()
                 .height(Sizing.headerHeight),
-        elevation = Spacing.xs,
+        elevation = 0.dp,
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.h5,
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.body2,
+                    )
+                }
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.h5,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.body2,
+                    text = "QC TPS Harian",
+                    style = MaterialTheme.typography.subtitle1,
                 )
             }
-            Text(
-                text = "QC TPS Harian",
-                style = MaterialTheme.typography.subtitle1,
-            )
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(NeutralBorder),
+            ) {}
         }
     }
 }
@@ -68,25 +77,39 @@ fun FooterBar(
     statusText: String,
     hintText: String,
 ) {
-    Row(
+    Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .height(Sizing.footerHeight)
-                .background(NeutralSurface)
-                .padding(horizontal = Spacing.lg),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+                .background(NeutralSurface),
     ) {
-        Text(
-            text = statusText,
-            style = MaterialTheme.typography.body2,
-        )
-        Text(
-            text = hintText,
-            style = MaterialTheme.typography.body2,
-            color = NeutralTextMuted,
-        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(NeutralBorder),
+        ) {}
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = Spacing.lg),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.body2,
+            )
+            Text(
+                text = hintText,
+                style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
+            )
+        }
     }
 }
 
@@ -147,6 +170,7 @@ private fun WizardStepChip(
         Surface(
             shape = MaterialTheme.shapes.small,
             color = if (active) MaterialTheme.colors.onPrimary else NeutralBorder,
+            elevation = 0.dp,
         ) {
             Text(
                 text = number.toString(),

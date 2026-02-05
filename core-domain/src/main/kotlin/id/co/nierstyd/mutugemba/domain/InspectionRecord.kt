@@ -1,6 +1,11 @@
-﻿package id.co.nierstyd.mutugemba.domain
+package id.co.nierstyd.mutugemba.domain
 
 data class InspectionRecord(
-    val id: String,
-    val type: String,
+    val id: Long,
+    val kind: InspectionKind,
+    val lineName: String,
+    val shiftName: String,
+    val partName: String,
+    val partNumber: String,
+    val createdAt: String,
 )

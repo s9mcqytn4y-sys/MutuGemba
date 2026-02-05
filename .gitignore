@@ -13,6 +13,9 @@ out/
 !.vscode/settings.json
 !.vscode/extensions.json
 
+# App data
+data/
+
 # OS
 .DS_Store
 Thumbs.db

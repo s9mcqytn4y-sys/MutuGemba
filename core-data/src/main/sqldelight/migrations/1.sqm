@@ -1,0 +1,20 @@
+﻿CREATE TABLE master_line (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE inspection_record (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL,
+  line_id INTEGER NOT NULL REFERENCES master_line(id),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE attachment (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  inspection_id INTEGER NOT NULL REFERENCES inspection_record(id),
+  filename TEXT NOT NULL,
+  stored_path TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);

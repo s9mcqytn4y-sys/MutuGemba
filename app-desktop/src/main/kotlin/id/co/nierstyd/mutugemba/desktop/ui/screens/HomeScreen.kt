@@ -5,42 +5,70 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
+import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.domain.InspectionRecord
 
 @Composable
-fun HomeScreen() {
-    var statusText by remember { mutableStateOf("Halo! MutuGemba siap.") }
-
+fun HomeScreen(
+    recentRecords: List<InspectionRecord>,
+    onNavigateToInspection: () -> Unit,
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
             title = "Beranda",
-            subtitle = "Ringkasan akses cepat untuk operator dan inspector.",
-        )
-        Text(
-            text = statusText,
-            style = MaterialTheme.typography.body1,
+            subtitle = "Ringkasan aktivitas QC TPS harian.",
         )
         PrimaryButton(
-            text = "Tes Berhasil",
-            onClick = { statusText = "Berhasil ✅" },
+            text = "Mulai Input Inspeksi",
+            onClick = onNavigateToInspection,
         )
-        Spacer(modifier = Modifier.height(Spacing.lg))
+        Spacer(modifier = Modifier.height(Spacing.sm))
         Text(
-            text = "Pilih menu di kiri untuk mulai bekerja.",
+            text = "Riwayat Inspeksi Terbaru",
+            style = MaterialTheme.typography.subtitle1,
+        )
+        if (recentRecords.isEmpty()) {
+            Text(
+                text = "Belum ada data. Silakan input inspeksi terlebih dahulu.",
+                style = MaterialTheme.typography.body2,
+            )
+        } else {
+            recentRecords.take(5).forEach { record ->
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Spacing.xs),
+                ) {
+                    Text(
+                        text = "${record.type} - ${record.lineName}",
+                        style = MaterialTheme.typography.body1,
+                    )
+                    Text(
+                        text = record.createdAt,
+                        style = MaterialTheme.typography.body2,
+                        color = NeutralTextMuted,
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(Spacing.md))
+        Text(
+            text = "Status: Offline - Lokal",
             style = MaterialTheme.typography.body2,
+            color = NeutralTextMuted,
+            modifier = Modifier.padding(top = Spacing.sm),
         )
     }
 }

@@ -3,6 +3,7 @@
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedButton
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +21,13 @@ fun PrimaryButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(Sizing.controlHeightLarge),
-        colors = ButtonDefaults.buttonColors(),
+        colors =
+            ButtonDefaults.buttonColors(
+                backgroundColor = MaterialTheme.colors.primary,
+                contentColor = MaterialTheme.colors.onPrimary,
+                disabledBackgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.4f),
+                disabledContentColor = MaterialTheme.colors.onPrimary.copy(alpha = 0.8f),
+            ),
     ) {
         Text(text)
     }

@@ -1,0 +1,117 @@
+CREATE TABLE master_shift (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  start_time TEXT,
+  end_time TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE master_part (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  part_number TEXT NOT NULL,
+  model TEXT NOT NULL,
+  name TEXT NOT NULL,
+  uniq_code TEXT NOT NULL,
+  material TEXT NOT NULL,
+  picture_path TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE master_defect_type (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  severity TEXT NOT NULL DEFAULT 'NORMAL',
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE master_ctq_parameter (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  unit TEXT NOT NULL,
+  lower_limit REAL,
+  upper_limit REAL,
+  target_value REAL,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+
+INSERT INTO master_shift(id, code, name, start_time, end_time, is_active)
+VALUES (1, 'S1', 'Shift 1', '07:00', '15:00', 1);
+
+INSERT INTO master_part(id, part_number, model, name, uniq_code, material, picture_path, is_active)
+VALUES (1, 'PN-000', 'Default', 'Default Part', 'DEF-000', 'Unknown', NULL, 1);
+
+ALTER TABLE inspection_record RENAME TO inspection_record_old;
+
+CREATE TABLE inspection_record (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL CHECK (kind IN ('DEFECT', 'CTQ')),
+  line_id INTEGER NOT NULL REFERENCES master_line(id),
+  shift_id INTEGER NOT NULL REFERENCES master_shift(id),
+  part_id INTEGER NOT NULL REFERENCES master_part(id),
+  created_at TEXT NOT NULL
+);
+
+INSERT INTO inspection_record(id, kind, line_id, shift_id, part_id, created_at)
+SELECT
+  id,
+  CASE type
+    WHEN 'Cacat' THEN 'DEFECT'
+    WHEN 'Parameter Proses' THEN 'CTQ'
+    ELSE 'DEFECT'
+  END AS kind,
+  line_id,
+  1 AS shift_id,
+  1 AS part_id,
+  created_at
+FROM inspection_record_old;
+
+DROP TABLE inspection_record_old;
+
+ALTER TABLE attachment RENAME TO attachment_old;
+
+CREATE TABLE inspection_defect (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  inspection_id INTEGER NOT NULL REFERENCES inspection_record(id),
+  defect_type_id INTEGER NOT NULL REFERENCES master_defect_type(id),
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE inspection_ctq (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  inspection_id INTEGER NOT NULL REFERENCES inspection_record(id),
+  ctq_parameter_id INTEGER NOT NULL REFERENCES master_ctq_parameter(id),
+  measured_value REAL NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE attachment (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  inspection_id INTEGER NOT NULL REFERENCES inspection_record(id),
+  filename TEXT NOT NULL,
+  stored_path TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+INSERT INTO attachment(id, inspection_id, filename, stored_path, created_at)
+SELECT id, inspection_id, filename, stored_path, created_at
+FROM attachment_old;
+
+DROP TABLE attachment_old;
+
+CREATE UNIQUE INDEX idx_master_line_name ON master_line(name);
+CREATE UNIQUE INDEX idx_master_shift_code ON master_shift(code);
+CREATE UNIQUE INDEX idx_master_part_number ON master_part(part_number);
+CREATE UNIQUE INDEX idx_master_part_uniq_code ON master_part(uniq_code);
+CREATE INDEX idx_master_part_name ON master_part(name);
+CREATE UNIQUE INDEX idx_master_defect_code ON master_defect_type(code);
+CREATE INDEX idx_master_defect_category ON master_defect_type(category);
+CREATE UNIQUE INDEX idx_master_ctq_code ON master_ctq_parameter(code);
+CREATE INDEX idx_inspection_created_at ON inspection_record(created_at);
+CREATE INDEX idx_inspection_defect_inspection ON inspection_defect(inspection_id);
+CREATE INDEX idx_inspection_defect_type ON inspection_defect(defect_type_id);
+CREATE INDEX idx_inspection_ctq_inspection ON inspection_ctq(inspection_id);

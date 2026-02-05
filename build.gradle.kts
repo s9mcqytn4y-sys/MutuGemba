@@ -1,5 +1,8 @@
 ﻿import io.gitlab.arturbosch.detekt.extensions.DetektExtension
+import java.io.File
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
+import org.jlleitschuh.gradle.ktlint.tasks.KtLintCheckTask
+import org.jlleitschuh.gradle.ktlint.tasks.KtLintFormatTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
@@ -8,6 +11,7 @@ plugins {
     id("org.jetbrains.compose") version libs.versions.compose.get() apply false
     id("org.jlleitschuh.gradle.ktlint") version libs.versions.ktlintPlugin.get() apply false
     id("io.gitlab.arturbosch.detekt") version libs.versions.detekt.get() apply false
+    id("app.cash.sqldelight") version libs.versions.sqldelight.get() apply false
 }
 
 allprojects {
@@ -30,6 +34,20 @@ subprojects {
     extensions.configure<KtlintExtension> {
         verbose.set(false)
         outputToConsole.set(true)
+        filter {
+            exclude {
+                val buildDir = project.layout.buildDirectory.get().asFile
+                it.file.path.contains("${buildDir}${File.separator}generated")
+            }
+        }
+    }
+
+    tasks.withType<KtLintCheckTask>().configureEach {
+        exclude("**/build/generated/**")
+    }
+
+    tasks.withType<KtLintFormatTask>().configureEach {
+        exclude("**/build/generated/**")
     }
 
     extensions.configure<DetektExtension> {

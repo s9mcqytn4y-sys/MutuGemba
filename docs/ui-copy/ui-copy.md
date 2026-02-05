@@ -22,6 +22,12 @@ Tujuan: menjaga istilah tetap konsisten untuk user awam.
 - Input
 - Simpan
 
+## Tombol & Aksi
+- Mulai Input Inspeksi
+- Kembali
+- Lanjut
+- Simpan
+
 ## Status & Pesan
 - Offline - Lokal
 - Data dummy

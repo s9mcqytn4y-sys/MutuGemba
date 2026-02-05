@@ -4,10 +4,11 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 object AppDataPaths {
-    fun settingsFile(): Path =
-        Paths.get(
-            System.getProperty("user.home"),
-            ".mutugemba",
-            "settings.properties",
-        )
+    private fun dataRoot(): Path = Paths.get("data")
+
+    fun databaseFile(): Path = dataRoot().resolve("mutugemba.db")
+
+    fun attachmentsDir(): Path = dataRoot().resolve("attachments")
+
+    fun settingsFile(): Path = dataRoot().resolve("settings.properties")
 }

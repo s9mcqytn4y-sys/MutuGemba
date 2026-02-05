@@ -36,7 +36,7 @@ fun SidebarMenu(
             Modifier
                 .width(Sizing.sidebarWidth)
                 .fillMaxHeight(),
-        elevation = Spacing.xs,
+        elevation = 0.dp,
     ) {
         Column(
             modifier =
@@ -80,8 +80,8 @@ private fun SidebarItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val background = if (selected) MaterialTheme.colors.primary.copy(alpha = 0.1f) else NeutralSurface
-    val textColor = if (selected) MaterialTheme.colors.primary else MaterialTheme.colors.onSurface
+    val background = if (selected) MaterialTheme.colors.primary else NeutralSurface
+    val textColor = if (selected) MaterialTheme.colors.onPrimary else MaterialTheme.colors.onSurface
 
     Row(
         modifier =
