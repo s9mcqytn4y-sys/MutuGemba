@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
-import androidx.compose.material.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,10 +58,16 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(Spacing.sm))
 
-            PasswordField(
-                label = "Password",
+            AppTextField(
+                spec =
+                    FieldSpec(
+                        label = "Password",
+                        placeholder = "Masukkan password",
+                    ),
                 value = passwordInput,
                 onValueChange = { passwordInput = it },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
             )
 
             Spacer(modifier = Modifier.height(Spacing.sm))
@@ -85,21 +89,4 @@ fun LoginScreen(
             )
         }
     }
-}
-
-@Composable
-private fun PasswordField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text("Masukkan password") },
-        modifier = Modifier.fillMaxWidth(),
-        visualTransformation = PasswordVisualTransformation(),
-        colors = TextFieldDefaults.outlinedTextFieldColors(),
-    )
 }

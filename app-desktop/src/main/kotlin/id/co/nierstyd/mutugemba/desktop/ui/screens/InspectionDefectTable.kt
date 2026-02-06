@@ -38,6 +38,15 @@ internal fun DefectTableContent(
     actions: InputStepActions,
 ) {
     val totalOkLabel = state.totalCheck?.let { state.totalOk.toString() } ?: "-"
+    val totalCheckInvalid =
+        state.totalCheck?.let { it < state.totalDefectQuantity }
+            ?: false
+    val totalCheckHelperText =
+        if (totalCheckInvalid) {
+            "Total check harus lebih besar atau sama dengan total NG."
+        } else {
+            "Jumlah pemeriksaan hari ini."
+        }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             AppNumberField(
@@ -45,7 +54,8 @@ internal fun DefectTableContent(
                     FieldSpec(
                         label = "Total Check",
                         placeholder = "0",
-                        helperText = "Jumlah pemeriksaan hari ini.",
+                        helperText = totalCheckHelperText,
+                        isError = totalCheckInvalid,
                     ),
                 value = state.totalCheckInput,
                 onValueChange = actions.onTotalCheckChanged,

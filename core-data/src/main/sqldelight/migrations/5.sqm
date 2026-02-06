@@ -1,0 +1,21 @@
+CREATE UNIQUE INDEX idx_inspection_defect_unique ON inspection_defect(inspection_id, defect_type_id);
+
+ALTER TABLE inspection_defect_slot RENAME TO inspection_defect_slot_old;
+
+CREATE TABLE inspection_defect_slot (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  inspection_defect_id INTEGER NOT NULL REFERENCES inspection_defect(id),
+  slot_code TEXT NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  created_at TEXT NOT NULL
+);
+
+INSERT INTO inspection_defect_slot(id, inspection_defect_id, slot_code, quantity, created_at)
+SELECT s.id, d.id, s.slot_code, s.quantity, s.created_at
+FROM inspection_defect_slot_old s
+JOIN inspection_defect d
+  ON d.inspection_id = s.inspection_id AND d.defect_type_id = s.defect_type_id;
+
+DROP TABLE inspection_defect_slot_old;
+
+CREATE INDEX idx_inspection_defect_slot_defect ON inspection_defect_slot(inspection_defect_id);

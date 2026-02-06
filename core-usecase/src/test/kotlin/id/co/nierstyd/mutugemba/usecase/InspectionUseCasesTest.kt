@@ -65,6 +65,33 @@ class InspectionUseCasesTest {
         assertNotNull(result.record)
         assertNotNull(repository.lastInserted)
     }
+
+    @Test
+    fun `reject total check below total defect`() {
+        val repository = FakeInspectionRepository(hasDuplicate = false)
+        val useCase = CreateInspectionRecordUseCase(repository)
+        val defectEntries = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 3))
+
+        val input =
+            InspectionInput(
+                kind = InspectionKind.DEFECT,
+                lineId = 1,
+                shiftId = 1,
+                partId = 1,
+                totalCheck = 2,
+                defectTypeId = null,
+                defectQuantity = null,
+                defects = defectEntries,
+                ctqParameterId = null,
+                ctqValue = null,
+                createdAt = "2026-02-05T08:00:00",
+            )
+
+        val result = useCase.execute(input, actorRole = UserRole.USER)
+        assertNull(result.record)
+        assertEquals(FeedbackType.ERROR, result.feedback.type)
+        assertNull(repository.lastInserted)
+    }
 }
 
 private class FakeInspectionRepository(

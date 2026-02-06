@@ -83,11 +83,16 @@ class CreateInspectionRecordUseCase(
         return when (input.kind) {
             InspectionKind.DEFECT -> {
                 val defectEntries = resolveDefectEntries(input)
+                val totalDefect = defectEntries.sumOf { it.totalQuantity }
+                val totalCheck = input.totalCheck
+                val totalCheckInvalid = totalCheck != null && totalCheck < totalDefect
                 when {
                     defectEntries.isEmpty() ->
                         UserFeedback(FeedbackType.ERROR, "Isi jumlah cacat terlebih dahulu.")
                     defectEntries.any { it.totalQuantity <= 0 } ->
                         UserFeedback(FeedbackType.ERROR, "Jumlah cacat harus lebih dari 0.")
+                    totalCheckInvalid ->
+                        UserFeedback(FeedbackType.ERROR, "Total check harus lebih besar atau sama dengan total NG.")
                     else -> UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
                 }
             }

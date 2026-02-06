@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 
@@ -17,6 +18,8 @@ fun AppTextField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    singleLine: Boolean = false,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     Column(modifier = modifier) {
         OutlinedTextField(
@@ -27,6 +30,8 @@ fun AppTextField(
             isError = spec.isError,
             enabled = spec.enabled,
             modifier = Modifier.fillMaxWidth(),
+            singleLine = singleLine,
+            visualTransformation = visualTransformation,
         )
         spec.helperText?.let {
             Text(text = it, color = NeutralTextMuted)
