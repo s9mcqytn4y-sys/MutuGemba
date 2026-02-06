@@ -11,12 +11,14 @@ interface SettingsRepository {
 
 object AppSettingsKeys {
     const val LAST_PAGE = "nav.lastPage"
-    const val LAST_INSPECTION_TYPE = "input.lastInspectionType"
     const val LAST_LINE_ID = "input.lastLineId"
     const val LAST_SHIFT_ID = "input.lastShiftId"
     const val LAST_PART_ID = "input.lastPartId"
     const val LAST_DEFECT_TYPE_ID = "input.lastDefectTypeId"
-    const val LAST_CTQ_PARAMETER_ID = "input.lastCtqParameterId"
+    const val ALLOW_DUPLICATE_INSPECTION = "input.allowDuplicateSameDay"
+    const val DEV_QC_LINE_ID = "dev.qcLineId"
+    const val DEV_DEMO_MODE = "dev.demoMode"
+    const val DEV_USE_DUMMY_DATA = "dev.useDummyData"
     const val SESSION_USER_ID = "session.userId"
     const val SESSION_USER_NAME = "session.userName"
     const val SESSION_POSITION = "session.position"

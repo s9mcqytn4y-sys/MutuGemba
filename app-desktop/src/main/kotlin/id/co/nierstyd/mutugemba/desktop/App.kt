@@ -9,6 +9,8 @@ import androidx.compose.runtime.setValue
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.data.AttachmentStore
 import id.co.nierstyd.mutugemba.data.FileSettingsRepository
+import id.co.nierstyd.mutugemba.data.SettingsSessionRepository
+import id.co.nierstyd.mutugemba.data.SqlDelightAppDataResetter
 import id.co.nierstyd.mutugemba.data.SqlDelightInspectionRepository
 import id.co.nierstyd.mutugemba.data.SqlDelightMasterDataRepository
 import id.co.nierstyd.mutugemba.data.db.DatabaseFactory
@@ -19,37 +21,60 @@ import id.co.nierstyd.mutugemba.desktop.ui.layout.AppLayout
 import id.co.nierstyd.mutugemba.desktop.ui.screens.AbnormalScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.HomeScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionDefaultsUseCases
+import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionPolicyUseCases
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.screens.MasterDataUseCaseBundle
 import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
+import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.theme.MutuGembaTheme
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
-import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
+import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
-import id.co.nierstyd.mutugemba.usecase.GetCtqParametersUseCase
+import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
+import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDefectTypesUseCase
+import id.co.nierstyd.mutugemba.usecase.GetDevDemoModeUseCase
+import id.co.nierstyd.mutugemba.usecase.GetDevDummyDataUseCase
+import id.co.nierstyd.mutugemba.usecase.GetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.GetInspectionDefaultsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLastVisitedPageUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetPartsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetRecentInspectionsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetShiftsUseCase
+import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
 import id.co.nierstyd.mutugemba.usecase.SaveInspectionDefaultsUseCase
+import id.co.nierstyd.mutugemba.usecase.SetAllowDuplicateInspectionUseCase
+import id.co.nierstyd.mutugemba.usecase.SetDevDemoModeUseCase
+import id.co.nierstyd.mutugemba.usecase.SetDevDummyDataUseCase
+import id.co.nierstyd.mutugemba.usecase.SetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.SetLastVisitedPageUseCase
 
 @Composable
 fun MutuGembaApp() {
     val settingsRepository = remember { FileSettingsRepository(AppDataPaths.settingsFile()) }
+    val sessionRepository = remember { SettingsSessionRepository(settingsRepository) }
     val getLastPageUseCase = remember { GetLastVisitedPageUseCase(settingsRepository) }
     val setLastPageUseCase = remember { SetLastVisitedPageUseCase(settingsRepository) }
     val getInspectionDefaultsUseCase = remember { GetInspectionDefaultsUseCase(settingsRepository) }
     val saveInspectionDefaultsUseCase = remember { SaveInspectionDefaultsUseCase(settingsRepository) }
+    val getAllowDuplicateInspectionUseCase = remember { GetAllowDuplicateInspectionUseCase(settingsRepository) }
+    val setAllowDuplicateInspectionUseCase = remember { SetAllowDuplicateInspectionUseCase(settingsRepository) }
+    val getDevQcLineUseCase = remember { GetDevQcLineUseCase(settingsRepository) }
+    val setDevQcLineUseCase = remember { SetDevQcLineUseCase(settingsRepository) }
+    val getDevDemoModeUseCase = remember { GetDevDemoModeUseCase(settingsRepository) }
+    val setDevDemoModeUseCase = remember { SetDevDemoModeUseCase(settingsRepository) }
+    val getDevDummyDataUseCase = remember { GetDevDummyDataUseCase(settingsRepository) }
+    val setDevDummyDataUseCase = remember { SetDevDummyDataUseCase(settingsRepository) }
 
-    val database = remember { DatabaseFactory.createDatabase(AppDataPaths.databaseFile()) }
+    val databaseHandle = remember { DatabaseFactory.createDatabaseHandle(AppDataPaths.databaseFile()) }
+    val database = databaseHandle.database
     val inspectionRepository = remember { SqlDelightInspectionRepository(database) }
     val masterDataRepository = remember { SqlDelightMasterDataRepository(database) }
+    val dataResetter = remember { SqlDelightAppDataResetter(database, databaseHandle.driver) }
+    val resetDataUseCase = remember { ResetDataUseCase(dataResetter, sessionRepository) }
     val createInspectionUseCase = remember { CreateInspectionRecordUseCase(inspectionRepository) }
     val createBatchInspectionUseCase =
         remember { CreateBatchInspectionRecordsUseCase(createInspectionUseCase) }
@@ -58,7 +83,6 @@ fun MutuGembaApp() {
     val getShiftsUseCase = remember { GetShiftsUseCase(masterDataRepository) }
     val getPartsUseCase = remember { GetPartsUseCase(masterDataRepository) }
     val getDefectTypesUseCase = remember { GetDefectTypesUseCase(masterDataRepository) }
-    val getCtqParametersUseCase = remember { GetCtqParametersUseCase(masterDataRepository) }
     val inspectionDependencies =
         remember {
             InspectionScreenDependencies(
@@ -69,13 +93,16 @@ fun MutuGembaApp() {
                     ),
                 createInspectionUseCase = createInspectionUseCase,
                 createBatchInspectionUseCase = createBatchInspectionUseCase,
+                policies =
+                    InspectionPolicyUseCases(
+                        getAllowDuplicate = getAllowDuplicateInspectionUseCase,
+                    ),
                 masterData =
                     MasterDataUseCaseBundle(
                         getLines = getLinesUseCase,
                         getShifts = getShiftsUseCase,
                         getParts = getPartsUseCase,
                         getDefectTypes = getDefectTypesUseCase,
-                        getCtqParameters = getCtqParametersUseCase,
                     ),
             )
         }
@@ -87,10 +114,15 @@ fun MutuGembaApp() {
         )
     }
     var inspectionRecords by remember { mutableStateOf<List<InspectionRecord>>(emptyList()) }
+    var lines by remember { mutableStateOf<List<Line>>(emptyList()) }
+    val refreshData = {
+        inspectionRecords = getRecentInspectionsUseCase.execute()
+        lines = getLinesUseCase.execute()
+    }
 
     LaunchedEffect(Unit) {
         attachmentStore.ensureBaseDir()
-        inspectionRecords = getRecentInspectionsUseCase.execute()
+        refreshData()
     }
 
     LaunchedEffect(currentRoute) {
@@ -120,7 +152,10 @@ fun MutuGembaApp() {
                 AppRoute.Home ->
                     HomeScreen(
                         recentRecords = inspectionRecords,
+                        lines = lines,
+                        resetData = resetDataUseCase,
                         onNavigateToInspection = { currentRoute = AppRoute.Inspection },
+                        onRefreshData = refreshData,
                     )
 
                 AppRoute.Inspection ->
@@ -133,7 +168,23 @@ fun MutuGembaApp() {
 
                 AppRoute.Abnormal -> AbnormalScreen()
                 AppRoute.Reports -> ReportsScreen()
-                AppRoute.Settings -> SettingsScreen()
+                AppRoute.Settings ->
+                    SettingsScreen(
+                        dependencies =
+                            SettingsScreenDependencies(
+                                getAllowDuplicateInspection = getAllowDuplicateInspectionUseCase,
+                                setAllowDuplicateInspection = setAllowDuplicateInspectionUseCase,
+                                resetData = resetDataUseCase,
+                                getLines = getLinesUseCase,
+                                getDevQcLine = getDevQcLineUseCase,
+                                setDevQcLine = setDevQcLineUseCase,
+                                getDevDemoMode = getDevDemoModeUseCase,
+                                setDevDemoMode = setDevDemoModeUseCase,
+                                getDevDummyData = getDevDummyDataUseCase,
+                                setDevDummyData = setDevDummyDataUseCase,
+                                onResetCompleted = refreshData,
+                            ),
+                    )
             }
         }
     }

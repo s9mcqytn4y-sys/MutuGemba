@@ -18,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Sizing
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 
 @Composable
 fun HeaderBar(
@@ -49,16 +51,17 @@ fun HeaderBar(
                 Column {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.h5,
+                        style = MaterialTheme.typography.h4,
                     )
                     Text(
                         text = subtitle,
-                        style = MaterialTheme.typography.body2,
+                        style = MaterialTheme.typography.body1,
                     )
                 }
-                Text(
+                AppBadge(
                     text = "QC TPS Harian",
-                    style = MaterialTheme.typography.subtitle1,
+                    backgroundColor = StatusInfo,
+                    contentColor = NeutralSurface,
                 )
             }
             Row(
@@ -124,8 +127,8 @@ fun SectionHeader(
                 .fillMaxWidth()
                 .padding(bottom = Spacing.md),
     ) {
-        Text(text = title, style = MaterialTheme.typography.h5)
-        Text(text = subtitle, style = MaterialTheme.typography.body2)
+        Text(text = title, style = MaterialTheme.typography.h4)
+        Text(text = subtitle, style = MaterialTheme.typography.body1)
     }
 }
 

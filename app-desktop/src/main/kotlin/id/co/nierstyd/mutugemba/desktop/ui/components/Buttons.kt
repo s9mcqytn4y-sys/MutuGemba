@@ -8,6 +8,7 @@ import androidx.compose.material.OutlinedButton
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Sizing
 
 @Composable
@@ -29,7 +30,8 @@ fun PrimaryButton(
                 disabledContentColor = MaterialTheme.colors.onPrimary.copy(alpha = 0.8f),
             ),
     ) {
-        Text(text)
+        val textColor = if (enabled) NeutralSurface else NeutralSurface.copy(alpha = 0.8f)
+        Text(text, color = textColor)
     }
 }
 

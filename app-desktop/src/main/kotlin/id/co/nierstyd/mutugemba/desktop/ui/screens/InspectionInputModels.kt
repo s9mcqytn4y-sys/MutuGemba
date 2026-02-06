@@ -27,4 +27,13 @@ internal data class SummaryTotals(
     val totalDefect: Int,
     val totalOk: Int,
     val ngRatio: Double,
+    val totalParts: Int = 0,
 )
+
+internal enum class PartInputStatus {
+    EMPTY,
+    INCOMPLETE,
+    COMPLETE,
+    WARNING,
+    ERROR,
+}

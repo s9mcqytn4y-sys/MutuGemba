@@ -15,14 +15,5 @@ object SampleData {
                 partNumber = "PN-1001",
                 createdAt = "2026-02-05T08:00:00",
             ),
-            InspectionRecord(
-                id = 2,
-                kind = InspectionKind.CTQ,
-                lineName = "Sewing",
-                shiftName = "Shift 1 (08:00-17:00 WIB)",
-                partName = "Bracket Support",
-                partNumber = "PN-2002",
-                createdAt = "2026-02-05T09:00:00",
-            ),
         )
 }

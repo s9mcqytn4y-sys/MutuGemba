@@ -68,7 +68,7 @@ fun AppLayout(
                 }
             Box(
                 modifier =
-                    scrollModifier,
+                scrollModifier,
                 contentAlignment = Alignment.TopCenter,
             ) {
                 MaterialTheme {

@@ -1,6 +1,5 @@
 package id.co.nierstyd.mutugemba.usecase
 
-import id.co.nierstyd.mutugemba.domain.CtqParameter
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.MasterDataRepository
@@ -29,10 +28,4 @@ class GetDefectTypesUseCase(
     private val repository: MasterDataRepository,
 ) {
     fun execute(): List<DefectType> = repository.getDefectTypes()
-}
-
-class GetCtqParametersUseCase(
-    private val repository: MasterDataRepository,
-) {
-    fun execute(): List<CtqParameter> = repository.getCtqParameters()
 }

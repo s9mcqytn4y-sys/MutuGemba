@@ -8,6 +8,4 @@ interface MasterDataRepository {
     fun getParts(): List<Part>
 
     fun getDefectTypes(): List<DefectType>
-
-    fun getCtqParameters(): List<CtqParameter>
 }

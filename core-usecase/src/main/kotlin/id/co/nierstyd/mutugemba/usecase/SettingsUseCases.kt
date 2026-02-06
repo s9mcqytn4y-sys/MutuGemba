@@ -1,16 +1,14 @@
 package id.co.nierstyd.mutugemba.usecase
 
 import id.co.nierstyd.mutugemba.domain.AppSettingsKeys
-import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.SettingsRepository
 
 data class InspectionDefaults(
     val lineId: Long?,
+    val qcLineId: Long?,
     val shiftId: Long?,
     val partId: Long?,
     val defectTypeId: Long?,
-    val ctqParameterId: Long?,
-    val kind: InspectionKind?,
 )
 
 class GetLastVisitedPageUseCase(
@@ -31,23 +29,19 @@ class GetInspectionDefaultsUseCase(
     private val settingsRepository: SettingsRepository,
 ) {
     fun execute(): InspectionDefaults {
-        val lineId = settingsRepository.getString(AppSettingsKeys.LAST_LINE_ID)?.toLongOrNull()
+        val qcLineId = settingsRepository.getString(AppSettingsKeys.DEV_QC_LINE_ID)?.toLongOrNull()
+        val lastLineId = settingsRepository.getString(AppSettingsKeys.LAST_LINE_ID)?.toLongOrNull()
+        val lineId = qcLineId ?: lastLineId
         val shiftId = settingsRepository.getString(AppSettingsKeys.LAST_SHIFT_ID)?.toLongOrNull()
         val partId = settingsRepository.getString(AppSettingsKeys.LAST_PART_ID)?.toLongOrNull()
         val defectTypeId = settingsRepository.getString(AppSettingsKeys.LAST_DEFECT_TYPE_ID)?.toLongOrNull()
-        val ctqParameterId = settingsRepository.getString(AppSettingsKeys.LAST_CTQ_PARAMETER_ID)?.toLongOrNull()
-        val kind =
-            settingsRepository.getString(AppSettingsKeys.LAST_INSPECTION_TYPE)?.let {
-                runCatching { InspectionKind.valueOf(it) }.getOrNull()
-            }
 
         return InspectionDefaults(
             lineId = lineId,
+            qcLineId = qcLineId,
             shiftId = shiftId,
             partId = partId,
             defectTypeId = defectTypeId,
-            ctqParameterId = ctqParameterId,
-            kind = kind,
         )
     }
 }
@@ -62,9 +56,76 @@ class SaveInspectionDefaultsUseCase(
         defaults.defectTypeId?.let {
             settingsRepository.putString(AppSettingsKeys.LAST_DEFECT_TYPE_ID, it.toString())
         }
-        defaults.ctqParameterId?.let {
-            settingsRepository.putString(AppSettingsKeys.LAST_CTQ_PARAMETER_ID, it.toString())
-        }
-        defaults.kind?.let { settingsRepository.putString(AppSettingsKeys.LAST_INSPECTION_TYPE, it.name) }
+    }
+}
+
+class GetDevQcLineUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(): Long? =
+        settingsRepository
+            .getString(AppSettingsKeys.DEV_QC_LINE_ID)
+            ?.toLongOrNull()
+}
+
+class SetDevQcLineUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(lineId: Long?) {
+        settingsRepository.putString(AppSettingsKeys.DEV_QC_LINE_ID, lineId?.toString().orEmpty())
+    }
+}
+
+class GetDevDemoModeUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(): Boolean =
+        settingsRepository
+            .getString(AppSettingsKeys.DEV_DEMO_MODE)
+            ?.toBooleanStrictOrNull()
+            ?: false
+}
+
+class SetDevDemoModeUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(enabled: Boolean) {
+        settingsRepository.putString(AppSettingsKeys.DEV_DEMO_MODE, enabled.toString())
+    }
+}
+
+class GetDevDummyDataUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(): Boolean =
+        settingsRepository
+            .getString(AppSettingsKeys.DEV_USE_DUMMY_DATA)
+            ?.toBooleanStrictOrNull()
+            ?: false
+}
+
+class SetDevDummyDataUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(enabled: Boolean) {
+        settingsRepository.putString(AppSettingsKeys.DEV_USE_DUMMY_DATA, enabled.toString())
+    }
+}
+
+class GetAllowDuplicateInspectionUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(): Boolean =
+        settingsRepository
+            .getString(AppSettingsKeys.ALLOW_DUPLICATE_INSPECTION)
+            ?.toBooleanStrictOrNull()
+            ?: false
+}
+
+class SetAllowDuplicateInspectionUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(allow: Boolean) {
+        settingsRepository.putString(AppSettingsKeys.ALLOW_DUPLICATE_INSPECTION, allow.toString())
     }
 }

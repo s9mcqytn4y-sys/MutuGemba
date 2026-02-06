@@ -2,13 +2,13 @@ package id.co.nierstyd.mutugemba.usecase
 
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
-import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
 import id.co.nierstyd.mutugemba.domain.UserRole
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 enum class FeedbackType {
     INFO,
@@ -50,6 +50,7 @@ class CreateInspectionRecordUseCase(
     fun execute(
         input: InspectionInput,
         actorRole: UserRole = UserRole.USER,
+        allowDuplicateSameDay: Boolean = false,
     ): CreateInspectionResult {
         var feedback = validateInput(input)
         var record: InspectionRecord? = null
@@ -65,17 +66,23 @@ class CreateInspectionRecordUseCase(
                     .getOrElse { LocalDate.now() }
             val hasDuplicate =
                 actorRole != UserRole.ADMIN &&
+                    !allowDuplicateSameDay &&
                     repository.hasInspectionOnDate(
                         lineId = input.lineId,
                         partId = input.partId,
                         date = createdDate,
                     )
             if (hasDuplicate) {
-                feedback = UserFeedback(FeedbackType.ERROR, "Data inspeksi hari ini sudah ada.")
+                val dateLabel =
+                    createdDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale("id", "ID")))
+                feedback =
+                    UserFeedback(
+                        FeedbackType.ERROR,
+                        "Data inspeksi tanggal $dateLabel sudah ada. Aturan input ulang hari yang sama sedang aktif.",
+                    )
             } else {
                 val cleanedInput =
                     input.copy(
-                        ctqValue = input.ctqValue,
                         createdAt = createdAt,
                     )
                 record = repository.insert(cleanedInput)
@@ -97,34 +104,18 @@ class CreateInspectionRecordUseCase(
             )
         }
 
-        return when (input.kind) {
-            InspectionKind.DEFECT -> {
-                val defectEntries = resolveDefectEntries(input)
-                val totalDefect = defectEntries.sumOf { it.totalQuantity }
-                val totalCheck = input.totalCheck
-                val totalCheckInvalid = totalCheck != null && totalCheck < totalDefect
-                when {
-                    defectEntries.isEmpty() ->
-                        UserFeedback(FeedbackType.ERROR, "Isi jumlah cacat terlebih dahulu.")
-                    defectEntries.any { it.totalQuantity <= 0 } ->
-                        UserFeedback(FeedbackType.ERROR, "Jumlah cacat harus lebih dari 0.")
-                    totalCheckInvalid ->
-                        UserFeedback(FeedbackType.ERROR, "Total check harus lebih besar atau sama dengan total NG.")
-                    else -> UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
-                }
-            }
-
-            InspectionKind.CTQ -> {
-                val ctqParameterId = input.ctqParameterId
-                val ctqValue = input.ctqValue
-                if (ctqParameterId == null || ctqParameterId <= 0L) {
-                    UserFeedback(FeedbackType.ERROR, "Pilih parameter CTQ terlebih dahulu.")
-                } else if (ctqValue == null || ctqValue.isNaN()) {
-                    UserFeedback(FeedbackType.ERROR, "Isi nilai CTQ terlebih dahulu.")
-                } else {
-                    UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
-                }
-            }
+        val defectEntries = resolveDefectEntries(input)
+        val totalDefect = defectEntries.sumOf { it.totalQuantity }
+        val totalCheck = input.totalCheck
+        val totalCheckInvalid = totalCheck != null && totalCheck < totalDefect
+        return when {
+            defectEntries.isEmpty() ->
+                UserFeedback(FeedbackType.ERROR, "Isi jumlah NG terlebih dahulu.")
+            defectEntries.any { it.totalQuantity <= 0 } ->
+                UserFeedback(FeedbackType.ERROR, "Jumlah NG harus lebih dari 0.")
+            totalCheckInvalid ->
+                UserFeedback(FeedbackType.ERROR, "Total periksa harus lebih besar atau sama dengan total NG.")
+            else -> UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
         }
     }
 
@@ -153,6 +144,7 @@ class CreateBatchInspectionRecordsUseCase(
     fun execute(
         inputs: List<InspectionInput>,
         actorRole: UserRole = UserRole.USER,
+        allowDuplicateSameDay: Boolean = false,
     ): BatchInspectionResult {
         if (inputs.isEmpty()) {
             return BatchInspectionResult(
@@ -163,7 +155,12 @@ class CreateBatchInspectionRecordsUseCase(
 
         val results =
             inputs.map { input ->
-                val result = createInspectionRecordUseCase.execute(input, actorRole)
+                val result =
+                    createInspectionRecordUseCase.execute(
+                        input = input,
+                        actorRole = actorRole,
+                        allowDuplicateSameDay = allowDuplicateSameDay,
+                    )
                 PartSaveResult(
                     partId = input.partId,
                     record = result.record,
@@ -172,16 +169,17 @@ class CreateBatchInspectionRecordsUseCase(
             }
 
         val failed = results.count { it.record == null }
+        val saved = results.size - failed
         val feedback =
             when {
                 failed == 0 ->
-                    UserFeedback(FeedbackType.SUCCESS, "Semua data inspeksi tersimpan.")
+                    UserFeedback(FeedbackType.SUCCESS, "Semua data inspeksi tersimpan ($saved part).")
                 failed == results.size ->
                     UserFeedback(FeedbackType.ERROR, "Semua data gagal disimpan. Periksa input.")
                 else ->
                     UserFeedback(
                         FeedbackType.WARNING,
-                        "Sebagian data tersimpan. Ada ${failed} part gagal disimpan.",
+                        "Sebagian data tersimpan ($saved part). Ada $failed part gagal disimpan.",
                     )
             }
 

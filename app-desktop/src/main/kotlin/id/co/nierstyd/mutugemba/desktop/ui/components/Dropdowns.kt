@@ -1,7 +1,10 @@
 ﻿package id.co.nierstyd.mutugemba.desktop.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.DropdownMenu
@@ -32,44 +35,60 @@ fun AppDropdown(
     helperText: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val canOpen = enabled && options.isNotEmpty()
 
     Column(modifier = modifier) {
-        OutlinedTextField(
-            value = selectedOption?.label ?: "",
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text(label) },
-            placeholder = { Text(placeholder) },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = enabled) { expanded = true },
-            colors = dropdownColors(),
-        )
-        helperText?.let {
-            Text(text = it, color = NeutralTextMuted)
-        }
-    }
-
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = { expanded = false },
-    ) {
-        options.forEach { option ->
-            DropdownMenuItem(
-                onClick = {
-                    onSelected(option)
-                    expanded = false
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = selectedOption?.label ?: "",
+                onValueChange = {},
+                readOnly = true,
+                enabled = enabled,
+                label = { Text(label) },
+                placeholder = { Text(placeholder) },
+                singleLine = true,
+                trailingIcon = {
+                    Text(text = if (expanded) "^" else "v", color = NeutralTextMuted)
                 },
+                modifier =
+                    Modifier.fillMaxWidth(),
+                colors = dropdownColors(),
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            enabled = canOpen,
+                            indication = null,
+                            interactionSource = interactionSource,
+                        ) { expanded = !expanded },
+            )
+
+            DropdownMenu(
+                expanded = expanded && canOpen,
+                onDismissRequest = { expanded = false },
             ) {
-                Column {
-                    Text(option.label)
-                    option.helper?.let {
-                        Text(it, color = NeutralTextMuted, modifier = Modifier.padding(top = Spacing.xs))
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    ) {
+                        Column {
+                            Text(option.label)
+                            option.helper?.let {
+                                Text(it, color = NeutralTextMuted, modifier = Modifier.padding(top = Spacing.xs))
+                            }
+                        }
                     }
                 }
             }
+        }
+        helperText?.let {
+            Text(text = it, color = NeutralTextMuted)
         }
     }
 }

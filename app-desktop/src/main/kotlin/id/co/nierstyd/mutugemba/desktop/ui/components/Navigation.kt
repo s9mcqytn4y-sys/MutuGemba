@@ -3,6 +3,7 @@
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,11 +46,24 @@ fun SidebarMenu(
                     .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(
-                text = "Menu",
-                style = MaterialTheme.typography.subtitle1,
-                modifier = Modifier.padding(bottom = Spacing.sm),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(
+                    text = "MutuGemba",
+                    style = MaterialTheme.typography.h6,
+                )
+                Text(
+                    text = "QC TPS Harian",
+                    style = MaterialTheme.typography.caption,
+                    color = MaterialTheme.colors.primary,
+                )
+            }
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(NeutralBorder)
+                        .height(1.dp),
+            ) {}
             routes.forEach { route ->
                 SidebarItem(
                     label = route.label,
@@ -80,8 +94,8 @@ private fun SidebarItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val background = if (selected) MaterialTheme.colors.primary else NeutralSurface
-    val textColor = if (selected) MaterialTheme.colors.onPrimary else MaterialTheme.colors.onSurface
+    val background = if (selected) MaterialTheme.colors.primary.copy(alpha = 0.1f) else NeutralSurface
+    val textColor = if (selected) MaterialTheme.colors.primary else MaterialTheme.colors.onSurface
 
     Row(
         modifier =
@@ -90,9 +104,20 @@ private fun SidebarItem(
                 .height(Sizing.sidebarItemHeight)
                 .background(background, MaterialTheme.shapes.small)
                 .clickable(onClick = onClick)
-                .padding(horizontal = Spacing.md),
+                .padding(horizontal = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(4.dp)
+                    .height(24.dp)
+                    .background(
+                        if (selected) MaterialTheme.colors.primary else NeutralSurface,
+                        MaterialTheme.shapes.small,
+                    ),
+        )
+        Spacer(modifier = Modifier.width(Spacing.sm))
         Text(
             text = label,
             color = textColor,

@@ -6,12 +6,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
@@ -24,15 +28,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.CompactNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
+import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionTimeSlot
 import id.co.nierstyd.mutugemba.domain.Part
@@ -49,16 +58,18 @@ internal fun PartChecksheetCard(
     totalOk: Int,
     totalCheckInvalid: Boolean,
     defectSlotValues: Map<PartDefectSlotKey, String>,
+    status: PartInputStatus,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     onTotalCheckChanged: (String) -> Unit,
     onDefectSlotChanged: (Long, InspectionTimeSlot, String) -> Unit,
 ) {
+    val borderColor = if (expanded) BrandBlue else NeutralBorder
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralSurface,
         shape = MaterialTheme.shapes.medium,
-        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
         elevation = 0.dp,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -67,6 +78,7 @@ internal fun PartChecksheetCard(
                 totalCheck = totalCheckInput,
                 totalDefect = totalDefect,
                 totalOk = totalOk,
+                status = status,
                 expanded = expanded,
                 onToggleExpanded = onToggleExpanded,
             )
@@ -84,7 +96,7 @@ internal fun PartChecksheetCard(
                                     placeholder = "Contoh: 120",
                                     helperText =
                                         if (totalCheckInvalid) {
-                                            "Total periksa harus lebih besar atau sama dengan total cacat."
+                                            "Total periksa harus lebih besar atau sama dengan total NG."
                                         } else {
                                             "Jumlah pemeriksaan hari ini untuk part ini."
                                         },
@@ -94,8 +106,16 @@ internal fun PartChecksheetCard(
                             onValueChange = onTotalCheckChanged,
                             modifier = Modifier.weight(1f),
                         )
-                        PartStatChip(title = "Total Cacat", value = totalDefect.toString(), modifier = Modifier.weight(1f))
-                        PartStatChip(title = "Total OK", value = totalOk.toString(), modifier = Modifier.weight(1f))
+                        PartStatChip(
+                            title = "Total NG",
+                            value = totalDefect.toString(),
+                            modifier = Modifier.weight(1f),
+                        )
+                        PartStatChip(
+                            title = "Total OK",
+                            value = totalOk.toString(),
+                            modifier = Modifier.weight(1f),
+                        )
                     }
 
                     DefectTableGrid(
@@ -117,48 +137,93 @@ private fun PartHeader(
     totalCheck: String,
     totalDefect: Int,
     totalOk: Int,
+    status: PartInputStatus,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
 ) {
-    val hasInput = totalCheck.isNotBlank() || totalDefect > 0
+    val hasInput = status != PartInputStatus.EMPTY
+    val accentColor =
+        when (status) {
+            PartInputStatus.COMPLETE -> StatusSuccess
+            PartInputStatus.WARNING -> StatusWarning
+            PartInputStatus.ERROR -> StatusError
+            PartInputStatus.INCOMPLETE -> NeutralBorder
+            PartInputStatus.EMPTY -> NeutralBorder
+        }
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .height(IntrinsicSize.Min)
                 .clickable { onToggleExpanded() }
-                .padding(Spacing.md),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
+                .background(if (expanded) NeutralLight else NeutralSurface),
     ) {
-        PartImage(picturePath = part.picturePath)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-            Text(text = part.name, style = MaterialTheme.typography.subtitle1)
-            Text(
-                text = "${part.partNumber} • UNIQ ${part.uniqCode}",
-                style = MaterialTheme.typography.body2,
-                color = NeutralTextMuted,
-            )
-            Text(
-                text = if (hasInput) "Sudah diisi" else "Belum diisi",
-                style = MaterialTheme.typography.caption,
-                color = if (hasInput) NeutralText else NeutralTextMuted,
-            )
-        }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-            Text(text = "Periksa", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-            Text(text = totalCheck.ifBlank { "-" }, style = MaterialTheme.typography.subtitle1)
-            Text(
-                text = "NG ${totalDefect} • OK ${totalOk}",
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-            Text(
-                text = if (expanded) "Sembunyikan" else "Buka",
-                style = MaterialTheme.typography.caption,
-                color = MaterialTheme.colors.primary,
-            )
+        Box(
+            modifier =
+                Modifier
+                    .width(6.dp)
+                    .fillMaxHeight()
+                    .background(accentColor),
+        )
+        Row(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PartImage(picturePath = part.picturePath)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(text = part.name, style = MaterialTheme.typography.subtitle1)
+                Text(
+                    text = "${part.partNumber} • UNIQ ${part.uniqCode}",
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
+                PartStatusBadge(status = status, hasInput = hasInput)
+            }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(text = "Periksa", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(text = totalCheck.ifBlank { "-" }, style = MaterialTheme.typography.subtitle1)
+                Text(
+                    text = "NG $totalDefect • OK $totalOk",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                Text(
+                    text = if (expanded) "▲ Sembunyikan" else "▼ Buka",
+                    style = MaterialTheme.typography.caption,
+                    color = MaterialTheme.colors.primary,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun PartStatusBadge(
+    status: PartInputStatus,
+    hasInput: Boolean,
+) {
+    val (label, color, textColor) =
+        when (status) {
+            PartInputStatus.COMPLETE -> Triple("Lengkap", StatusSuccess, NeutralSurface)
+            PartInputStatus.WARNING -> Triple("Perlu Cek", StatusWarning, NeutralSurface)
+            PartInputStatus.ERROR -> Triple("Perbaiki", StatusError, NeutralSurface)
+            PartInputStatus.INCOMPLETE -> Triple("Sebagian", NeutralBorder, NeutralText)
+            PartInputStatus.EMPTY ->
+                if (hasInput) {
+                    Triple("Sebagian", NeutralBorder, NeutralText)
+                } else {
+                    Triple("Belum Produksi", NeutralBorder, NeutralText)
+                }
+        }
+    AppBadge(
+        text = label,
+        backgroundColor = color,
+        contentColor = textColor,
+    )
 }
 
 @Composable
@@ -185,9 +250,7 @@ private fun PartStatChip(
 }
 
 @Composable
-private fun PartImage(
-    picturePath: String?,
-) {
+private fun PartImage(picturePath: String?) {
     val bitmap = rememberImageBitmap(picturePath)
     Surface(
         modifier = Modifier.size(96.dp),
@@ -211,8 +274,8 @@ private fun PartImage(
 }
 
 @Composable
-private fun rememberImageBitmap(path: String?): ImageBitmap? {
-    return remember(path) {
+private fun rememberImageBitmap(path: String?): ImageBitmap? =
+    remember(path) {
         try {
             if (path.isNullOrBlank()) {
                 null
@@ -220,7 +283,9 @@ private fun rememberImageBitmap(path: String?): ImageBitmap? {
                 val normalized = Paths.get(path)
                 if (Files.exists(normalized)) {
                     val bytes = Files.readAllBytes(normalized)
-                    org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
+                    org.jetbrains.skia.Image
+                        .makeFromEncoded(bytes)
+                        .toComposeImageBitmap()
                 } else {
                     null
                 }
@@ -229,7 +294,6 @@ private fun rememberImageBitmap(path: String?): ImageBitmap? {
             null
         }
     }
-}
 
 @Composable
 private fun DefectTableGrid(
@@ -295,7 +359,7 @@ private fun DefectTableGrid(
 @Composable
 private fun TableHeaderRow(timeSlots: List<InspectionTimeSlot>) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        TableHeaderCell(text = "Jenis Cacat", weight = 1.4f)
+        TableHeaderCell(text = "Jenis NG", weight = 1.4f)
         timeSlots.forEach { slot ->
             TableHeaderCell(text = slot.label, weight = 1f)
         }

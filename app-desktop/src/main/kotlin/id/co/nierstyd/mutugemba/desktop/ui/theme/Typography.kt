@@ -6,47 +6,65 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-val MutuGembaTypography =
-    Typography(
+fun mutuGembaTypography(): Typography {
+    val displayFont = FontFamily.Serif
+    val bodyFont = FontFamily.SansSerif
+
+    return Typography(
         h4 =
             TextStyle(
-                fontFamily = FontFamily.SansSerif,
+                fontFamily = displayFont,
                 fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
+                fontSize = 30.sp,
                 color = NeutralText,
             ),
         h5 =
             TextStyle(
-                fontFamily = FontFamily.SansSerif,
+                fontFamily = displayFont,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 22.sp,
+                fontSize = 24.sp,
+                color = NeutralText,
+            ),
+        h6 =
+            TextStyle(
+                fontFamily = displayFont,
+                fontWeight = FontWeight.Medium,
+                fontSize = 20.sp,
                 color = NeutralText,
             ),
         subtitle1 =
             TextStyle(
-                fontFamily = FontFamily.SansSerif,
+                fontFamily = displayFont,
                 fontWeight = FontWeight.Medium,
-                fontSize = 16.sp,
+                fontSize = 17.sp,
                 color = NeutralText,
             ),
         body1 =
             TextStyle(
-                fontFamily = FontFamily.SansSerif,
+                fontFamily = bodyFont,
                 fontWeight = FontWeight.Normal,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 color = NeutralText,
             ),
         body2 =
             TextStyle(
-                fontFamily = FontFamily.SansSerif,
+                fontFamily = bodyFont,
                 fontWeight = FontWeight.Normal,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 color = NeutralTextMuted,
             ),
         button =
             TextStyle(
-                fontFamily = FontFamily.SansSerif,
+                fontFamily = bodyFont,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
+            ),
+        caption =
+            TextStyle(
+                fontFamily = bodyFont,
+                fontWeight = FontWeight.Normal,
+                fontSize = 12.sp,
+                color = NeutralTextMuted,
             ),
     )
+}

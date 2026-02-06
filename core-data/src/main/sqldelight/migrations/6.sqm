@@ -1,0 +1,29 @@
+DROP INDEX IF EXISTS idx_inspection_ctq_inspection;
+DROP INDEX IF EXISTS idx_master_ctq_code;
+
+DROP TABLE IF EXISTS inspection_ctq;
+DROP TABLE IF EXISTS master_ctq_parameter;
+
+DELETE FROM inspection_record WHERE kind = 'CTQ';
+
+DROP INDEX IF EXISTS idx_inspection_created_at;
+
+ALTER TABLE inspection_record RENAME TO inspection_record_old;
+
+CREATE TABLE inspection_record (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL CHECK (kind IN ('DEFECT')),
+  line_id INTEGER NOT NULL REFERENCES master_line(id),
+  shift_id INTEGER NOT NULL REFERENCES master_shift(id),
+  part_id INTEGER NOT NULL REFERENCES master_part(id),
+  total_check INTEGER,
+  created_at TEXT NOT NULL
+);
+
+INSERT INTO inspection_record(id, kind, line_id, shift_id, part_id, total_check, created_at)
+SELECT id, kind, line_id, shift_id, part_id, total_check, created_at
+FROM inspection_record_old;
+
+DROP TABLE inspection_record_old;
+
+CREATE INDEX idx_inspection_created_at ON inspection_record(created_at);

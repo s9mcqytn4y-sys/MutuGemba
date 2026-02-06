@@ -29,8 +29,6 @@ class InspectionUseCasesTest {
                 defectTypeId = null,
                 defectQuantity = null,
                 defects = defectEntries,
-                ctqParameterId = null,
-                ctqValue = null,
                 createdAt = "2026-02-05T08:00:00",
             )
 
@@ -56,8 +54,6 @@ class InspectionUseCasesTest {
                 defectTypeId = null,
                 defectQuantity = null,
                 defects = defectEntries,
-                ctqParameterId = null,
-                ctqValue = null,
                 createdAt = "2026-02-05T08:00:00",
             )
 
@@ -82,8 +78,6 @@ class InspectionUseCasesTest {
                 defectTypeId = null,
                 defectQuantity = null,
                 defects = defectEntries,
-                ctqParameterId = null,
-                ctqValue = null,
                 createdAt = "2026-02-05T08:00:00",
             )
 
@@ -110,8 +104,6 @@ class InspectionUseCasesTest {
                     defectTypeId = null,
                     defectQuantity = null,
                     defects = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1)),
-                    ctqParameterId = null,
-                    ctqValue = null,
                     createdAt = "2026-02-05T08:00:00",
                 ),
                 InspectionInput(
@@ -123,8 +115,6 @@ class InspectionUseCasesTest {
                     defectTypeId = null,
                     defectQuantity = null,
                     defects = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1)),
-                    ctqParameterId = null,
-                    ctqValue = null,
                     createdAt = "2026-02-05T08:00:00",
                 ),
             )

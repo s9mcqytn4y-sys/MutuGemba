@@ -38,7 +38,7 @@ fun MutuGembaTheme(content: @Composable () -> Unit) {
 
     MaterialTheme(
         colors = colors,
-        typography = MutuGembaTypography,
+        typography = mutuGembaTypography(),
         shapes = MutuGembaShapes,
     ) {
         Surface(color = colors.background) {
