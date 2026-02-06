@@ -30,6 +30,7 @@ fun AppLayout(
     onRouteSelected: (AppRoute) -> Unit,
     headerContent: @Composable () -> Unit,
     footerContent: @Composable () -> Unit,
+    scrollableContent: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     Row(
@@ -54,13 +55,20 @@ fun AppLayout(
                     .weight(1f),
         ) {
             headerContent()
+            val contentModifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(Spacing.lg)
+            val scrollModifier =
+                if (scrollableContent) {
+                    contentModifier.verticalScroll(rememberScrollState())
+                } else {
+                    contentModifier
+                }
             Box(
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(Spacing.lg)
-                        .verticalScroll(rememberScrollState()),
+                    scrollModifier,
                 contentAlignment = Alignment.TopCenter,
             ) {
                 MaterialTheme {

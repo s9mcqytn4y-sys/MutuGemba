@@ -1,5 +1,6 @@
 ﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
 
+import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
 import id.co.nierstyd.mutugemba.usecase.GetCtqParametersUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDefectTypesUseCase
@@ -25,5 +26,6 @@ data class MasterDataUseCaseBundle(
 data class InspectionScreenDependencies(
     val defaults: InspectionDefaultsUseCases,
     val createInspectionUseCase: CreateInspectionRecordUseCase,
+    val createBatchInspectionUseCase: CreateBatchInspectionRecordsUseCase,
     val masterData: MasterDataUseCaseBundle,
 )

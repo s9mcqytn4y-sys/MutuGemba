@@ -3,17 +3,22 @@
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
+import androidx.compose.material.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
+import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
+import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 
 @Composable
 fun AppDropdown(
@@ -24,21 +29,28 @@ fun AppDropdown(
     modifier: Modifier = Modifier,
     placeholder: String = "Pilih",
     enabled: Boolean = true,
+    helperText: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    OutlinedTextField(
-        value = selectedOption?.label ?: "",
-        onValueChange = {},
-        readOnly = true,
-        enabled = enabled,
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(enabled = enabled) { expanded = true },
-    )
+    Column(modifier = modifier) {
+        OutlinedTextField(
+            value = selectedOption?.label ?: "",
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text(label) },
+            placeholder = { Text(placeholder) },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = enabled) { expanded = true },
+            colors = dropdownColors(),
+        )
+        helperText?.let {
+            Text(text = it, color = NeutralTextMuted)
+        }
+    }
 
     DropdownMenu(
         expanded = expanded,
@@ -54,10 +66,20 @@ fun AppDropdown(
                 Column {
                     Text(option.label)
                     option.helper?.let {
-                        Text(it, color = NeutralTextMuted)
+                        Text(it, color = NeutralTextMuted, modifier = Modifier.padding(top = Spacing.xs))
                     }
                 }
             }
         }
     }
 }
+
+@Composable
+private fun dropdownColors() =
+    TextFieldDefaults.outlinedTextFieldColors(
+        focusedBorderColor = BrandBlue,
+        focusedLabelColor = BrandBlue,
+        cursorColor = BrandBlue,
+        unfocusedBorderColor = NeutralBorder,
+        disabledBorderColor = NeutralBorder,
+    )

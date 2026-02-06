@@ -7,6 +7,6 @@ object Sizing {
     val sidebarItemHeight = 52.dp
     val headerHeight = 72.dp
     val footerHeight = 48.dp
-    val contentMaxWidth = 900.dp
+    val contentMaxWidth = 1200.dp
     val controlHeightLarge = 48.dp
 }

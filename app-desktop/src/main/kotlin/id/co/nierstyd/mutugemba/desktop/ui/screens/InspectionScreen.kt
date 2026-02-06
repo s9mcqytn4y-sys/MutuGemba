@@ -1,39 +1,43 @@
-package id.co.nierstyd.mutugemba.desktop.ui.screens
+﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
-import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
-import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
-import id.co.nierstyd.mutugemba.desktop.ui.components.InfoCard
-import id.co.nierstyd.mutugemba.desktop.ui.components.MilestoneItem
-import id.co.nierstyd.mutugemba.desktop.ui.components.MilestonePanel
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
-import id.co.nierstyd.mutugemba.desktop.ui.components.WizardStepIndicator
+import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
+import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
 import id.co.nierstyd.mutugemba.desktop.ui.util.toDisplayLabel
-import id.co.nierstyd.mutugemba.domain.CtqParameter
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
-import id.co.nierstyd.mutugemba.domain.InspectionDefectSlot
 import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
@@ -44,14 +48,14 @@ import id.co.nierstyd.mutugemba.domain.Shift
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.InspectionDefaults
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InspectionScreen(
     dependencies: InspectionScreenDependencies,
-    onRecordSaved: (InspectionRecord) -> Unit,
+    onRecordsSaved: (List<InspectionRecord>) -> Unit,
 ) {
     val formState = remember { InspectionFormState(dependencies) }
 
@@ -60,157 +64,418 @@ fun InspectionScreen(
     }
 
     InspectionScreenContent(
-        state = formState.uiState,
-        onStepChange = formState::onStepChange,
-        onSaveRequest = { formState.onSave(onRecordSaved) },
+        state = formState,
+        onRecordsSaved = onRecordsSaved,
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun InspectionScreenContent(
-    state: InspectionUiState,
-    onStepChange: (Int) -> Unit,
-    onSaveRequest: () -> Unit,
+    state: InspectionFormState,
+    onRecordsSaved: (List<InspectionRecord>) -> Unit,
 ) {
-    Column(
+    val parts = state.partsForLine()
+
+    LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        SectionHeader(
-            title = "Input Inspeksi",
-            subtitle = "Ikuti 3 langkah agar data rapi dan konsisten.",
-        )
-        InfoCard(title = "Prosedur Singkat") {
-            Text("1. Pilih Line (Press / Sewing).")
-            Text("2. Isi tabel cacat sesuai jam produksi.")
-            Text("3. Konfirmasi lalu simpan.")
-        }
-        WizardStepIndicator(currentStep = state.currentStep, labels = state.stepLabels)
-        MilestonePanel(title = "Proses Input", items = state.milestoneItems)
-
-        when (state.currentStep) {
-            1 ->
-                ContextStepContent(
-                    state = state.context.state,
-                    options = state.context.options,
-                    actions = state.context.actions,
-                )
-
-            2 ->
-                InputStepContent(
-                    state = state.input.state,
-                    options = state.input.options,
-                    actions = state.input.actions,
-                )
-
-            else -> ConfirmStepContent(state = state.confirm)
+        item {
+            SectionHeader(
+                title = "Input Inspeksi Harian",
+                subtitle = "Pilih line, lalu isi lembar inspeksi untuk setiap part produksi.",
+            )
         }
 
-        state.feedback?.let { StatusBanner(feedback = it) }
-            ?: state.ctqWarning?.let { StatusBanner(feedback = it) }
+        item {
+            HeaderContextCard(
+                dateLabel = DateTimeFormats.formatDate(state.today),
+                shiftLabel = state.shiftLabel,
+            )
+        }
 
-        InspectionActions(
-            currentStep = state.currentStep,
-            onStepChange = onStepChange,
-            onSaveRequest = onSaveRequest,
-        )
+        item {
+            AppDropdown(
+                label = "Line Produksi",
+                options = state.lineOptions,
+                selectedOption = state.selectedLineOption,
+                onSelected = state::onLineSelected,
+                placeholder = "Pilih line produksi",
+                helperText = "Part akan muncul otomatis sesuai line.",
+            )
+        }
+
+        item {
+            AppDropdown(
+                label = "Jenis Inspeksi",
+                options = state.kindOptions,
+                selectedOption = state.selectedKindOption,
+                onSelected = state::onInspectionKindSelected,
+                placeholder = "Pilih jenis inspeksi",
+                helperText = "Saat ini fokus pada input cacat harian.",
+            )
+        }
+
+        stickyHeader {
+            SummaryStickyBar(summary = state.summaryTotals)
+        }
+
+        if (state.shouldShowModeWarning) {
+            item {
+                StatusBanner(feedback = state.modeWarning)
+            }
+        }
+
+        if (parts.isEmpty()) {
+            item {
+                EmptyPartState()
+            }
+        } else {
+            items(items = parts, key = { it.id }) { part ->
+                PartChecksheetCard(
+                    part = part,
+                    defectTypes = state.defectTypes,
+                    timeSlots = state.timeSlots,
+                    totalCheckInput = state.totalCheckInput(part.id),
+                    totalDefect = state.totalDefectQuantity(part.id),
+                    totalOk = state.totalOk(part.id),
+                    totalCheckInvalid = state.isTotalCheckInvalid(part.id),
+                    defectSlotValues = state.defectSlotInputs,
+                    expanded = state.isExpanded(part.id),
+                    onToggleExpanded = { state.toggleExpanded(part.id) },
+                    onTotalCheckChanged = { state.onTotalCheckChanged(part.id, it) },
+                    onDefectSlotChanged = { defectId, slot, value ->
+                        state.onDefectSlotChanged(part.id, defectId, slot, value)
+                    },
+                )
+            }
+        }
+
+        item {
+            state.feedback?.let { StatusBanner(feedback = it) }
+        }
+
+        item {
+            InspectionActionsBar(
+                canSave = state.canSave,
+                onSaveRequest = { state.onSaveRequested() },
+                onClearAll = { state.clearAllInputs() },
+            )
+        }
     }
+
+    InspectionConfirmDialog(
+        open = state.showConfirmDialog,
+        summaries = state.filledPartSummaries,
+        summaryTotals = state.summaryTotals,
+        onConfirm = {
+            state.onConfirmSave(onRecordsSaved)
+        },
+        onDismiss = { state.dismissConfirm() },
+    )
 }
 
-@Suppress("TooManyFunctions")
 private class InspectionFormState(
     private val dependencies: InspectionScreenDependencies,
 ) {
     private val defaults: InspectionDefaults = dependencies.defaults.getDefaults.execute()
-    private val stepLabels = listOf("Konteks", "Input", "Simpan")
-    private val timeSlots = InspectionTimeSlot.standardSlots()
+    val timeSlots: List<InspectionTimeSlot> = InspectionTimeSlot.standardSlots()
 
-    var currentStep by mutableStateOf(1)
+    var lines by mutableStateOf(emptyList<Line>())
+        private set
+    var shifts by mutableStateOf(emptyList<Shift>())
+        private set
+    var parts by mutableStateOf(emptyList<Part>())
+        private set
+    var defectTypes by mutableStateOf(emptyList<DefectType>())
         private set
 
-    private var lines by mutableStateOf(emptyList<Line>())
-    private var shifts by mutableStateOf(emptyList<Shift>())
-    private var parts by mutableStateOf(emptyList<Part>())
-    private var defectTypes by mutableStateOf(emptyList<DefectType>())
-    private var ctqParameters by mutableStateOf(emptyList<CtqParameter>())
-
     private var selectedLineId by mutableStateOf<Long?>(defaults.lineId)
-    private var selectedShiftId by mutableStateOf<Long?>(defaults.shiftId)
-    private var selectedPartId by mutableStateOf<Long?>(defaults.partId)
-    private var selectedCtqParameterId by mutableStateOf<Long?>(defaults.ctqParameterId)
     private var inspectionKind by mutableStateOf(defaults.kind ?: InspectionKind.DEFECT)
-    private var ctqValueInput by mutableStateOf("")
-    private var totalCheckInput by mutableStateOf("")
-    private val defectSlotInputs = androidx.compose.runtime.mutableStateMapOf<DefectSlotKey, String>()
 
     var feedback by mutableStateOf<UserFeedback?>(null)
         private set
+    var showConfirmDialog by mutableStateOf(false)
+        private set
 
-    val uiState: InspectionUiState
-        get() =
-            InspectionUiState(
-                stepLabels = stepLabels,
-                currentStep = currentStep,
-                milestoneItems = milestoneItems,
-                feedback = feedback,
-                ctqWarning = ctqWarning,
-                context =
-                    ContextStepBundle(
-                        state = contextState,
-                        options = contextOptions,
-                        actions = contextActions,
-                    ),
-                input =
-                    InputStepBundle(
-                        state = inputState,
-                        options = inputOptions,
-                        actions = inputActions,
-                    ),
-                confirm = confirmState,
+    val defectSlotInputs = mutableStateMapOf<PartDefectSlotKey, String>()
+    private val totalCheckInputs = mutableStateMapOf<Long, String>()
+    private val expandedPartIds = mutableStateMapOf<Long, Boolean>()
+
+    val today = java.time.LocalDate.now()
+
+    val lineOptions: List<DropdownOption>
+        get() = lines.map { DropdownOption(it.id, it.name) }
+
+    val kindOptions: List<DropdownOption>
+        get() = InspectionKind.values().map { DropdownOption(it.ordinal.toLong(), it.toDisplayLabel()) }
+
+    val selectedLineOption: DropdownOption?
+        get() = selectedLine?.let { DropdownOption(it.id, it.name) }
+
+    val selectedKindOption: DropdownOption?
+        get() = DropdownOption(inspectionKind.ordinal.toLong(), inspectionKind.toDisplayLabel())
+
+    val shiftLabel: String
+        get() = selectedShift?.let { "${it.code} • ${it.name}" } ?: "Shift 1 (08:00-17:00 WIB)"
+
+    val summaryTotals: SummaryTotals
+        get() {
+            val totals = partsForLine().map { partIdSummary(it.id) }
+            val totalCheck = totals.sumOf { it.totalCheck }
+            val totalDefect = totals.sumOf { it.totalDefect }
+            val totalOk = totals.sumOf { it.totalOk }
+            val ratio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
+            return SummaryTotals(
+                totalCheck = totalCheck,
+                totalDefect = totalDefect,
+                totalOk = totalOk,
+                ngRatio = ratio,
             )
+        }
+
+    val filledPartSummaries: List<PartSummaryRow>
+        get() =
+            partsForLine().mapNotNull { part ->
+                val summary = partIdSummary(part.id)
+                val hasData = summary.totalCheck > 0 || summary.totalDefect > 0
+                if (!hasData) {
+                    null
+                } else {
+                    PartSummaryRow(
+                        partNumber = part.partNumber,
+                        partName = part.name,
+                        totalCheck = summary.totalCheck,
+                        totalDefect = summary.totalDefect,
+                        totalOk = summary.totalOk,
+                    )
+                }
+            }
+
+    val modeWarning: UserFeedback
+        get() = UserFeedback(FeedbackType.WARNING, "Mode CTQ belum tersedia di input massal.")
+
+    val shouldShowModeWarning: Boolean
+        get() = inspectionKind == InspectionKind.CTQ
+
+    val canSave: Boolean
+        get() =
+            inspectionKind == InspectionKind.DEFECT &&
+                selectedLine != null &&
+                filledPartSummaries.isNotEmpty() &&
+                !hasInvalidTotals
+
+    private val selectedLine: Line?
+        get() = lines.firstOrNull { it.id == selectedLineId }
+
+    private val selectedShift: Shift?
+        get() = shifts.firstOrNull()
+
+    private val hasInvalidTotals: Boolean
+        get() = partsForLine().any { isTotalCheckInvalid(it.id) }
 
     fun loadMasterData() {
         lines = dependencies.masterData.getLines.execute()
         shifts = dependencies.masterData.getShifts.execute()
         parts = dependencies.masterData.getParts.execute()
         defectTypes = dependencies.masterData.getDefectTypes.execute()
-        ctqParameters = dependencies.masterData.getCtqParameters.execute()
         syncSelections()
-        ensureDefectInputs()
+        ensureInputs()
     }
 
-    fun onStepChange(nextStep: Int) {
-        val stepAllowed =
-            when (nextStep) {
-                2 -> validateStep(contextValid, "Lengkapi Line, Shift, dan Part sebelum lanjut.")
-                3 -> validateStep(inputValid, "Lengkapi input utama sebelum lanjut.")
-                else -> true
-            }
+    fun onLineSelected(option: DropdownOption) {
+        selectedLineId = option.id
+        ensureInputs()
+    }
 
-        if (stepAllowed) {
-            feedback = null
-            currentStep = nextStep
+    fun onInspectionKindSelected(option: DropdownOption) {
+        inspectionKind = InspectionKind.values()[option.id.toInt()]
+    }
+
+    fun partsForLine(): List<Part> {
+        val line = selectedLine
+        return if (line == null) {
+            emptyList()
+        } else {
+            parts.filter { it.lineCode == line.code }
         }
     }
 
-    fun onSave(onRecordSaved: (InspectionRecord) -> Unit) {
-        val result = dependencies.createInspectionUseCase.execute(buildInput())
+    fun totalCheckInput(partId: Long): String = totalCheckInputs[partId] ?: ""
+
+    fun totalDefectQuantity(partId: Long): Int = defectTypes.sumOf { defectRowTotal(partId, it.id) }
+
+    fun totalOk(partId: Long): Int {
+        val totalCheck = totalCheckInputs[partId]?.toIntOrNull() ?: 0
+        return (totalCheck - totalDefectQuantity(partId)).coerceAtLeast(0)
+    }
+
+    fun isTotalCheckInvalid(partId: Long): Boolean {
+        val totalCheck = totalCheckInputs[partId]?.toIntOrNull()
+        val totalDefect = totalDefectQuantity(partId)
+        return totalCheck != null && totalCheck < totalDefect
+    }
+
+    fun onTotalCheckChanged(
+        partId: Long,
+        value: String,
+    ) {
+        totalCheckInputs[partId] = value
+    }
+
+    fun onDefectSlotChanged(
+        partId: Long,
+        defectId: Long,
+        slot: InspectionTimeSlot,
+        value: String,
+    ) {
+        defectSlotInputs[PartDefectSlotKey(partId, defectId, slot)] = value
+    }
+
+    fun isExpanded(partId: Long): Boolean = expandedPartIds[partId] ?: false
+
+    fun toggleExpanded(partId: Long) {
+        val current = expandedPartIds[partId] ?: false
+        expandedPartIds[partId] = !current
+    }
+
+    fun onSaveRequested() {
+        feedback = null
+        if (inspectionKind == InspectionKind.CTQ) {
+            feedback = modeWarning
+            return
+        }
+        if (selectedLine == null || selectedShift == null) {
+            feedback = UserFeedback(FeedbackType.ERROR, "Pilih line produksi terlebih dahulu.")
+            return
+        }
+        if (filledPartSummaries.isEmpty()) {
+            feedback = UserFeedback(FeedbackType.ERROR, "Isi minimal satu part sebelum disimpan.")
+            return
+        }
+        if (hasInvalidTotals) {
+            feedback = UserFeedback(FeedbackType.ERROR, "Periksa total check yang kurang dari total cacat.")
+            return
+        }
+        showConfirmDialog = true
+    }
+
+    fun dismissConfirm() {
+        showConfirmDialog = false
+    }
+
+    fun onConfirmSave(onRecordsSaved: (List<InspectionRecord>) -> Unit) {
+        val inputs = buildInputs()
+        val result = dependencies.createBatchInspectionUseCase.execute(inputs)
         feedback = result.feedback
-        result.record?.let { record ->
-            onRecordSaved(record)
-            saveDefaults()
-            resetAfterSave()
+        showConfirmDialog = false
+        if (result.savedRecords.isNotEmpty()) {
+            onRecordsSaved(result.savedRecords)
+        }
+        if (result.feedback.type == FeedbackType.SUCCESS) {
+            clearAllInputs()
+        }
+        saveDefaults()
+    }
+
+    fun clearAllInputs() {
+        totalCheckInputs.keys.toList().forEach { totalCheckInputs[it] = "" }
+        defectSlotInputs.keys.toList().forEach { defectSlotInputs[it] = "" }
+    }
+
+    private fun buildInputs(): List<InspectionInput> {
+        val line = selectedLine ?: return emptyList()
+        val shift = selectedShift ?: return emptyList()
+        val createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+        return partsForLine().mapNotNull { part ->
+            val defectEntries = buildDefectEntries(part.id)
+            val totalCheck = totalCheckInputs[part.id]?.toIntOrNull()
+            val hasData = defectEntries.sumOf { it.totalQuantity } > 0 || (totalCheck ?: 0) > 0
+            if (!hasData) {
+                null
+            } else {
+                InspectionInput(
+                    kind = inspectionKind,
+                    lineId = line.id,
+                    shiftId = shift.id,
+                    partId = part.id,
+                    totalCheck = totalCheck,
+                    defectTypeId = null,
+                    defectQuantity = null,
+                    defects = defectEntries,
+                    ctqParameterId = null,
+                    ctqValue = null,
+                    createdAt = createdAt,
+                )
+            }
         }
     }
 
-    private fun validateStep(
-        isValid: Boolean,
-        errorMessage: String,
-    ): Boolean {
-        if (!isValid) {
-            feedback = UserFeedback(FeedbackType.ERROR, errorMessage)
+    private fun buildDefectEntries(partId: Long): List<InspectionDefectEntry> =
+        defectTypes.mapNotNull { defect ->
+            val slots =
+                timeSlots.mapNotNull { slot ->
+                    val quantity = slotQuantity(partId, defect.id, slot)
+                    if (quantity > 0) {
+                        id.co.nierstyd.mutugemba.domain.InspectionDefectSlot(slot, quantity)
+                    } else {
+                        null
+                    }
+                }
+            val total = slots.sumOf { it.quantity }
+            if (total > 0) {
+                InspectionDefectEntry(defectTypeId = defect.id, quantity = total, slots = slots)
+            } else {
+                null
+            }
         }
-        return isValid
+
+    private fun slotQuantity(
+        partId: Long,
+        defectId: Long,
+        slot: InspectionTimeSlot,
+    ): Int =
+        defectSlotInputs[PartDefectSlotKey(partId, defectId, slot)]
+            ?.toIntOrNull()
+            ?: 0
+
+    private fun defectRowTotal(
+        partId: Long,
+        defectId: Long,
+    ): Int = timeSlots.sumOf { slot -> slotQuantity(partId, defectId, slot) }
+
+    private fun partIdSummary(partId: Long): PartTotals {
+        val totalCheck = totalCheckInputs[partId]?.toIntOrNull() ?: 0
+        val totalDefect = totalDefectQuantity(partId)
+        val totalOk = (totalCheck - totalDefect).coerceAtLeast(0)
+        return PartTotals(totalCheck = totalCheck, totalDefect = totalDefect, totalOk = totalOk)
+    }
+
+    private fun syncSelections() {
+        selectedLineId = resolveSelection(selectedLineId, defaults.lineId, lines.map { it.id })
+    }
+
+    private fun ensureInputs() {
+        val validPartIds = partsForLine().map { it.id }.toSet()
+        totalCheckInputs.keys.filter { it !in validPartIds }.forEach { totalCheckInputs.remove(it) }
+        expandedPartIds.keys.filter { it !in validPartIds }.forEach { expandedPartIds.remove(it) }
+        defectSlotInputs.keys.filter { it.partId !in validPartIds }.forEach { defectSlotInputs.remove(it) }
+        validPartIds.forEach { partId ->
+            totalCheckInputs.putIfAbsent(partId, "")
+            expandedPartIds.putIfAbsent(partId, false)
+        }
+        if (expandedPartIds.values.none { it } && validPartIds.isNotEmpty()) {
+            expandedPartIds[validPartIds.first()] = true
+        }
+        defectTypes.forEach { defect ->
+            validPartIds.forEach { partId ->
+                timeSlots.forEach { slot ->
+                    defectSlotInputs.putIfAbsent(PartDefectSlotKey(partId, defect.id, slot), "")
+                }
+            }
+        }
     }
 
     private fun saveDefaults() {
@@ -218,573 +483,165 @@ private class InspectionFormState(
             defaults.copy(
                 lineId = selectedLine?.id,
                 shiftId = selectedShift?.id,
-                partId = selectedPart?.id,
-                ctqParameterId = selectedCtqParameter?.id,
                 kind = inspectionKind,
             ),
         )
     }
-
-    private fun resetAfterSave() {
-        currentStep = 1
-        ctqValueInput = ""
-        totalCheckInput = ""
-        defectSlotInputs.keys.toList().forEach { defectSlotInputs[it] = "" }
-    }
-
-    private fun buildInput(): InspectionInput {
-        val createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        val defectEntries = buildDefectEntries()
-        return InspectionInput(
-            kind = inspectionKind,
-            lineId = selectedLine?.id ?: 0L,
-            shiftId = selectedShift?.id ?: 0L,
-            partId = selectedPart?.id ?: 0L,
-            totalCheck = totalCheck,
-            defectTypeId = null,
-            defectQuantity = null,
-            defects = defectEntries,
-            ctqParameterId = selectedCtqParameter?.id,
-            ctqValue = ctqValue,
-            createdAt = createdAt,
-        )
-    }
-
-    private fun syncSelections() {
-        selectedLineId = resolveSelection(selectedLineId, defaults.lineId, lines.map { it.id })
-        selectedShiftId = resolveSelection(selectedShiftId, defaults.shiftId, shifts.map { it.id })
-        selectedPartId =
-            resolveSelection(selectedPartId, defaults.partId, partsForLine().map { it.id })
-        selectedCtqParameterId =
-            resolveSelection(selectedCtqParameterId, defaults.ctqParameterId, ctqParameters.map { it.id })
-    }
-
-    private val selectedLine: Line?
-        get() = lines.firstOrNull { it.id == selectedLineId }
-
-    private val selectedShift: Shift?
-        get() = shifts.firstOrNull { it.id == selectedShiftId }
-
-    private val selectedPart: Part?
-        get() = partsForLine().firstOrNull { it.id == selectedPartId }
-
-    private val selectedCtqParameter: CtqParameter?
-        get() = ctqParameters.firstOrNull { it.id == selectedCtqParameterId }
-
-    private val ctqValue: Double?
-        get() = ctqValueInput.toDoubleOrNull()
-
-    private val totalCheck: Int?
-        get() = totalCheckInput.toIntOrNull()
-
-    private val contextValid: Boolean
-        get() = selectedLine != null && selectedShift != null && selectedPart != null
-
-    private val inputValid: Boolean
-        get() =
-            when (inspectionKind) {
-                InspectionKind.DEFECT -> {
-                    val totalNg = totalDefectQuantity
-                    val totalCheckValue = totalCheck
-                    val totalCheckValid = totalCheckValue == null || totalCheckValue >= totalNg
-                    totalNg > 0 && totalCheckValid
-                }
-                InspectionKind.CTQ -> selectedCtqParameter != null && ctqValue != null
-            }
-
-    private val milestoneItems: List<MilestoneItem>
-        get() =
-            listOf(
-                MilestoneItem(
-                    title = "Konteks",
-                    subtitle = "Line, shift, dan part",
-                    status = milestoneStatus(currentStep, 1, contextValid),
-                ),
-                MilestoneItem(
-                    title = "Input",
-                    subtitle = "Detail cacat / CTQ",
-                    status = milestoneStatus(currentStep, 2, inputValid),
-                ),
-                MilestoneItem(
-                    title = "Simpan",
-                    subtitle = "Konfirmasi dan simpan",
-                    status = milestoneStatus(currentStep, 3, contextValid && inputValid),
-                ),
-            )
-
-    private val ctqWarning: UserFeedback?
-        get() =
-            if (inspectionKind == InspectionKind.CTQ) {
-                buildCtqWarning(selectedCtqParameter, ctqValue)
-            } else {
-                null
-            }
-
-    private val contextState: ContextStepState
-        get() =
-            ContextStepState(
-                selectedLine = selectedLine,
-                selectedShift = selectedShift,
-                selectedPart = selectedPart,
-            )
-
-    private val contextOptions: ContextStepOptions
-        get() =
-            ContextStepOptions(
-                lineOptions = lines.map { DropdownOption(it.id, it.name) },
-                shiftOptions =
-                    shifts.map { shift ->
-                        DropdownOption(
-                            id = shift.id,
-                            label = "${shift.code} - ${shift.name}",
-                            helper = shiftTimeLabel(shift),
-                        )
-                    },
-                partOptions =
-                    partsForLine().map { part ->
-                        DropdownOption(
-                            id = part.id,
-                            label = "${part.partNumber} - ${part.name}",
-                            helper = "${part.model} | ${part.material}",
-                        )
-                    },
-            )
-
-    private val contextActions: ContextStepActions =
-        ContextStepActions(
-            onLineSelected = { option ->
-                selectedLineId = option.id
-                selectedPartId = partsForLine().firstOrNull()?.id
-            },
-            onShiftSelected = { selectedShiftId = it.id },
-            onPartSelected = { selectedPartId = it.id },
-        )
-
-    private val inputState: InputStepState
-        get() =
-            InputStepState(
-                inspectionKind = inspectionKind,
-                selectedCtqParameter = selectedCtqParameter,
-                ctqValueInput = ctqValueInput,
-                defectTypes = defectTypes,
-                timeSlots = timeSlots,
-                defectSlotValues = defectSlotInputs.toMap(),
-                totalCheckInput = totalCheckInput,
-                totalDefectQuantity = totalDefectQuantity,
-                totalCheck = totalCheck,
-                totalOk = totalOk,
-                selectedPart = selectedPart,
-            )
-
-    private val inputOptions: InputStepOptions
-        get() =
-            InputStepOptions(
-                ctqOptions =
-                    ctqParameters.map { ctq ->
-                        DropdownOption(
-                            id = ctq.id,
-                            label = "${ctq.code} - ${ctq.name}",
-                            helper = ctqLimitLabel(ctq),
-                        )
-                    },
-            )
-
-    private val inputActions: InputStepActions =
-        InputStepActions(
-            onInspectionKindChanged = { inspectionKind = it },
-            onCtqParameterSelected = { selectedCtqParameterId = it.id },
-            onDefectSlotChanged = { defectId, slot, value ->
-                defectSlotInputs[DefectSlotKey(defectId, slot)] = value
-            },
-            onTotalCheckChanged = { totalCheckInput = it },
-            onCtqValueChanged = { ctqValueInput = it },
-        )
-
-    private val confirmState: ConfirmStepState
-        get() =
-            ConfirmStepState(
-                context =
-                    ConfirmContextSummary(
-                        line = selectedLine,
-                        shift = selectedShift,
-                        part = selectedPart,
-                    ),
-                input =
-                    ConfirmInputSummary(
-                        inspectionKind = inspectionKind,
-                        defects = defectSummaries,
-                        totalCheck = totalCheck,
-                        totalNg = totalDefectQuantity,
-                        totalOk = totalOk,
-                        ctqParameter = selectedCtqParameter,
-                        ctqValue = ctqValue,
-                    ),
-            )
-
-    private fun partsForLine(): List<Part> {
-        val line = selectedLine
-        return if (line == null) {
-            parts
-        } else {
-            parts.filter { it.lineCode == line.code }
-        }
-    }
-
-    private fun ensureDefectInputs() {
-        val validKeys =
-            buildSet {
-                defectTypes.forEach { defect ->
-                    timeSlots.forEach { slot ->
-                        add(DefectSlotKey(defect.id, slot))
-                    }
-                }
-            }
-        defectSlotInputs.keys.filter { it !in validKeys }.forEach { defectSlotInputs.remove(it) }
-        validKeys.forEach { key ->
-            defectSlotInputs.putIfAbsent(key, "")
-        }
-    }
-
-    private fun slotQuantity(
-        defectId: Long,
-        slot: InspectionTimeSlot,
-    ): Int =
-        defectSlotInputs[DefectSlotKey(defectId, slot)]
-            ?.toIntOrNull()
-            ?: 0
-
-    private fun defectRowTotal(defectId: Long): Int = timeSlots.sumOf { slot -> slotQuantity(defectId, slot) }
-
-    private val totalDefectQuantity: Int
-        get() = defectTypes.sumOf { defectRowTotal(it.id) }
-
-    private val totalOk: Int
-        get() = ((totalCheck ?: 0) - totalDefectQuantity).coerceAtLeast(0)
-
-    private val defectSummaries: List<DefectSummary>
-        get() =
-            defectTypes.mapNotNull { defect ->
-                val qty = defectRowTotal(defect.id)
-                if (qty > 0) {
-                    DefectSummary(defect = defect, quantity = qty)
-                } else {
-                    null
-                }
-            }
-
-    private fun buildDefectEntries(): List<InspectionDefectEntry> =
-        defectTypes.mapNotNull { defect ->
-            val slots =
-                timeSlots.mapNotNull { slot ->
-                    val qty = slotQuantity(defect.id, slot)
-                    if (qty > 0) {
-                        InspectionDefectSlot(slot, qty)
-                    } else {
-                        null
-                    }
-                }
-            val total = slots.sumOf { it.quantity }
-            if (total > 0) {
-                InspectionDefectEntry(
-                    defectTypeId = defect.id,
-                    quantity = total,
-                    slots = slots,
-                )
-            } else {
-                null
-            }
-        }
 }
 
 @Composable
-private fun ContextStepContent(
-    state: ContextStepState,
-    options: ContextStepOptions,
-    actions: ContextStepActions,
+private fun HeaderContextCard(
+    dateLabel: String,
+    shiftLabel: String,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        InfoCard(title = "Default Konteks") {
-            Text("Tanggal: ${DateTimeFormats.formatDate(LocalDate.now())}")
-            Text("Mode: Offline - Lokal", color = NeutralTextMuted)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.medium,
+        elevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(text = "Tanggal", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(text = dateLabel, style = MaterialTheme.typography.h6)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs), horizontalAlignment = Alignment.End) {
+                Text(text = "Shift Aktif", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(text = shiftLabel, style = MaterialTheme.typography.subtitle1)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryStickyBar(summary: SummaryTotals) {
+    Surface(
+        color = NeutralSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        shape = MaterialTheme.shapes.medium,
+        elevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            SummaryStat(title = "Total Periksa", value = summary.totalCheck.toString())
+            SummaryStat(title = "Total Cacat", value = summary.totalDefect.toString())
+            SummaryStat(title = "Total OK", value = summary.totalOk.toString())
+            SummaryStat(title = "Rasio NG", value = formatPercent(summary.ngRatio))
+        }
+    }
+}
+
+@Composable
+private fun RowScope.SummaryStat(
+    title: String,
+    value: String,
+) {
+    Column(modifier = Modifier.weight(1f)) {
+        Text(text = title, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        Text(text = value, style = MaterialTheme.typography.subtitle1)
+    }
+}
+
+@Composable
+private fun EmptyPartState() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.medium,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Text("Belum ada part untuk line ini.", style = MaterialTheme.typography.body1)
             Text(
-                "Shift: ${state.selectedShift?.let { "${it.code} - ${it.name}" } ?: "-"}",
+                "Periksa master part atau ganti line produksi.",
+                style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )
         }
-
-        AppDropdown(
-            label = "Line",
-            options = options.lineOptions,
-            selectedOption = state.selectedLine?.let { DropdownOption(it.id, it.name) },
-            onSelected = actions.onLineSelected,
-            placeholder = "Pilih Line",
-        )
-        AppDropdown(
-            label = "Shift",
-            options = options.shiftOptions,
-            selectedOption =
-                state.selectedShift?.let { shift ->
-                    DropdownOption(
-                        id = shift.id,
-                        label = "${shift.code} - ${shift.name}",
-                        helper = shiftTimeLabel(shift),
-                    )
-                },
-            onSelected = actions.onShiftSelected,
-            placeholder = "Pilih Shift",
-            enabled = options.shiftOptions.size > 1,
-        )
-        AppDropdown(
-            label = "Produk / Part",
-            options = options.partOptions,
-            selectedOption =
-                state.selectedPart?.let { part ->
-                    DropdownOption(
-                        id = part.id,
-                        label = "${part.partNumber} - ${part.name}",
-                        helper = "${part.model} | ${part.material}",
-                    )
-                },
-            onSelected = actions.onPartSelected,
-            placeholder = "Pilih Part",
-        )
-
-        state.selectedPart?.let { part ->
-            InfoCard(title = "Detail Part") {
-                Text("Part Number: ${part.partNumber}")
-                Text("Model: ${part.model}")
-                Text("Nama: ${part.name}")
-                Text("UNIQ Code: ${part.uniqCode}")
-                Text("Material: ${part.material}")
-            }
-        }
     }
 }
 
 @Composable
-private fun InputStepContent(
-    state: InputStepState,
-    options: InputStepOptions,
-    actions: InputStepActions,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        val kindOptions =
-            InspectionKind.values().map { kind ->
-                DropdownOption(kind.ordinal.toLong(), kind.toDisplayLabel())
-            }
-        AppDropdown(
-            label = "Jenis Inspeksi",
-            options = kindOptions,
-            selectedOption =
-                DropdownOption(
-                    state.inspectionKind.ordinal.toLong(),
-                    state.inspectionKind.toDisplayLabel(),
-                ),
-            onSelected = { option -> actions.onInspectionKindChanged(InspectionKind.values()[option.id.toInt()]) },
-        )
-
-        when (state.inspectionKind) {
-            InspectionKind.DEFECT -> {
-                DefectTableContent(
-                    state = state,
-                    actions = actions,
-                )
-            }
-
-            InspectionKind.CTQ -> {
-                AppDropdown(
-                    label = "Parameter CTQ",
-                    options = options.ctqOptions,
-                    selectedOption =
-                        state.selectedCtqParameter?.let { ctq ->
-                            DropdownOption(
-                                id = ctq.id,
-                                label = "${ctq.code} - ${ctq.name}",
-                                helper = ctqLimitLabel(ctq),
-                            )
-                        },
-                    onSelected = actions.onCtqParameterSelected,
-                    placeholder = "Pilih Parameter CTQ",
-                )
-                AppNumberField(
-                    spec =
-                        FieldSpec(
-                            label = "Nilai CTQ",
-                            placeholder = "Contoh: 10.02",
-                            helperText =
-                                state.selectedCtqParameter?.let { ctqLimitLabel(it) }
-                                    ?: "Masukkan hasil pengukuran.",
-                        ),
-                    value = state.ctqValueInput,
-                    onValueChange = actions.onCtqValueChanged,
-                    allowDecimal = true,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ConfirmStepContent(state: ConfirmStepState) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        InfoCard(title = "Ringkasan Input") {
-            Text("Jenis inspeksi: ${state.input.inspectionKind.toDisplayLabel()}")
-            Text("Line: ${state.context.line?.name ?: "-"}")
-            Text("Shift: ${state.context.shift?.name ?: "-"}")
-            Text("Part: ${state.partLabel}")
-            when (state.input.inspectionKind) {
-                InspectionKind.DEFECT -> {
-                    if (state.input.defects.isEmpty()) {
-                        Text("Cacat: -")
-                    } else {
-                        state.input.defects.forEach { defect ->
-                            Text("Cacat: ${defect.defect.name} (Qty: ${defect.quantity})")
-                        }
-                    }
-                    Text("Total NG: ${state.input.totalNg}")
-                    Text("Total Check: ${state.input.totalCheck?.toString() ?: "-"}")
-                    Text("Total OK: ${state.totalOkLabel}")
-                }
-
-                InspectionKind.CTQ ->
-                    Text(
-                        "CTQ: ${state.input.ctqParameter?.name ?: "-"} " +
-                            "(Nilai: ${state.ctqValueLabel})",
-                    )
-            }
-        }
-    }
-}
-
-@Composable
-private fun InspectionActions(
-    currentStep: Int,
-    onStepChange: (Int) -> Unit,
+private fun InspectionActionsBar(
+    canSave: Boolean,
     onSaveRequest: () -> Unit,
+    onClearAll: () -> Unit,
 ) {
-    Spacer(modifier = Modifier.height(Spacing.md))
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         SecondaryButton(
-            text = "Kembali",
-            onClick = { if (currentStep > 1) onStepChange(currentStep - 1) },
-            enabled = currentStep > 1,
+            text = "Bersihkan Semua",
+            onClick = onClearAll,
         )
+        Spacer(modifier = Modifier.weight(1f))
         PrimaryButton(
-            text = if (currentStep < 3) "Lanjut" else "Simpan",
-            onClick = {
-                if (currentStep < 3) {
-                    onStepChange(currentStep + 1)
-                } else {
-                    onSaveRequest()
-                }
-            },
+            text = "Konfirmasi & Simpan",
+            onClick = onSaveRequest,
+            enabled = canSave,
         )
     }
 }
 
-private data class InspectionUiState(
-    val stepLabels: List<String>,
-    val currentStep: Int,
-    val milestoneItems: List<MilestoneItem>,
-    val feedback: UserFeedback?,
-    val ctqWarning: UserFeedback?,
-    val context: ContextStepBundle,
-    val input: InputStepBundle,
-    val confirm: ConfirmStepState,
-)
-
-private data class ContextStepBundle(
-    val state: ContextStepState,
-    val options: ContextStepOptions,
-    val actions: ContextStepActions,
-)
-
-private data class InputStepBundle(
-    val state: InputStepState,
-    val options: InputStepOptions,
-    val actions: InputStepActions,
-)
-
-private data class ContextStepState(
-    val selectedLine: Line?,
-    val selectedShift: Shift?,
-    val selectedPart: Part?,
-)
-
-private data class ContextStepOptions(
-    val lineOptions: List<DropdownOption>,
-    val shiftOptions: List<DropdownOption>,
-    val partOptions: List<DropdownOption>,
-)
-
-private data class ContextStepActions(
-    val onLineSelected: (DropdownOption) -> Unit,
-    val onShiftSelected: (DropdownOption) -> Unit,
-    val onPartSelected: (DropdownOption) -> Unit,
-)
-
-internal data class InputStepState(
-    val inspectionKind: InspectionKind,
-    val selectedCtqParameter: CtqParameter?,
-    val ctqValueInput: String,
-    val defectTypes: List<DefectType>,
-    val timeSlots: List<InspectionTimeSlot>,
-    val defectSlotValues: Map<DefectSlotKey, String>,
-    val totalCheckInput: String,
-    val totalDefectQuantity: Int,
-    val totalCheck: Int?,
-    val totalOk: Int,
-    val selectedPart: Part?,
-)
-
-internal data class InputStepOptions(
-    val ctqOptions: List<DropdownOption>,
-)
-
-internal data class InputStepActions(
-    val onInspectionKindChanged: (InspectionKind) -> Unit,
-    val onCtqParameterSelected: (DropdownOption) -> Unit,
-    val onDefectSlotChanged: (Long, InspectionTimeSlot, String) -> Unit,
-    val onTotalCheckChanged: (String) -> Unit,
-    val onCtqValueChanged: (String) -> Unit,
-)
-
-private data class ConfirmContextSummary(
-    val line: Line?,
-    val shift: Shift?,
-    val part: Part?,
-)
-
-private data class ConfirmInputSummary(
-    val inspectionKind: InspectionKind,
-    val defects: List<DefectSummary>,
-    val totalCheck: Int?,
-    val totalNg: Int,
-    val totalOk: Int,
-    val ctqParameter: CtqParameter?,
-    val ctqValue: Double?,
-)
-
-private data class ConfirmStepState(
-    val context: ConfirmContextSummary,
-    val input: ConfirmInputSummary,
+@Composable
+private fun InspectionConfirmDialog(
+    open: Boolean,
+    summaries: List<PartSummaryRow>,
+    summaryTotals: SummaryTotals,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    val partLabel: String
-        get() = "${context.part?.partNumber ?: "-"} - ${context.part?.name ?: "-"}"
+    if (!open) {
+        return
+    }
 
-    val ctqValueLabel: String
-        get() = formatDecimal(input.ctqValue)
-
-    val totalOkLabel: String
-        get() = input.totalCheck?.let { input.totalOk.toString() } ?: "-"
+    androidx.compose.material.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Konfirmasi Simpan") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Text(
+                    "Data inspeksi akan disimpan dan tidak bisa diubah kembali.",
+                    style = MaterialTheme.typography.body2,
+                )
+                Text("Ringkasan Part Terisi", style = MaterialTheme.typography.subtitle1)
+                summaries.forEach { row ->
+                    Text("${row.partNumber} • ${row.partName} (OK: ${row.totalOk}, NG: ${row.totalDefect})")
+                }
+                Spacer(modifier = Modifier.height(Spacing.sm))
+                Text(
+                    "Total Periksa: ${summaryTotals.totalCheck} | Total NG: ${summaryTotals.totalDefect} | Total OK: ${summaryTotals.totalOk}",
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
+            }
+        },
+        confirmButton = {
+            PrimaryButton(text = "Simpan Sekarang", onClick = onConfirm)
+        },
+        dismissButton = {
+            SecondaryButton(text = "Batal", onClick = onDismiss)
+        },
+    )
 }
 
-private data class DefectSummary(
-    val defect: DefectType,
-    val quantity: Int,
-)
-
-internal data class DefectSlotKey(
-    val defectTypeId: Long,
-    val slot: InspectionTimeSlot,
-)
+private fun formatPercent(value: Double): String =
+    if (value <= 0.0) {
+        "-"
+    } else {
+        "${"%.1f".format(value * 100)}%"
+    }

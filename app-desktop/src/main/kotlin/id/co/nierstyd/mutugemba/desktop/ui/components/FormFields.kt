@@ -4,12 +4,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
+import androidx.compose.material.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
+import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 
 @Composable
@@ -32,6 +35,7 @@ fun AppTextField(
             modifier = Modifier.fillMaxWidth(),
             singleLine = singleLine,
             visualTransformation = visualTransformation,
+            colors = defaultTextFieldColors(),
         )
         spec.helperText?.let {
             Text(text = it, color = NeutralTextMuted)
@@ -72,6 +76,8 @@ fun CompactNumberField(
             placeholder = { Text(placeholder) },
             singleLine = true,
             textStyle = TextStyle(textAlign = TextAlign.Center),
+            modifier = Modifier.fillMaxWidth(),
+            colors = defaultTextFieldColors(),
         )
     }
 }
@@ -94,3 +100,13 @@ private fun filterNumberInput(
     }
     return builder.toString()
 }
+
+@Composable
+private fun defaultTextFieldColors() =
+    TextFieldDefaults.outlinedTextFieldColors(
+        focusedBorderColor = BrandBlue,
+        focusedLabelColor = BrandBlue,
+        cursorColor = BrandBlue,
+        unfocusedBorderColor = NeutralBorder,
+        disabledBorderColor = NeutralBorder,
+    )

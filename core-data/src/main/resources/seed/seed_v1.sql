@@ -7,7 +7,7 @@ INSERT OR IGNORE INTO master_line(id, code, name, is_active)
 VALUES (2, 'SEWING', 'Sewing', 1);
 
 INSERT OR IGNORE INTO master_shift(id, code, name, start_time, end_time, is_active)
-VALUES (1, 'S1', 'Shift 1 (08:00-17:00)', '08:00', '17:00', 1);
+VALUES (1, 'S1', 'Shift 1 (08:00-17:00 WIB)', '08:00', '17:00', 1);
 
 INSERT OR IGNORE INTO master_part(id, part_number, model, name, uniq_code, material, picture_path, line_code, is_active)
 VALUES (1, 'PN-1001', 'Model-Press', 'Housing Assy', 'HG-A-001', 'Aluminium', NULL, 'PRESS', 1);

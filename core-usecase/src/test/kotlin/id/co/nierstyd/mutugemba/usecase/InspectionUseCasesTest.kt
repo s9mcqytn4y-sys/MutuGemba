@@ -15,7 +15,7 @@ import java.time.LocalDate
 class InspectionUseCasesTest {
     @Test
     fun `reject duplicate daily input for non-admin`() {
-        val repository = FakeInspectionRepository(hasDuplicate = true)
+        val repository = FakeInspectionRepository(duplicatePartIds = setOf(1L))
         val useCase = CreateInspectionRecordUseCase(repository)
         val defectEntries = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1))
 
@@ -42,7 +42,7 @@ class InspectionUseCasesTest {
 
     @Test
     fun `allow duplicate daily input for admin`() {
-        val repository = FakeInspectionRepository(hasDuplicate = true)
+        val repository = FakeInspectionRepository(duplicatePartIds = setOf(1L))
         val useCase = CreateInspectionRecordUseCase(repository)
         val defectEntries = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1))
 
@@ -68,7 +68,7 @@ class InspectionUseCasesTest {
 
     @Test
     fun `reject total check below total defect`() {
-        val repository = FakeInspectionRepository(hasDuplicate = false)
+        val repository = FakeInspectionRepository()
         val useCase = CreateInspectionRecordUseCase(repository)
         val defectEntries = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 3))
 
@@ -92,10 +92,53 @@ class InspectionUseCasesTest {
         assertEquals(FeedbackType.ERROR, result.feedback.type)
         assertNull(repository.lastInserted)
     }
+
+    @Test
+    fun `batch save returns warning when some part fails`() {
+        val repository = FakeInspectionRepository(duplicatePartIds = setOf(2L))
+        val singleUseCase = CreateInspectionRecordUseCase(repository)
+        val batchUseCase = CreateBatchInspectionRecordsUseCase(singleUseCase)
+
+        val inputs =
+            listOf(
+                InspectionInput(
+                    kind = InspectionKind.DEFECT,
+                    lineId = 1,
+                    shiftId = 1,
+                    partId = 1,
+                    totalCheck = 10,
+                    defectTypeId = null,
+                    defectQuantity = null,
+                    defects = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1)),
+                    ctqParameterId = null,
+                    ctqValue = null,
+                    createdAt = "2026-02-05T08:00:00",
+                ),
+                InspectionInput(
+                    kind = InspectionKind.DEFECT,
+                    lineId = 1,
+                    shiftId = 1,
+                    partId = 2,
+                    totalCheck = 10,
+                    defectTypeId = null,
+                    defectQuantity = null,
+                    defects = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1)),
+                    ctqParameterId = null,
+                    ctqValue = null,
+                    createdAt = "2026-02-05T08:00:00",
+                ),
+            )
+
+        val result = batchUseCase.execute(inputs)
+
+        assertEquals(FeedbackType.WARNING, result.feedback.type)
+        assertEquals(1, result.failedParts.size)
+        assertEquals(1, result.savedRecords.size)
+    }
 }
 
 private class FakeInspectionRepository(
-    private val hasDuplicate: Boolean,
+    private val duplicatePartIds: Set<Long> = emptySet(),
 ) : InspectionRepository {
     var lastInserted: InspectionInput? = null
 
@@ -119,7 +162,7 @@ private class FakeInspectionRepository(
         lineId: Long,
         partId: Long,
         date: LocalDate,
-    ): Boolean = hasDuplicate
+    ): Boolean = duplicatePartIds.contains(partId)
 
     override fun getChecksheetEntriesForDate(
         lineId: Long,

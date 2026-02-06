@@ -27,6 +27,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.theme.MutuGembaTheme
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
+import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetCtqParametersUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDefectTypesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetInspectionDefaultsUseCase
@@ -50,6 +51,8 @@ fun MutuGembaApp() {
     val inspectionRepository = remember { SqlDelightInspectionRepository(database) }
     val masterDataRepository = remember { SqlDelightMasterDataRepository(database) }
     val createInspectionUseCase = remember { CreateInspectionRecordUseCase(inspectionRepository) }
+    val createBatchInspectionUseCase =
+        remember { CreateBatchInspectionRecordsUseCase(createInspectionUseCase) }
     val getRecentInspectionsUseCase = remember { GetRecentInspectionsUseCase(inspectionRepository) }
     val getLinesUseCase = remember { GetLinesUseCase(masterDataRepository) }
     val getShiftsUseCase = remember { GetShiftsUseCase(masterDataRepository) }
@@ -65,6 +68,7 @@ fun MutuGembaApp() {
                         saveDefaults = saveInspectionDefaultsUseCase,
                     ),
                 createInspectionUseCase = createInspectionUseCase,
+                createBatchInspectionUseCase = createBatchInspectionUseCase,
                 masterData =
                     MasterDataUseCaseBundle(
                         getLines = getLinesUseCase,
@@ -98,6 +102,7 @@ fun MutuGembaApp() {
             routes = AppRoute.values().toList(),
             currentRoute = currentRoute,
             onRouteSelected = { currentRoute = it },
+            scrollableContent = currentRoute != AppRoute.Inspection,
             headerContent = {
                 HeaderBar(
                     title = "MutuGemba",
@@ -121,7 +126,7 @@ fun MutuGembaApp() {
                 AppRoute.Inspection ->
                     InspectionScreen(
                         dependencies = inspectionDependencies,
-                        onRecordSaved = {
+                        onRecordsSaved = {
                             inspectionRecords = getRecentInspectionsUseCase.execute()
                         },
                     )

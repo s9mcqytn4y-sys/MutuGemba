@@ -27,6 +27,23 @@ data class CreateInspectionResult(
     val feedback: UserFeedback,
 )
 
+data class PartSaveResult(
+    val partId: Long,
+    val record: InspectionRecord?,
+    val feedback: UserFeedback,
+)
+
+data class BatchInspectionResult(
+    val results: List<PartSaveResult>,
+    val feedback: UserFeedback,
+) {
+    val savedRecords: List<InspectionRecord>
+        get() = results.mapNotNull { it.record }
+
+    val failedParts: List<PartSaveResult>
+        get() = results.filter { it.record == null }
+}
+
 class CreateInspectionRecordUseCase(
     private val repository: InspectionRepository,
 ) {
@@ -127,6 +144,48 @@ class CreateInspectionRecordUseCase(
         } else {
             emptyList()
         }
+    }
+}
+
+class CreateBatchInspectionRecordsUseCase(
+    private val createInspectionRecordUseCase: CreateInspectionRecordUseCase,
+) {
+    fun execute(
+        inputs: List<InspectionInput>,
+        actorRole: UserRole = UserRole.USER,
+    ): BatchInspectionResult {
+        if (inputs.isEmpty()) {
+            return BatchInspectionResult(
+                results = emptyList(),
+                feedback = UserFeedback(FeedbackType.ERROR, "Isi minimal satu part sebelum disimpan."),
+            )
+        }
+
+        val results =
+            inputs.map { input ->
+                val result = createInspectionRecordUseCase.execute(input, actorRole)
+                PartSaveResult(
+                    partId = input.partId,
+                    record = result.record,
+                    feedback = result.feedback,
+                )
+            }
+
+        val failed = results.count { it.record == null }
+        val feedback =
+            when {
+                failed == 0 ->
+                    UserFeedback(FeedbackType.SUCCESS, "Semua data inspeksi tersimpan.")
+                failed == results.size ->
+                    UserFeedback(FeedbackType.ERROR, "Semua data gagal disimpan. Periksa input.")
+                else ->
+                    UserFeedback(
+                        FeedbackType.WARNING,
+                        "Sebagian data tersimpan. Ada ${failed} part gagal disimpan.",
+                    )
+            }
+
+        return BatchInspectionResult(results = results, feedback = feedback)
     }
 }
 
