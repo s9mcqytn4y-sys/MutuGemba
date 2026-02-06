@@ -45,3 +45,34 @@ INSERT OR IGNORE INTO master_defect_type(id, code, name, category, severity, is_
 VALUES (8, 'DF-008', 'Lubang', 'Material', 'KRITIS', 1);
 
 -- Tidak ada seed untuk data inspeksi agar database selalu kosong saat awal.
+
+INSERT OR IGNORE INTO app_user(
+  id,
+  name,
+  password_hash,
+  password_salt,
+  employee_id,
+  full_name,
+  position,
+  department,
+  line_code,
+  role,
+  is_active,
+  photo_path,
+  created_at
+)
+VALUES (
+  1,
+  'admin',
+  'dev_hash',
+  'dev_salt',
+  'QC-001',
+  'Admin QC',
+  'QC Inspector',
+  'Quality Assurance',
+  'PRESS',
+  'ADMIN',
+  1,
+  NULL,
+  '2026-02-01T08:00:00'
+);

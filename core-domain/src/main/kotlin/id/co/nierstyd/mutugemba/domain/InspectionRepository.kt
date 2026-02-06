@@ -23,4 +23,11 @@ interface InspectionRepository {
         lineId: Long,
         month: YearMonth,
     ): List<ChecksheetEntry>
+
+    fun getDailyChecksheetSummaries(month: YearMonth): List<DailyChecksheetSummary>
+
+    fun getDailyChecksheetDetail(
+        lineId: Long,
+        date: LocalDate,
+    ): DailyChecksheetDetail?
 }

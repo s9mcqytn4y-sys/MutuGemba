@@ -21,9 +21,13 @@ object AppSettingsKeys {
     const val DEV_USE_DUMMY_DATA = "dev.useDummyData"
     const val SESSION_USER_ID = "session.userId"
     const val SESSION_USER_NAME = "session.userName"
+    const val SESSION_EMPLOYEE_ID = "session.employeeId"
+    const val SESSION_FULL_NAME = "session.fullName"
     const val SESSION_POSITION = "session.position"
+    const val SESSION_DEPARTMENT = "session.department"
     const val SESSION_LINE_CODE = "session.lineCode"
     const val SESSION_ROLE = "session.role"
     const val SESSION_LOGIN_AT = "session.loginAt"
     const val SESSION_EXPIRES_AT = "session.expiresAt"
+    const val SESSION_PHOTO_PATH = "session.photoPath"
 }

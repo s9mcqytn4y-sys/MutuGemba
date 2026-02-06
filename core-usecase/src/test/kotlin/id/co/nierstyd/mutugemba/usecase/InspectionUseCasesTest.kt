@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 class InspectionUseCasesTest {
     @Test
@@ -29,7 +31,7 @@ class InspectionUseCasesTest {
                 defectTypeId = null,
                 defectQuantity = null,
                 defects = defectEntries,
-                createdAt = "2026-02-05T08:00:00",
+                createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
             )
 
         val result = useCase.execute(input, actorRole = UserRole.USER)
@@ -54,7 +56,7 @@ class InspectionUseCasesTest {
                 defectTypeId = null,
                 defectQuantity = null,
                 defects = defectEntries,
-                createdAt = "2026-02-05T08:00:00",
+                createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
             )
 
         val result = useCase.execute(input, actorRole = UserRole.ADMIN)
@@ -78,7 +80,7 @@ class InspectionUseCasesTest {
                 defectTypeId = null,
                 defectQuantity = null,
                 defects = defectEntries,
-                createdAt = "2026-02-05T08:00:00",
+                createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
             )
 
         val result = useCase.execute(input, actorRole = UserRole.USER)
@@ -104,7 +106,7 @@ class InspectionUseCasesTest {
                     defectTypeId = null,
                     defectQuantity = null,
                     defects = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1)),
-                    createdAt = "2026-02-05T08:00:00",
+                    createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 ),
                 InspectionInput(
                     kind = InspectionKind.DEFECT,
@@ -115,7 +117,7 @@ class InspectionUseCasesTest {
                     defectTypeId = null,
                     defectQuantity = null,
                     defects = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1)),
-                    createdAt = "2026-02-05T08:00:00",
+                    createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 ),
             )
 
@@ -163,4 +165,13 @@ private class FakeInspectionRepository(
         lineId: Long,
         month: java.time.YearMonth,
     ): List<id.co.nierstyd.mutugemba.domain.ChecksheetEntry> = emptyList()
+
+    override fun getDailyChecksheetSummaries(
+        month: java.time.YearMonth,
+    ): List<id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary> = emptyList()
+
+    override fun getDailyChecksheetDetail(
+        lineId: Long,
+        date: LocalDate,
+    ): id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail? = null
 }

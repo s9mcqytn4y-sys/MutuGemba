@@ -1,0 +1,37 @@
+CREATE TABLE daily_checksheet (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  doc_no TEXT NOT NULL,
+  line_id INTEGER NOT NULL REFERENCES master_line(id),
+  shift_id INTEGER NOT NULL REFERENCES master_shift(id),
+  inspection_date TEXT NOT NULL,
+  pic_name TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_daily_checksheet_doc_no ON daily_checksheet(doc_no);
+CREATE UNIQUE INDEX idx_daily_checksheet_line_date ON daily_checksheet(line_id, inspection_date);
+CREATE INDEX idx_daily_checksheet_date ON daily_checksheet(inspection_date);
+
+ALTER TABLE inspection_record ADD COLUMN checksheet_id INTEGER REFERENCES daily_checksheet(id);
+
+INSERT INTO daily_checksheet(doc_no, line_id, shift_id, inspection_date, pic_name, created_at)
+SELECT
+  'PGN-QC-CHK-' || upper(master_line.code) || '-' || replace(date(inspection_record.created_at), '-', '') AS doc_no,
+  inspection_record.line_id,
+  inspection_record.shift_id,
+  date(inspection_record.created_at) AS inspection_date,
+  'Admin QC' AS pic_name,
+  MAX(inspection_record.created_at) AS created_at
+FROM inspection_record
+JOIN master_line ON master_line.id = inspection_record.line_id
+GROUP BY inspection_record.line_id, date(inspection_record.created_at);
+
+UPDATE inspection_record
+SET checksheet_id = (
+  SELECT daily_checksheet.id
+  FROM daily_checksheet
+  WHERE daily_checksheet.line_id = inspection_record.line_id
+    AND daily_checksheet.inspection_date = date(inspection_record.created_at)
+);
+
+CREATE INDEX idx_inspection_checksheet ON inspection_record(checksheet_id);

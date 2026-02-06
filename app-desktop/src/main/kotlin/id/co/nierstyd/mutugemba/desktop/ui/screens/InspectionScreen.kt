@@ -120,6 +120,17 @@ private fun InspectionScreenContent(
             HeaderContextCard(
                 dateLabel = DateTimeFormats.formatDate(state.today),
                 shiftLabel = state.shiftLabel,
+                picName = state.picName,
+            )
+        }
+
+        item {
+            StatusBanner(
+                feedback =
+                    UserFeedback(
+                        FeedbackType.INFO,
+                        "Input checksheet hanya untuk hari ini. Riwayat sebelumnya bersifat final dan tidak bisa diubah.",
+                    ),
             )
         }
 
@@ -245,6 +256,8 @@ private class InspectionFormState(
                 "Part akan muncul otomatis sesuai line."
             }
         }
+
+    val picName: String = "Admin QC"
 
     val selectedLineOption: DropdownOption?
         get() = selectedLine?.let { DropdownOption(it.id, it.name) }
@@ -465,6 +478,7 @@ private class InspectionFormState(
                     defectTypeId = null,
                     defectQuantity = null,
                     defects = defectEntries,
+                    picName = picName,
                     createdAt = createdAt,
                 )
             }
@@ -551,6 +565,7 @@ private class InspectionFormState(
 private fun HeaderContextCard(
     dateLabel: String,
     shiftLabel: String,
+    picName: String,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -567,6 +582,10 @@ private fun HeaderContextCard(
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(text = "Tanggal", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
                 Text(text = dateLabel, style = MaterialTheme.typography.h6)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(text = "PIC", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(text = picName, style = MaterialTheme.typography.subtitle1)
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs), horizontalAlignment = Alignment.End) {
                 Text(text = "Shift Aktif", style = MaterialTheme.typography.body2, color = NeutralTextMuted)

@@ -29,11 +29,13 @@ import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.theme.MutuGembaTheme
+import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
 import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
+import id.co.nierstyd.mutugemba.usecase.GetDailyChecksheetDetailUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDefectTypesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDevDemoModeUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDevDummyDataUseCase
@@ -41,6 +43,7 @@ import id.co.nierstyd.mutugemba.usecase.GetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.GetInspectionDefaultsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLastVisitedPageUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
+import id.co.nierstyd.mutugemba.usecase.GetMonthlyDailyChecksheetSummariesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetPartsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetRecentInspectionsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetShiftsUseCase
@@ -74,11 +77,20 @@ fun MutuGembaApp() {
     val inspectionRepository = remember { SqlDelightInspectionRepository(database) }
     val masterDataRepository = remember { SqlDelightMasterDataRepository(database) }
     val dataResetter = remember { SqlDelightAppDataResetter(database, databaseHandle.driver) }
-    val resetDataUseCase = remember { ResetDataUseCase(dataResetter, sessionRepository) }
+    val resetDataUseCase =
+        remember {
+            ResetDataUseCase(
+                dataResetter,
+                sessionRepository,
+                listOf(masterDataRepository, inspectionRepository),
+            )
+        }
     val createInspectionUseCase = remember { CreateInspectionRecordUseCase(inspectionRepository) }
     val createBatchInspectionUseCase =
         remember { CreateBatchInspectionRecordsUseCase(createInspectionUseCase) }
     val getRecentInspectionsUseCase = remember { GetRecentInspectionsUseCase(inspectionRepository) }
+    val getDailySummariesUseCase = remember { GetMonthlyDailyChecksheetSummariesUseCase(inspectionRepository) }
+    val getDailyDetailUseCase = remember { GetDailyChecksheetDetailUseCase(inspectionRepository) }
     val getLinesUseCase = remember { GetLinesUseCase(masterDataRepository) }
     val getShiftsUseCase = remember { GetShiftsUseCase(masterDataRepository) }
     val getPartsUseCase = remember { GetPartsUseCase(masterDataRepository) }
@@ -115,9 +127,13 @@ fun MutuGembaApp() {
     }
     var inspectionRecords by remember { mutableStateOf<List<InspectionRecord>>(emptyList()) }
     var lines by remember { mutableStateOf<List<Line>>(emptyList()) }
+    var dailySummaries by remember {
+        mutableStateOf<List<DailyChecksheetSummary>>(emptyList())
+    }
     val refreshData = {
         inspectionRecords = getRecentInspectionsUseCase.execute()
         lines = getLinesUseCase.execute()
+        dailySummaries = getDailySummariesUseCase.execute()
     }
 
     LaunchedEffect(Unit) {
@@ -153,9 +169,11 @@ fun MutuGembaApp() {
                     HomeScreen(
                         recentRecords = inspectionRecords,
                         lines = lines,
+                        dailySummaries = dailySummaries,
                         resetData = resetDataUseCase,
                         onNavigateToInspection = { currentRoute = AppRoute.Inspection },
                         onRefreshData = refreshData,
+                        loadDailyDetail = { lineId, date -> getDailyDetailUseCase.execute(lineId, date) },
                     )
 
                 AppRoute.Inspection ->

@@ -104,6 +104,17 @@ class CreateInspectionRecordUseCase(
             )
         }
 
+        val createdDate =
+            runCatching { LocalDateTime.parse(input.createdAt).toLocalDate() }
+                .getOrElse { LocalDate.now() }
+        val today = LocalDate.now()
+        if (createdDate.isAfter(today) || createdDate.isBefore(today)) {
+            return UserFeedback(
+                FeedbackType.ERROR,
+                "Input checksheet hanya diperbolehkan untuk hari ini.",
+            )
+        }
+
         val defectEntries = resolveDefectEntries(input)
         val totalDefect = defectEntries.sumOf { it.totalQuantity }
         val totalCheck = input.totalCheck

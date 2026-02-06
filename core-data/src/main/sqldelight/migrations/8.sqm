@@ -1,0 +1,4 @@
+ALTER TABLE app_user ADD COLUMN employee_id TEXT;
+ALTER TABLE app_user ADD COLUMN full_name TEXT;
+ALTER TABLE app_user ADD COLUMN department TEXT;
+ALTER TABLE app_user ADD COLUMN photo_path TEXT;
