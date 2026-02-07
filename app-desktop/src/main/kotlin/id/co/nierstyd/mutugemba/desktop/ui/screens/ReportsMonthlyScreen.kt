@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 
@@ -17,11 +18,11 @@ fun ReportsMonthlyScreen() {
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
-            title = "Laporan Bulanan",
-            subtitle = "Fondasi laporan bulanan berbasis checksheet harian.",
+            title = AppStrings.ReportsMonthly.Title,
+            subtitle = AppStrings.ReportsMonthly.Subtitle,
         )
         Text(
-            text = "Halaman ini akan menampilkan ringkasan bulanan, Pareto, dan trend lintas line.",
+            text = AppStrings.ReportsMonthly.Body,
             style = MaterialTheme.typography.body2,
             color = NeutralTextMuted,
         )

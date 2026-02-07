@@ -4,11 +4,22 @@ import androidx.compose.material.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.sp
 
 fun mutuGembaTypography(): Typography {
-    val displayFont = FontFamily.Serif
-    val bodyFont = FontFamily.SansSerif
+    val displayFont =
+        FontFamily(
+            Font("fonts/SpaceGrotesk[wght].ttf", FontWeight.Normal),
+            Font("fonts/SpaceGrotesk[wght].ttf", FontWeight.SemiBold),
+        )
+    val bodyFont =
+        FontFamily(
+            Font("fonts/IBMPlexSans[wdth,wght].ttf", FontWeight.Normal),
+            Font("fonts/IBMPlexSans[wdth,wght].ttf", FontWeight.Medium),
+            Font("fonts/IBMPlexSans[wdth,wght].ttf", FontWeight.SemiBold),
+            Font("fonts/IBMPlexSans[wdth,wght].ttf", FontWeight.Bold),
+        )
 
     return Typography(
         h4 =

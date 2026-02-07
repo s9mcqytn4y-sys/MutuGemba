@@ -1,4 +1,4 @@
-﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
+package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -19,8 +19,6 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +36,8 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
@@ -48,9 +48,11 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
+import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
+import id.co.nierstyd.mutugemba.domain.InspectionInputDefaults
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.InspectionTimeSlot
 import id.co.nierstyd.mutugemba.domain.Line
@@ -103,8 +105,8 @@ private fun InspectionScreenContent(
     ) {
         item {
             SectionHeader(
-                title = "Input Inspeksi Harian",
-                subtitle = "Masukkan data checksheet harian secara cepat dan terstruktur.",
+                title = AppStrings.Inspection.Title,
+                subtitle = AppStrings.Inspection.Subtitle,
             )
         }
 
@@ -114,8 +116,8 @@ private fun InspectionScreenContent(
 
         item {
             SectionLabel(
-                title = "Konteks Inspeksi",
-                subtitle = "Pastikan tanggal dan shift sesuai kondisi produksi hari ini.",
+                title = AppStrings.Inspection.ContextTitle,
+                subtitle = AppStrings.Inspection.ContextSubtitle,
             )
         }
 
@@ -132,15 +134,15 @@ private fun InspectionScreenContent(
                 feedback =
                     UserFeedback(
                         FeedbackType.INFO,
-                        "Input checksheet hanya untuk hari ini. Riwayat sebelumnya bersifat final dan tidak bisa diubah.",
+                        AppStrings.Inspection.ContextBanner,
                     ),
             )
         }
 
         item {
             SectionLabel(
-                title = "Line Produksi",
-                subtitle = "Pilih area produksi yang akan diinput hari ini.",
+                title = AppStrings.Inspection.LineTitle,
+                subtitle = AppStrings.Inspection.LineSubtitle,
             )
         }
 
@@ -156,8 +158,8 @@ private fun InspectionScreenContent(
 
         item {
             SectionLabel(
-                title = "Checksheet Per Part",
-                subtitle = "Isi part yang diproduksi hari ini. Part yang tidak diproduksi boleh dibiarkan kosong.",
+                title = AppStrings.Inspection.PartTitle,
+                subtitle = AppStrings.Inspection.PartSubtitle,
             )
         }
 
@@ -254,19 +256,19 @@ private class InspectionFormState(
                     lines.firstOrNull { it.id == id }?.name
                 }
             return if (qcLine != null) {
-                "Auto-select line QC: $qcLine (bisa diubah)."
+                AppStrings.Inspection.lineHintQc(qcLine)
             } else {
-                "Part akan muncul otomatis sesuai line."
+                AppStrings.Inspection.LineHintDefault
             }
         }
 
-    val picName: String = "Admin QC"
+    val picName: String = InspectionInputDefaults.DEFAULT_PIC_NAME
 
     val selectedLineOption: DropdownOption?
         get() = selectedLine?.let { DropdownOption(it.id, it.name) }
 
     val shiftLabel: String
-        get() = selectedShift?.let { "${it.code} • ${it.name}" } ?: "Shift 1 (08:00-17:00 WIB)"
+        get() = selectedShift?.let { "${it.code} • ${it.name}" } ?: AppStrings.Inspection.DefaultShiftLabel
 
     val summaryTotals: SummaryTotals
         get() {
@@ -392,15 +394,15 @@ private class InspectionFormState(
     fun onSaveRequested() {
         feedback = null
         if (selectedLine == null || selectedShift == null) {
-            feedback = UserFeedback(FeedbackType.ERROR, "Pilih line produksi terlebih dahulu.")
+            feedback = UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.ErrorLineRequired)
             return
         }
         if (filledPartSummaries.isEmpty()) {
-            feedback = UserFeedback(FeedbackType.ERROR, "Isi minimal satu part sebelum disimpan.")
+            feedback = UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.ErrorPartRequired)
             return
         }
         if (hasInvalidTotals) {
-            feedback = UserFeedback(FeedbackType.ERROR, "Periksa total periksa yang kurang dari total NG.")
+            feedback = UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.ErrorTotalCheckInvalid)
             return
         }
         showConfirmDialog = true
@@ -428,7 +430,7 @@ private class InspectionFormState(
             result.failedParts.mapNotNull { failed ->
                 val part = partsForLine().firstOrNull { it.id == failed.partId } ?: return@mapNotNull null
                 val reason = failed.feedback.message
-                "• ${part.partNumber} ${part.name} — $reason"
+                AppStrings.Inspection.failedPartLine(part.partNumber, part.name, reason)
             }
         feedback =
             if (failedDetails.isNotEmpty()) {
@@ -440,7 +442,7 @@ private class InspectionFormState(
                     }
                 UserFeedback(
                     type,
-                    "Sebagian data gagal disimpan:\n${failedDetails.joinToString("\n")}",
+                    AppStrings.Inspection.partialSaveFailed(failedDetails.joinToString("\n")),
                 )
             } else {
                 result.feedback
@@ -583,15 +585,15 @@ private fun HeaderContextCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "Tanggal", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(text = AppStrings.Inspection.HeaderDate, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
                 Text(text = dateLabel, style = MaterialTheme.typography.h6)
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "PIC", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(text = AppStrings.Inspection.HeaderPic, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
                 Text(text = picName, style = MaterialTheme.typography.subtitle1)
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs), horizontalAlignment = Alignment.End) {
-                Text(text = "Shift Aktif", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(text = AppStrings.Inspection.HeaderShift, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
                 Text(text = shiftLabel, style = MaterialTheme.typography.subtitle1)
             }
         }
@@ -622,11 +624,11 @@ private fun InspectionIntroCard() {
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(text = "Panduan Singkat", style = MaterialTheme.typography.subtitle1)
+            Text(text = AppStrings.Inspection.IntroTitle, style = MaterialTheme.typography.subtitle1)
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                IntroStepRow(step = "1", text = "Pilih line produksi yang akan diinput hari ini.")
-                IntroStepRow(step = "2", text = "Isi part yang diproduksi. Part lainnya boleh dibiarkan kosong.")
-                IntroStepRow(step = "3", text = "Konfirmasi dan simpan agar data tercatat sebagai dokumen harian.")
+                IntroStepRow(step = "1", text = AppStrings.Inspection.IntroStep1)
+                IntroStepRow(step = "2", text = AppStrings.Inspection.IntroStep2)
+                IntroStepRow(step = "3", text = AppStrings.Inspection.IntroStep3)
             }
         }
     }
@@ -667,7 +669,7 @@ private fun InspectionSelectorCard(
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             AppRadioGroup(
-                label = "Line Produksi",
+                label = AppStrings.Inspection.LineTitle,
                 options = lineOptions,
                 selectedId = selectedLineOption?.id,
                 onSelected = onLineSelected,
@@ -675,7 +677,7 @@ private fun InspectionSelectorCard(
             )
             androidx.compose.material.Divider(color = NeutralBorder, thickness = 1.dp)
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "Panduan Singkat", style = MaterialTheme.typography.subtitle2)
+                Text(text = AppStrings.Inspection.IntroTitle, style = MaterialTheme.typography.subtitle2)
                 InspectionDataHint()
                 DuplicateRuleHint(allowDuplicate = allowDuplicate)
             }
@@ -685,7 +687,7 @@ private fun InspectionSelectorCard(
 
 @Composable
 private fun DuplicateRuleHint(allowDuplicate: Boolean) {
-    val label = if (allowDuplicate) "Duplikat Diizinkan" else "Duplikat Diblokir"
+    val label = if (allowDuplicate) AppStrings.Inspection.DuplicateAllowed else AppStrings.Inspection.DuplicateBlocked
     val color = if (allowDuplicate) StatusWarning else StatusSuccess
     Row(
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -697,7 +699,7 @@ private fun DuplicateRuleHint(allowDuplicate: Boolean) {
             contentColor = NeutralSurface,
         )
         Text(
-            text = "Aturan input ulang hari yang sama ${if (allowDuplicate) "tidak aktif" else "aktif"}.",
+            text = if (allowDuplicate) AppStrings.Inspection.DuplicateHintOn else AppStrings.Inspection.DuplicateHintOff,
             style = MaterialTheme.typography.body2,
             color = NeutralTextMuted,
         )
@@ -711,12 +713,12 @@ private fun InspectionDataHint() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppBadge(
-            text = "INFO",
+            text = AppStrings.Inspection.MasterDataHintTitle,
             backgroundColor = NeutralLight,
             contentColor = NeutralText,
         )
         Text(
-            text = "Part dan jenis NG diambil dari master data. Hubungi admin bila ada perubahan.",
+            text = AppStrings.Inspection.MasterDataHint,
             style = MaterialTheme.typography.body2,
             color = NeutralTextMuted,
         )
@@ -745,38 +747,38 @@ private fun SummaryStickyBar(summary: SummaryTotals) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Assignment,
+                        imageVector = AppIcons.Assignment,
                         contentDescription = null,
                         tint = MaterialTheme.colors.primary,
                         modifier = Modifier.size(18.dp),
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "Ringkasan Checksheet",
+                            text = AppStrings.Inspection.SummaryTitle,
                             style = MaterialTheme.typography.subtitle1,
                             color = NeutralText,
                         )
                         Text(
-                            text = "Terisi otomatis dari input yang sudah dimasukkan.",
+                            text = AppStrings.Inspection.SummarySubtitle,
                             style = MaterialTheme.typography.caption,
                             color = NeutralTextMuted,
                         )
                     }
                 }
                 AppBadge(
-                    text = "Auto",
+                    text = AppStrings.Inspection.SummaryAuto,
                     backgroundColor = NeutralSurface,
                     contentColor = NeutralTextMuted,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
-                SummaryStat(title = "Total Periksa", value = summary.totalCheck.toString())
-                SummaryStat(title = "Total NG", value = summary.totalDefect.toString())
-                SummaryStat(title = "Total OK", value = summary.totalOk.toString())
+                SummaryStat(title = AppStrings.Inspection.TotalCheckLabel, value = summary.totalCheck.toString())
+                SummaryStat(title = AppStrings.Inspection.TotalNgLabel, value = summary.totalDefect.toString())
+                SummaryStat(title = AppStrings.Inspection.TotalOkLabel, value = summary.totalOk.toString())
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
-                SummaryStat(title = "Rasio NG", value = formatPercent(summary.ngRatio))
-                SummaryStat(title = "Part Terisi", value = summary.totalParts.toString())
+                SummaryStat(title = AppStrings.Inspection.NgRatioLabel, value = NumberFormats.formatPercent(summary.ngRatio))
+                SummaryStat(title = AppStrings.Inspection.PartFilledLabel, value = summary.totalParts.toString())
             }
             val okRatio =
                 if (summary.totalCheck > 0) {
@@ -791,8 +793,8 @@ private fun SummaryStickyBar(summary: SummaryTotals) {
                     0f
                 }
             SummaryRatioBar(
-                leftLabel = "OK",
-                rightLabel = "NG",
+                leftLabel = AppStrings.Inspection.SummaryRatioOk,
+                rightLabel = AppStrings.Inspection.SummaryRatioNg,
                 leftRatio = okRatio,
                 rightRatio = ngRatio,
             )
@@ -869,9 +871,9 @@ private fun EmptyPartState() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text("Belum ada part untuk line ini.", style = MaterialTheme.typography.body1)
+            Text(AppStrings.Inspection.EmptyPartTitle, style = MaterialTheme.typography.body1)
             Text(
-                "Periksa master part di pengaturan atau pilih line lain.",
+                AppStrings.Inspection.EmptyPartSubtitle,
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )
@@ -891,12 +893,12 @@ private fun InspectionActionsBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SecondaryButton(
-            text = "Bersihkan Semua",
+            text = AppStrings.Actions.ClearAll,
             onClick = onClearAll,
         )
         Spacer(modifier = Modifier.weight(1f))
         PrimaryButton(
-            text = "Konfirmasi & Simpan",
+            text = AppStrings.Actions.ConfirmSave,
             onClick = onSaveRequest,
             enabled = canSave,
         )
@@ -917,23 +919,23 @@ private fun InspectionConfirmDialog(
 
     androidx.compose.material.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Konfirmasi Simpan") },
+        title = { Text(AppStrings.Inspection.ConfirmTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(
-                    "Pastikan data sudah benar. Setelah disimpan, data tidak bisa diubah.",
+                    AppStrings.Inspection.ConfirmSubtitle,
                     style = MaterialTheme.typography.body2,
                 )
                 ConfirmSummaryChart(summaryTotals = summaryTotals)
                 ConfirmTotalsCard(summaryTotals = summaryTotals)
-                Text("Part Terisi", style = MaterialTheme.typography.subtitle1)
+                Text(AppStrings.Inspection.ConfirmPartTitle, style = MaterialTheme.typography.subtitle1)
                 defectSummaries.forEach { row ->
                     ConfirmPartRow(
-                        title = "${row.partNumber} • ${row.partName}",
+                        title = AppStrings.Inspection.partSummaryItem(row.partNumber, row.partName),
                         badges =
                             listOf(
-                                BadgeSpec("OK ${row.totalOk}", StatusSuccess, NeutralSurface),
-                                BadgeSpec("NG ${row.totalDefect}", StatusError, NeutralSurface),
+                                BadgeSpec("${AppStrings.Inspection.SummaryRatioOk} ${row.totalOk}", StatusSuccess, NeutralSurface),
+                                BadgeSpec("${AppStrings.Inspection.SummaryRatioNg} ${row.totalDefect}", StatusError, NeutralSurface),
                             ),
                     )
                 }
@@ -941,10 +943,10 @@ private fun InspectionConfirmDialog(
             }
         },
         confirmButton = {
-            PrimaryButton(text = "Simpan Sekarang", onClick = onConfirm)
+            PrimaryButton(text = AppStrings.Actions.SaveNow, onClick = onConfirm)
         },
         dismissButton = {
-            SecondaryButton(text = "Batal", onClick = onDismiss)
+            SecondaryButton(text = AppStrings.Actions.Cancel, onClick = onDismiss)
         },
     )
 }
@@ -955,16 +957,16 @@ private fun ConfirmSummaryChart(summaryTotals: SummaryTotals) {
     val okRatio = summaryTotals.totalOk.toFloat() / total.toFloat()
     val ngRatio = summaryTotals.totalDefect.toFloat() / total.toFloat()
     ChartBar(
-        title = "Komposisi OK vs NG",
+        title = AppStrings.Inspection.ConfirmChartTitle,
         segments =
             listOf(
                 ChartSegment(
-                    label = "OK",
+                    label = AppStrings.Inspection.SummaryRatioOk,
                     ratio = okRatio,
                     color = id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess,
                 ),
                 ChartSegment(
-                    label = "NG",
+                    label = AppStrings.Inspection.SummaryRatioNg,
                     ratio = ngRatio,
                     color = id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError,
                 ),
@@ -991,9 +993,9 @@ private fun ConfirmTotalsCard(summaryTotals: SummaryTotals) {
             modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            ConfirmStatItem(label = "Total Periksa", value = summaryTotals.totalCheck.toString())
-            ConfirmStatItem(label = "Total NG", value = summaryTotals.totalDefect.toString())
-            ConfirmStatItem(label = "Total OK", value = summaryTotals.totalOk.toString())
+            ConfirmStatItem(label = AppStrings.Inspection.TotalCheckLabel, value = summaryTotals.totalCheck.toString())
+            ConfirmStatItem(label = AppStrings.Inspection.TotalNgLabel, value = summaryTotals.totalDefect.toString())
+            ConfirmStatItem(label = AppStrings.Inspection.TotalOkLabel, value = summaryTotals.totalOk.toString())
         }
     }
 }
@@ -1053,12 +1055,12 @@ private fun ConfirmNoticeRow() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppBadge(
-            text = "FINAL",
+            text = AppStrings.Inspection.ConfirmFinal,
             backgroundColor = StatusWarning,
             contentColor = NeutralSurface,
         )
         Text(
-            text = "Data yang disimpan akan dianggap final.",
+            text = AppStrings.Inspection.ConfirmFinalHint,
             style = MaterialTheme.typography.body2,
             color = NeutralTextMuted,
         )
@@ -1112,9 +1114,3 @@ private fun ChartBar(
     }
 }
 
-private fun formatPercent(value: Double): String =
-    if (value <= 0.0) {
-        "-"
-    } else {
-        "${"%.1f".format(value * 100)}%"
-    }

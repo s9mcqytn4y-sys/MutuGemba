@@ -12,8 +12,8 @@ import androidx.compose.material.Icon
 import androidx.compose.foundation.clickable
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,10 +56,10 @@ fun StatusBanner(
     ) {
         val label =
             when (feedback.type) {
-                FeedbackType.INFO -> "Info"
-                FeedbackType.WARNING -> "Peringatan"
-                FeedbackType.ERROR -> "Gagal"
-                FeedbackType.SUCCESS -> "Sukses"
+                FeedbackType.INFO -> AppStrings.Common.Info
+                FeedbackType.WARNING -> AppStrings.Common.Warning
+                FeedbackType.ERROR -> AppStrings.Common.Error
+                FeedbackType.SUCCESS -> AppStrings.Common.Success
             }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -79,8 +79,8 @@ fun StatusBanner(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "Tutup",
+                        imageVector = AppIcons.Close,
+                        contentDescription = AppStrings.Common.Close,
                         tint = MaterialTheme.colors.onPrimary,
                     )
                 }

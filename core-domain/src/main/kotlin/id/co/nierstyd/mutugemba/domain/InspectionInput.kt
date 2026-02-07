@@ -9,6 +9,6 @@ data class InspectionInput(
     val defectTypeId: Long?,
     val defectQuantity: Int?,
     val defects: List<InspectionDefectEntry> = emptyList(),
-    val picName: String = "Admin QC",
+    val picName: String = InspectionInputDefaults.DEFAULT_PIC_NAME,
     val createdAt: String,
 )

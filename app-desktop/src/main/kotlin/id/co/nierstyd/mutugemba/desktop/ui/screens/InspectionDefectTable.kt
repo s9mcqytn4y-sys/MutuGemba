@@ -1,4 +1,4 @@
-﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
+package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,9 +22,6 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -36,6 +33,8 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.CompactNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
@@ -96,14 +95,10 @@ internal fun PartChecksheetCard(
                         AppNumberField(
                             spec =
                                 FieldSpec(
-                                    label = "Total Periksa",
-                                    placeholder = "Contoh: 120",
+                                    label = AppStrings.Inspection.TotalCheckLabel,
+                                    placeholder = AppStrings.Inspection.TotalCheckPlaceholder,
                                     helperText =
-                                        if (totalCheckInvalid) {
-                                            "Total periksa harus lebih besar atau sama dengan total NG."
-                                        } else {
-                                            "Jumlah pemeriksaan hari ini untuk part ini."
-                                        },
+                                        AppStrings.Inspection.totalCheckHelper(!totalCheckInvalid),
                                     isError = totalCheckInvalid,
                                 ),
                             value = totalCheckInput,
@@ -111,12 +106,12 @@ internal fun PartChecksheetCard(
                             modifier = Modifier.weight(1f),
                         )
                         PartStatChip(
-                            title = "Total NG",
+                            title = AppStrings.Inspection.TotalNgLabel,
                             value = totalDefect.toString(),
                             modifier = Modifier.weight(1f),
                         )
                         PartStatChip(
-                            title = "Total OK",
+                            title = AppStrings.Inspection.TotalOkLabel,
                             value = totalOk.toString(),
                             modifier = Modifier.weight(1f),
                         )
@@ -181,17 +176,17 @@ private fun PartHeader(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(text = part.name, style = MaterialTheme.typography.h6)
                 Text(
-                    text = "${part.partNumber} • UNIQ ${part.uniqCode}",
+                    text = AppStrings.Inspection.partHeaderLabel(part.partNumber, part.uniqCode),
                     style = MaterialTheme.typography.body1,
                     color = NeutralTextMuted,
                 )
                 PartStatusBadge(status = status, hasInput = hasInput)
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "Periksa", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-                Text(text = totalCheck.ifBlank { "-" }, style = MaterialTheme.typography.subtitle1)
+                Text(text = AppStrings.Inspection.CheckLabel, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(text = totalCheck.ifBlank { AppStrings.Common.Placeholder }, style = MaterialTheme.typography.subtitle1)
                 Text(
-                    text = "NG $totalDefect • OK $totalOk",
+                    text = AppStrings.Inspection.partTotals(totalDefect, totalOk),
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
@@ -200,12 +195,12 @@ private fun PartHeader(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = if (expanded) "Sembunyikan" else "Buka",
+                        text = AppStrings.Inspection.toggleDetail(expanded),
                         style = MaterialTheme.typography.caption,
                         color = MaterialTheme.colors.primary,
                     )
                     Icon(
-                        imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
                         contentDescription = null,
                         tint = MaterialTheme.colors.primary,
                         modifier = Modifier.size(16.dp),
@@ -223,15 +218,15 @@ private fun PartStatusBadge(
 ) {
     val (label, color, textColor) =
         when (status) {
-            PartInputStatus.COMPLETE -> Triple("Lengkap", StatusSuccess, NeutralSurface)
-            PartInputStatus.WARNING -> Triple("Perlu Cek", StatusWarning, NeutralSurface)
-            PartInputStatus.ERROR -> Triple("Perbaiki", StatusError, NeutralSurface)
-            PartInputStatus.INCOMPLETE -> Triple("Sebagian", NeutralBorder, NeutralText)
+            PartInputStatus.COMPLETE -> Triple(AppStrings.Inspection.PartStatusComplete, StatusSuccess, NeutralSurface)
+            PartInputStatus.WARNING -> Triple(AppStrings.Inspection.PartStatusWarning, StatusWarning, NeutralSurface)
+            PartInputStatus.ERROR -> Triple(AppStrings.Inspection.PartStatusError, StatusError, NeutralSurface)
+            PartInputStatus.INCOMPLETE -> Triple(AppStrings.Inspection.PartStatusPartial, NeutralBorder, NeutralText)
             PartInputStatus.EMPTY ->
                 if (hasInput) {
-                    Triple("Sebagian", NeutralBorder, NeutralText)
+                    Triple(AppStrings.Inspection.PartStatusPartial, NeutralBorder, NeutralText)
                 } else {
-                    Triple("Belum Produksi", NeutralBorder, NeutralText)
+                    Triple(AppStrings.Inspection.PartStatusNotProduced, NeutralBorder, NeutralText)
                 }
         }
     AppBadge(
@@ -276,11 +271,11 @@ private fun PartImage(picturePath: String?) {
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (bitmap == null) {
-                Text("Foto\nPart", color = NeutralTextMuted)
+                Text(AppStrings.Inspection.PartImagePlaceholder, color = NeutralTextMuted)
             } else {
                 androidx.compose.foundation.Image(
                     bitmap = bitmap,
-                    contentDescription = "Foto Part",
+                    contentDescription = AppStrings.Inspection.PartImageDescription,
                     modifier = Modifier.size(88.dp),
                 )
             }
@@ -362,7 +357,7 @@ private fun DefectTableGrid(
         }
 
         Row(modifier = Modifier.fillMaxWidth()) {
-            TableFooterCell(text = "Sub-total", weight = 1.4f)
+            TableFooterCell(text = AppStrings.Inspection.TableSubtotal, weight = 1.4f)
             timeSlots.forEach { slot ->
                 TableFooterCell(text = columnTotal(slot).toString(), weight = 1f, alignCenter = true)
             }
@@ -374,11 +369,11 @@ private fun DefectTableGrid(
 @Composable
 private fun TableHeaderRow(timeSlots: List<InspectionTimeSlot>) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        TableHeaderCell(text = "Jenis NG", weight = 1.4f)
+        TableHeaderCell(text = AppStrings.Inspection.TableDefectType, weight = 1.4f)
         timeSlots.forEach { slot ->
             TableHeaderCell(text = slot.label, weight = 1f)
         }
-        TableHeaderCell(text = "Total", weight = 0.7f)
+        TableHeaderCell(text = AppStrings.Inspection.TableTotal, weight = 0.7f)
     }
 }
 
@@ -437,7 +432,7 @@ private fun RowScope.TableInputCell(
         CompactNumberField(
             value = value,
             onValueChange = onValueChange,
-            placeholder = "0",
+            placeholder = AppStrings.Common.Zero,
         )
     }
 }

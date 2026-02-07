@@ -6,6 +6,8 @@ import java.nio.file.Paths
 object AppDataPaths {
     private fun dataRoot(): Path = Paths.get("data")
 
+    fun dataDir(): Path = dataRoot()
+
     fun databaseFile(): Path = dataRoot().resolve("mutugemba.db")
 
     fun attachmentsDir(): Path = dataRoot().resolve("attachments")

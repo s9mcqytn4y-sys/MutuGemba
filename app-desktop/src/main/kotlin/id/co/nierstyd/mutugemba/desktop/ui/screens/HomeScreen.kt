@@ -1,4 +1,4 @@
-﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
+package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,17 +18,8 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Assignment
-import androidx.compose.material.icons.automirrored.filled.FactCheck
-import androidx.compose.material.icons.filled.Apartment
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.InsertChart
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,6 +42,8 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyParetoCar
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyTotalsUi
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyTrendCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.buildLineColors
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
@@ -60,10 +53,11 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
-import id.co.nierstyd.mutugemba.domain.InspectionRecord
-import id.co.nierstyd.mutugemba.domain.Line
+import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.DefectSummary
+import id.co.nierstyd.mutugemba.domain.InspectionRecord
+import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
@@ -134,7 +128,7 @@ fun HomeScreen(
         analysisLoading = true
         val lineId = paretoLineId ?: return@LaunchedEffect
         val totals =
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 val acc = mutableMapOf<Long, DefectSummary>()
                 (1..month.lengthOfMonth()).map { month.atDay(it) }.forEach { date ->
                     val detail = loadDailyDetail(lineId, date)
@@ -152,7 +146,10 @@ fun HomeScreen(
 
     val monthlyTotals =
         remember(dailySummaries, month, insightLineId) {
-            val summariesForMonth = dailySummaries.filter { YearMonth.from(it.date) == month && (insightLineId == null || it.lineId == insightLineId) }
+            val summariesForMonth =
+                dailySummaries.filter {
+                    YearMonth.from(it.date) == month && (insightLineId == null || it.lineId == insightLineId)
+                }
             val totalDocs = summariesForMonth.size
             val totalCheck = summariesForMonth.sumOf { it.totalCheck }
             val totalDefect = summariesForMonth.sumOf { it.totalDefect }
@@ -181,8 +178,8 @@ fun HomeScreen(
     ) {
         item {
             SectionHeader(
-                title = "Beranda",
-                subtitle = "Dashboard hasil input checksheet harian.",
+                title = AppStrings.Home.Title,
+                subtitle = AppStrings.Home.Subtitle,
             )
         }
         item {
@@ -200,8 +197,8 @@ fun HomeScreen(
         }
         item {
             SectionTitle(
-                title = "Sorotan Analitik QC",
-                subtitle = "Pareto & trend NG untuk evaluasi bulanan.",
+                title = AppStrings.Home.AnalyticsTitle,
+                subtitle = AppStrings.Home.AnalyticsSubtitle,
             )
         }
         item {
@@ -242,8 +239,8 @@ fun HomeScreen(
         }
         item {
             SectionTitle(
-                title = "Operasional Hari Ini",
-                subtitle = "Status input dan aktivitas QC.",
+                title = AppStrings.Home.OpsTitle,
+                subtitle = AppStrings.Home.OpsSubtitle,
             )
         }
         item {
@@ -285,7 +282,7 @@ fun HomeScreen(
         }
         item {
             Text(
-                text = "Status: Offline - Lokal",
+                text = AppStrings.App.StatusOffline,
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
                 modifier = Modifier.padding(top = Spacing.sm),
@@ -295,19 +292,19 @@ fun HomeScreen(
 
     ConfirmDialog(
         open = showResetDialog,
-        title = "Reset Riwayat Input",
-        message = "Semua data inspeksi akan dihapus. Lanjutkan?",
-        confirmText = "Reset",
-        dismissText = "Batal",
+        title = AppStrings.Home.ResetDialogTitle,
+        message = AppStrings.Home.ResetDialogMessage,
+        confirmText = AppStrings.Actions.Reset,
+        dismissText = AppStrings.Actions.Cancel,
         onConfirm = {
             showResetDialog = false
             val success = resetData.execute()
             feedback =
                 if (success) {
                     onRefreshData()
-                    UserFeedback(FeedbackType.SUCCESS, "Riwayat input berhasil direset.")
+                    UserFeedback(FeedbackType.SUCCESS, AppStrings.Home.ResetSuccess)
                 } else {
-                    UserFeedback(FeedbackType.ERROR, "Reset riwayat gagal. Coba ulangi.")
+                    UserFeedback(FeedbackType.ERROR, AppStrings.Home.ResetFailed)
                 }
         },
         onDismiss = { showResetDialog = false },
@@ -338,55 +335,55 @@ private fun HeroSummaryCard(
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "Ringkasan Checksheet Hari Ini", style = MaterialTheme.typography.subtitle1)
+                Text(text = AppStrings.Home.SummaryTitle, style = MaterialTheme.typography.subtitle1)
                 Text(
-                    text = "Tanggal $dateLabel • Data terakumulasi sepanjang shift.",
+                    text = AppStrings.Home.summaryDateLabel(dateLabel),
                     style = MaterialTheme.typography.body2,
                     color = NeutralTextMuted,
                 )
                 Text(
-                    text = "Input terakhir: ${lastInputLabel ?: "-"}",
+                    text = AppStrings.Common.lastInput(lastInputLabel),
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 MetricCard(
-                    title = "Checksheet Masuk",
+                    title = AppStrings.Home.MetricChecksheet,
                     value = totalToday.toString(),
-                    icon = Icons.AutoMirrored.Filled.Assignment,
+                    icon = AppIcons.Assignment,
                     modifier = Modifier.weight(1f),
                 )
                 MetricCard(
-                    title = "Total NG",
+                    title = AppStrings.Home.MetricTotalNg,
                     value = totalDefect.toString(),
-                    icon = Icons.Filled.ErrorOutline,
+                    icon = AppIcons.ErrorOutline,
                     modifier = Modifier.weight(1f),
                 )
                 MetricCard(
-                    title = "Rasio NG",
-                    value = if (ratioDefect <= 0.0) "-" else "${"%.1f".format(ratioDefect * 100)}%",
-                    icon = Icons.Filled.InsertChart,
+                    title = AppStrings.Home.MetricNgRatio,
+                    value = NumberFormats.formatPercent(ratioDefect),
+                    icon = AppIcons.InsertChart,
                     modifier = Modifier.weight(1f),
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 MetricCard(
-                    title = "Part Tercatat",
+                    title = AppStrings.Home.MetricParts,
                     value = totalParts.toString(),
-                    icon = Icons.Filled.Inventory2,
+                    icon = AppIcons.Inventory,
                     modifier = Modifier.weight(1f),
                 )
                 MetricCard(
-                    title = "Line Terisi",
-                    value = "$activeLines/$totalLines",
-                    icon = Icons.Filled.Apartment,
+                    title = AppStrings.Home.MetricLineCoverage,
+                    value = AppStrings.Home.lineRecorded(activeLines, totalLines),
+                    icon = AppIcons.Apartment,
                     modifier = Modifier.weight(1f),
                 )
                 MetricCard(
-                    title = "Total Periksa",
+                    title = AppStrings.Home.MetricTotalCheck,
                     value = totalCheck.toString(),
-                    icon = Icons.AutoMirrored.Filled.FactCheck,
+                    icon = AppIcons.FactCheck,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -425,20 +422,20 @@ private fun DailyChecksheetSummaryCard(
             ) {
                 MiniSummaryIcon()
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    Text(text = "Ringkasan Harian", style = MaterialTheme.typography.subtitle1)
+                    Text(text = AppStrings.Home.DailySummaryTitle, style = MaterialTheme.typography.subtitle1)
                     Text(
-                        text = "Ringkas data input harian untuk evaluasi cepat.",
+                        text = AppStrings.Home.DailySummarySubtitle,
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                SummaryStat(title = "Part Tercatat", value = totalParts.toString())
-                SummaryStat(title = "Total Periksa", value = totalCheck.toString())
+                SummaryStat(title = AppStrings.Common.PartRecorded, value = totalParts.toString())
+                SummaryStat(title = AppStrings.Common.TotalCheck, value = totalCheck.toString())
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "Cakupan Line", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(text = AppStrings.Home.DailyLineCoverage, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
                 Row(
                     modifier =
                         Modifier
@@ -457,13 +454,13 @@ private fun DailyChecksheetSummaryCard(
                     }
                 }
                 Text(
-                    text = "$activeLines dari $totalLines line tercatat hari ini.",
+                    text = AppStrings.Common.lineCoverage(activeLines, totalLines),
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
             }
             Text(
-                text = "Input terakhir: ${lastInputLabel ?: "-"}",
+                text = AppStrings.Common.lastInput(lastInputLabel),
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
@@ -490,25 +487,28 @@ private fun QcActivityCard(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(text = "Aktivitas QC Hari Ini", style = MaterialTheme.typography.subtitle1)
+            Text(text = AppStrings.Home.ActivityTitle, style = MaterialTheme.typography.subtitle1)
             Text(
-                text = "Pantau aktivitas input QC untuk evaluasi cepat.",
+                text = AppStrings.Home.ActivitySubtitle,
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                SummaryStat(title = "Input", value = totalInput.toString())
-                SummaryStat(title = "Line Aktif", value = mostActiveLine ?: "-")
+                SummaryStat(title = AppStrings.Common.Input, value = totalInput.toString())
+                SummaryStat(title = AppStrings.Home.ActivityMostActive, value = mostActiveLine ?: AppStrings.Common.Placeholder)
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "Part Terbanyak", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(text = AppStrings.Home.ActivityMostPart, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
                 Text(
-                    text = listOfNotNull(mostCheckedPartNumber, mostCheckedPart).joinToString(" • ").ifBlank { "-" },
+                    text =
+                        listOfNotNull(mostCheckedPartNumber, mostCheckedPart)
+                            .joinToString(" • ")
+                            .ifBlank { AppStrings.Common.Placeholder },
                     style = MaterialTheme.typography.body2,
                 )
             }
             Text(
-                text = "Input terakhir: ${lastInputLabel ?: "-"}",
+                text = AppStrings.Common.lastInput(lastInputLabel),
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
@@ -524,7 +524,7 @@ private fun MiniSummaryIcon() {
         elevation = 0.dp,
     ) {
         Icon(
-            imageVector = Icons.Filled.InsertChart,
+            imageVector = AppIcons.InsertChart,
             contentDescription = null,
             tint = StatusInfo,
             modifier = Modifier.padding(8.dp).size(16.dp),
@@ -557,25 +557,25 @@ private fun ActionCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.FactCheck,
+                    imageVector = AppIcons.FactCheck,
                     contentDescription = null,
                     tint = MaterialTheme.colors.primary,
                     modifier = Modifier.size(18.dp),
                 )
-                Text(text = "Aksi Cepat", style = MaterialTheme.typography.subtitle1)
+                Text(text = AppStrings.Home.ActionTitle, style = MaterialTheme.typography.subtitle1)
             }
             Text(
-                text = "Mulai input inspeksi atau kosongkan data simulasi.",
+                text = AppStrings.Home.ActionSubtitle,
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )
             PrimaryButton(
-                text = "Mulai Input Inspeksi",
+                text = AppStrings.Actions.StartInspection,
                 onClick = onNavigateToInspection,
                 modifier = Modifier.fillMaxWidth(),
             )
             SecondaryButton(
-                text = "Reset Riwayat Input",
+                text = AppStrings.Actions.ResetInput,
                 onClick = onReset,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -700,9 +700,9 @@ private fun DailyLineStatusCard(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column {
-                    Text(text = "Status Input Hari Ini", style = MaterialTheme.typography.subtitle1)
+                    Text(text = AppStrings.Home.LineStatusTitle, style = MaterialTheme.typography.subtitle1)
                     Text(
-                        text = "Ringkasan checksheet per line (${DateTimeFormats.formatDate(LocalDate.now())}).",
+                        text = AppStrings.Home.lineStatusSubtitle(DateTimeFormats.formatDate(LocalDate.now())),
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
@@ -712,12 +712,12 @@ private fun DailyLineStatusCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Detail",
+                        text = AppStrings.Common.Detail,
                         style = MaterialTheme.typography.caption,
                         color = MaterialTheme.colors.primary,
                     )
                     Icon(
-                        imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
                         contentDescription = null,
                         tint = MaterialTheme.colors.primary,
                         modifier = Modifier.size(16.dp),
@@ -740,9 +740,9 @@ private fun LineStatusRow(status: LineDailyStatus) {
     val hasInput = status.recordCount > 0
     val label =
         when {
-            !hasInput -> "Belum Input"
-            status.lastInputTime != null -> "Input Terakhir ${status.lastInputTime}"
-            else -> "Sudah Input"
+            !hasInput -> AppStrings.Home.LineStatusNotInput
+            status.lastInputTime != null -> AppStrings.Home.lineStatusLastInput(status.lastInputTime)
+            else -> AppStrings.Home.LineStatusDone
         }
     val color = if (hasInput) StatusSuccess else StatusError
     Row(
@@ -754,12 +754,12 @@ private fun LineStatusRow(status: LineDailyStatus) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${status.partsRecorded} part tercatat",
+                    text = AppStrings.Home.partsRecorded(status.partsRecorded),
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
                 Text(
-                    text = "${status.recordCount} dokumen harian",
+                    text = AppStrings.Home.docsRecorded(status.recordCount),
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )

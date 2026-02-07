@@ -19,18 +19,58 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Sizing
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 
 @Composable
 fun HeaderBar(
     title: String,
     subtitle: String,
+    demoMode: Boolean = false,
+    dummyData: Boolean = false,
 ) {
+    val badges =
+        buildList {
+            add(
+                HeaderBadgeSpec(
+                    text = AppStrings.App.HeaderBadge,
+                    backgroundColor = StatusInfo,
+                    contentColor = NeutralSurface,
+                ),
+            )
+            if (demoMode) {
+                add(
+                    HeaderBadgeSpec(
+                        text = AppStrings.App.DemoMode,
+                        backgroundColor = StatusWarning,
+                        contentColor = NeutralSurface,
+                    ),
+                )
+            }
+            if (dummyData) {
+                add(
+                    HeaderBadgeSpec(
+                        text = AppStrings.App.DummyData,
+                        backgroundColor = NeutralBorder,
+                        contentColor = NeutralTextMuted,
+                    ),
+                )
+            } else {
+                add(
+                    HeaderBadgeSpec(
+                        text = AppStrings.App.Offline,
+                        backgroundColor = NeutralBorder,
+                        contentColor = NeutralTextMuted,
+                    ),
+                )
+            }
+        }
     Surface(
         color = NeutralSurface,
         modifier =
@@ -60,16 +100,13 @@ fun HeaderBar(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-                    AppBadge(
-                        text = "QC TPS Harian",
-                        backgroundColor = StatusInfo,
-                        contentColor = NeutralSurface,
-                    )
-                    AppBadge(
-                        text = "Offline",
-                        backgroundColor = NeutralBorder,
-                        contentColor = NeutralTextMuted,
-                    )
+                    badges.forEach { badge ->
+                        AppBadge(
+                            text = badge.text,
+                            backgroundColor = badge.backgroundColor,
+                            contentColor = badge.contentColor,
+                        )
+                    }
                 }
             }
             Row(
@@ -139,6 +176,12 @@ fun SectionHeader(
         Text(text = subtitle, style = MaterialTheme.typography.body1)
     }
 }
+
+private data class HeaderBadgeSpec(
+    val text: String,
+    val backgroundColor: androidx.compose.ui.graphics.Color,
+    val contentColor: androidx.compose.ui.graphics.Color,
+)
 
 @Composable
 fun WizardStepIndicator(

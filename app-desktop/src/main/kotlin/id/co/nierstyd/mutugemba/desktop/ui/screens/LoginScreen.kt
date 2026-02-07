@@ -24,6 +24,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.InfoCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
@@ -41,16 +42,16 @@ fun LoginScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
-            title = "Selamat Datang",
-            subtitle = "Masuk untuk melanjutkan ke MutuGemba QC TPS.",
+            title = AppStrings.Login.Title,
+            subtitle = AppStrings.Login.Subtitle,
         )
 
-        InfoCard(title = "Login") {
+        InfoCard(title = AppStrings.Login.CardTitle) {
             AppTextField(
                 spec =
                     FieldSpec(
-                        label = "Nama",
-                        placeholder = "Masukkan nama user",
+                        label = AppStrings.Login.NameLabel,
+                        placeholder = AppStrings.Login.NamePlaceholder,
                     ),
                 value = nameInput,
                 onValueChange = { nameInput = it },
@@ -61,8 +62,8 @@ fun LoginScreen(
             AppTextField(
                 spec =
                     FieldSpec(
-                        label = "Password",
-                        placeholder = "Masukkan password",
+                        label = AppStrings.Login.PasswordLabel,
+                        placeholder = AppStrings.Login.PasswordPlaceholder,
                     ),
                 value = passwordInput,
                 onValueChange = { passwordInput = it },
@@ -73,7 +74,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(Spacing.sm))
 
             PrimaryButton(
-                text = "Masuk",
+                text = AppStrings.Login.Action,
                 onClick = { onLogin(nameInput, passwordInput) },
                 enabled = nameInput.isNotBlank() && passwordInput.isNotBlank(),
             )
@@ -83,7 +84,7 @@ fun LoginScreen(
 
         Row(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
             Text(
-                text = "Tip: gunakan akun resmi QC untuk akses yang aman.",
+                text = AppStrings.Login.Tip,
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )

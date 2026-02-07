@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_inspection_line_id ON inspection_record(line_id);

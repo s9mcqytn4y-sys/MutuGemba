@@ -5,8 +5,10 @@ import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
 import id.co.nierstyd.mutugemba.domain.UserRole
+import id.co.nierstyd.mutugemba.domain.createdDateOrToday
+import id.co.nierstyd.mutugemba.domain.normalized
+import id.co.nierstyd.mutugemba.domain.resolveDefectEntries
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -52,24 +54,19 @@ class CreateInspectionRecordUseCase(
         actorRole: UserRole = UserRole.USER,
         allowDuplicateSameDay: Boolean = false,
     ): CreateInspectionResult {
-        var feedback = validateInput(input)
+        val normalizedInput = input.normalized()
+        val defectEntries = normalizedInput.resolveDefectEntries()
+        var feedback = validateInput(normalizedInput, defectEntries)
         var record: InspectionRecord? = null
         if (feedback.type != FeedbackType.ERROR) {
-            val createdAt =
-                input.createdAt
-                    .trim()
-                    .ifBlank {
-                        LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                    }
-            val createdDate =
-                runCatching { LocalDateTime.parse(createdAt).toLocalDate() }
-                    .getOrElse { LocalDate.now() }
+            val createdAt = normalizedInput.createdAt
+            val createdDate = normalizedInput.createdDateOrToday()
             val hasDuplicate =
                 actorRole != UserRole.ADMIN &&
                     !allowDuplicateSameDay &&
                     repository.hasInspectionOnDate(
-                        lineId = input.lineId,
-                        partId = input.partId,
+                        lineId = normalizedInput.lineId,
+                        partId = normalizedInput.partId,
                         date = createdDate,
                     )
             if (hasDuplicate) {
@@ -82,8 +79,10 @@ class CreateInspectionRecordUseCase(
                     )
             } else {
                 val cleanedInput =
-                    input.copy(
-                        createdAt = createdAt,
+                    normalizedInput.copy(
+                        defects = defectEntries,
+                        defectTypeId = null,
+                        defectQuantity = null,
                     )
                 record = repository.insert(cleanedInput)
                 feedback = UserFeedback(FeedbackType.SUCCESS, "Data inspeksi tersimpan.")
@@ -96,7 +95,10 @@ class CreateInspectionRecordUseCase(
         )
     }
 
-    private fun validateInput(input: InspectionInput): UserFeedback {
+    private fun validateInput(
+        input: InspectionInput,
+        defectEntries: List<InspectionDefectEntry>,
+    ): UserFeedback {
         if (input.lineId <= 0L || input.shiftId <= 0L || input.partId <= 0L) {
             return UserFeedback(
                 FeedbackType.ERROR,
@@ -104,9 +106,7 @@ class CreateInspectionRecordUseCase(
             )
         }
 
-        val createdDate =
-            runCatching { LocalDateTime.parse(input.createdAt).toLocalDate() }
-                .getOrElse { LocalDate.now() }
+        val createdDate = input.createdDateOrToday()
         val today = LocalDate.now()
         if (createdDate.isAfter(today) || createdDate.isBefore(today)) {
             return UserFeedback(
@@ -115,7 +115,6 @@ class CreateInspectionRecordUseCase(
             )
         }
 
-        val defectEntries = resolveDefectEntries(input)
         val totalDefect = defectEntries.sumOf { it.totalQuantity }
         val totalCheck = input.totalCheck
         val totalCheckInvalid = totalCheck != null && totalCheck < totalDefect
@@ -130,23 +129,6 @@ class CreateInspectionRecordUseCase(
         }
     }
 
-    private fun resolveDefectEntries(input: InspectionInput): List<InspectionDefectEntry> {
-        if (input.defects.isNotEmpty()) {
-            return input.defects
-        }
-        val defectTypeId = input.defectTypeId
-        val defectQuantity = input.defectQuantity
-        return if (defectTypeId != null && defectQuantity != null && defectQuantity > 0) {
-            listOf(
-                InspectionDefectEntry(
-                    defectTypeId = defectTypeId,
-                    quantity = defectQuantity,
-                ),
-            )
-        } else {
-            emptyList()
-        }
-    }
 }
 
 class CreateBatchInspectionRecordsUseCase(

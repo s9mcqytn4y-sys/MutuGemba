@@ -2,7 +2,7 @@
 
 Tagline: QC TPS Harian: Inspeksi, Abnormal, QCPC, dan Analitik Ringkas.
 
-Aplikasi QC TPS offline untuk desktop Windows. MVP ini berfokus pada struktur clean architecture dan UI sederhana.
+Aplikasi QC TPS offline untuk desktop Windows. MVP ini berfokus pada clean architecture, UI sederhana, dan operasional lokal.
 
 Dokumen spesifikasi produk: `docs/spec/product.md`.
 
@@ -13,6 +13,19 @@ Dokumen spesifikasi produk: `docs/spec/product.md`.
 ```
 ./gradlew :app-desktop:run
 ```
+
+## Testing
+```
+./gradlew test
+```
+
+## Data & Backup Lokal
+- Database SQLite: `data/mutugemba.db`
+- Lampiran: `data/attachments/`
+- Preferensi: `data/settings.properties`
+- Backup: `data/backup/backup-YYYYMMDD-HHmmss/`
+
+Backup/restore tersedia dari menu Pengaturan. Restore akan memuat ulang aplikasi agar data terbaru terbaca.
 
 ## Format
 ```

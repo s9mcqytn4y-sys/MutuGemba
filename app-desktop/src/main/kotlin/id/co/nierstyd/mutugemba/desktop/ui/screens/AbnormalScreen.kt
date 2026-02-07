@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import id.co.nierstyd.mutugemba.desktop.ui.components.ConfirmDialog
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 
 @Composable
@@ -27,30 +28,30 @@ fun AbnormalScreen() {
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
-            title = "Tiket Abnormal",
-            subtitle = "Alur DETECT -> CONTAIN -> CLOSE.",
+            title = AppStrings.Abnormal.Title,
+            subtitle = AppStrings.Abnormal.Subtitle,
         )
         Text(
-            text = "Gunakan tiket abnormal untuk mencatat isu kualitas yang perlu tindakan cepat.",
+            text = AppStrings.Abnormal.Description,
             style = MaterialTheme.typography.body1,
         )
         PrimaryButton(
-            text = "Buat Tiket Dummy",
+            text = AppStrings.Abnormal.CreateDummy,
             onClick = { showConfirm = true },
         )
         Spacer(modifier = Modifier.height(Spacing.sm))
         Text(
-            text = "Catatan: halaman ini masih dummy untuk MVP.",
+            text = AppStrings.Abnormal.Note,
             style = MaterialTheme.typography.body2,
         )
     }
 
     ConfirmDialog(
         open = showConfirm,
-        title = "Tiket Abnormal",
-        message = "Buat tiket abnormal dummy?",
-        confirmText = "Buat",
-        dismissText = "Batal",
+        title = AppStrings.Abnormal.DialogTitle,
+        message = AppStrings.Abnormal.DialogMessage,
+        confirmText = AppStrings.Actions.Create,
+        dismissText = AppStrings.Actions.Cancel,
         onConfirm = { showConfirm = false },
         onDismiss = { showConfirm = false },
     )

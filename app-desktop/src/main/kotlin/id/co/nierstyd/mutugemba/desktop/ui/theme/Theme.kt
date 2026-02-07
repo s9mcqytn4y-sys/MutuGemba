@@ -11,24 +11,24 @@ private val MutuGembaShapes =
     Shapes(
         small =
             androidx.compose.foundation.shape
-                .RoundedCornerShape(8.dp),
+                .RoundedCornerShape(6.dp),
         medium =
             androidx.compose.foundation.shape
-                .RoundedCornerShape(12.dp),
+                .RoundedCornerShape(10.dp),
         large =
             androidx.compose.foundation.shape
-                .RoundedCornerShape(0.dp),
+                .RoundedCornerShape(16.dp),
     )
 
 @Composable
 fun MutuGembaTheme(content: @Composable () -> Unit) {
     val colors =
         lightColors(
-            primary = BrandRed,
-            primaryVariant = BrandRedDark,
-            secondary = BrandBlue,
-            secondaryVariant = BrandBlueDark,
-            background = NeutralLight,
+            primary = BrandBlue,
+            primaryVariant = BrandBlueDark,
+            secondary = BrandRed,
+            secondaryVariant = BrandRedDark,
+            background = BackgroundTop,
             surface = NeutralSurface,
             onPrimary = NeutralSurface,
             onSecondary = NeutralSurface,

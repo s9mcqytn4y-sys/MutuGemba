@@ -1,15 +1,17 @@
-﻿package id.co.nierstyd.mutugemba.desktop.navigation
+package id.co.nierstyd.mutugemba.desktop.navigation
+
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 
 enum class AppRoute(
     val key: String,
     val label: String,
 ) {
-    Home("home", "Beranda"),
-    Inspection("inspection", "Input Inspeksi"),
-    Abnormal("abnormal", "Tiket Abnormal"),
-    Reports("reports", "Laporan"),
-    ReportsMonthly("reports_monthly", "Laporan Bulanan"),
-    Settings("settings", "Pengaturan"),
+    Home("home", AppStrings.Navigation.Home),
+    Inspection("inspection", AppStrings.Navigation.Inspection),
+    Abnormal("abnormal", AppStrings.Navigation.Abnormal),
+    Reports("reports", AppStrings.Navigation.Reports),
+    ReportsMonthly("reports_monthly", AppStrings.Navigation.ReportsMonthly),
+    Settings("settings", AppStrings.Navigation.Settings),
     ;
 
     companion object {

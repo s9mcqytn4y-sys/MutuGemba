@@ -26,11 +26,13 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 import id.co.nierstyd.mutugemba.domain.Line
+import id.co.nierstyd.mutugemba.usecase.BackupDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDevDemoModeUseCase
@@ -38,6 +40,7 @@ import id.co.nierstyd.mutugemba.usecase.GetDevDummyDataUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
 import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
+import id.co.nierstyd.mutugemba.usecase.RestoreDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.SetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.SetDevDemoModeUseCase
 import id.co.nierstyd.mutugemba.usecase.SetDevDummyDataUseCase
@@ -56,12 +59,18 @@ data class SettingsScreenDependencies(
     val setDevDemoMode: SetDevDemoModeUseCase,
     val getDevDummyData: GetDevDummyDataUseCase,
     val setDevDummyData: SetDevDummyDataUseCase,
+    val backupDatabase: BackupDatabaseUseCase,
+    val restoreDatabase: RestoreDatabaseUseCase,
     val onResetCompleted: () -> Unit,
+    val onDummyDataChanged: (Boolean) -> Unit,
+    val onDemoModeChanged: (Boolean) -> Unit,
+    val onRestoreCompleted: () -> Unit,
 )
 
 @Composable
 fun SettingsScreen(dependencies: SettingsScreenDependencies) {
     var showResetDialog by remember { mutableStateOf(false) }
+    var showRestoreDialog by remember { mutableStateOf(false) }
     var allowDuplicate by remember { mutableStateOf(dependencies.getAllowDuplicateInspection.execute()) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
     var lines by remember { mutableStateOf<List<Line>>(emptyList()) }
@@ -85,23 +94,23 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
-            title = "Pengaturan",
-            subtitle = "Atur aturan inspeksi dan preferensi aplikasi.",
+            title = AppStrings.Settings.Title,
+            subtitle = AppStrings.Settings.Subtitle,
         )
         feedback?.let { StatusBanner(feedback = it) }
 
         SettingsSectionCard(
-            title = "Aturan Inspeksi",
-            subtitle = "Aturan standar untuk checksheet harian.",
+            title = AppStrings.Settings.RulesTitle,
+            subtitle = AppStrings.Settings.RulesSubtitle,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 AppBadge(
-                    text = "ATURAN",
+                    text = AppStrings.Settings.RulesBadge,
                     backgroundColor = NeutralSurface,
                     contentColor = NeutralTextMuted,
                 )
                 Text(
-                    text = "Sistem akan menolak input part yang sama di tanggal yang sama.",
+                    text = AppStrings.Settings.RulesDescription,
                     style = MaterialTheme.typography.body2,
                     color = NeutralTextMuted,
                 )
@@ -109,8 +118,8 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
         }
 
         SettingsSectionCard(
-            title = "Simulasi QC (Dev)",
-            subtitle = "Pengaturan simulasi untuk QA dan pengembangan.",
+            title = AppStrings.Settings.SimTitle,
+            subtitle = AppStrings.Settings.SimSubtitle,
         ) {
             val options = lines.map { DropdownOption(it.id, it.name) }
             val selectedOption =
@@ -118,23 +127,31 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                     ?.let { id -> lines.firstOrNull { it.id == id } }
                     ?.let { line -> DropdownOption(line.id, line.name) }
             AppRadioGroup(
-                label = "Line QC Aktif",
+                label = AppStrings.Settings.LineQcLabel,
                 options = options,
                 selectedId = selectedOption?.id,
                 onSelected = { option ->
                     selectedDevLineId = option.id
                     dependencies.setDevQcLine.execute(option.id)
-                    feedback = UserFeedback(FeedbackType.SUCCESS, "Line QC diubah ke ${option.label}.")
+                    feedback =
+                        UserFeedback(
+                            FeedbackType.SUCCESS,
+                            AppStrings.Feedback.lineQcUpdated(option.label),
+                        )
                 },
-                helperText = "Input inspeksi akan auto-select line ini (tetap bisa diubah).",
+                helperText = AppStrings.Settings.LineQcHint,
                 maxHeight = 140.dp,
             )
             SecondaryButton(
-                text = "Gunakan Pilihan Manual",
+                text = AppStrings.Actions.UseManualSelection,
                 onClick = {
                     selectedDevLineId = null
                     dependencies.setDevQcLine.execute(null)
-                    feedback = UserFeedback(FeedbackType.SUCCESS, "Line QC dikembalikan ke mode manual.")
+                    feedback =
+                        UserFeedback(
+                            FeedbackType.SUCCESS,
+                            AppStrings.Feedback.lineQcManual,
+                        )
                 },
                 enabled = selectedDevLineId != null,
             )
@@ -144,9 +161,9 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column {
-                    Text(text = "Mode Demo", style = MaterialTheme.typography.body1)
+                    Text(text = AppStrings.Settings.DemoModeTitle, style = MaterialTheme.typography.body1)
                     Text(
-                        text = "Aktifkan untuk tampilan demo dan simulasi presentasi.",
+                        text = AppStrings.Settings.DemoModeSubtitle,
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
@@ -156,10 +173,15 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                     onCheckedChange = { checked ->
                         demoMode = checked
                         dependencies.setDevDemoMode.execute(checked)
+                        dependencies.onDemoModeChanged(checked)
                         feedback =
                             UserFeedback(
                                 FeedbackType.SUCCESS,
-                                if (checked) "Mode demo diaktifkan." else "Mode demo dimatikan.",
+                                if (checked) {
+                                    AppStrings.Feedback.DemoEnabled
+                                } else {
+                                    AppStrings.Feedback.DemoDisabled
+                                },
                             )
                     },
                 )
@@ -169,9 +191,9 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column {
-                    Text(text = "Gunakan Data Dummy", style = MaterialTheme.typography.body1)
+                    Text(text = AppStrings.Settings.DummyDataTitle, style = MaterialTheme.typography.body1)
                     Text(
-                        text = "Aktifkan jika ingin menguji UI dengan data contoh.",
+                        text = AppStrings.Settings.DummyDataSubtitle,
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
@@ -181,10 +203,15 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                     onCheckedChange = { checked ->
                         dummyData = checked
                         dependencies.setDevDummyData.execute(checked)
+                        dependencies.onDummyDataChanged(checked)
                         feedback =
                             UserFeedback(
                                 FeedbackType.SUCCESS,
-                                if (checked) "Data dummy diaktifkan." else "Data dummy dimatikan.",
+                                if (checked) {
+                                    AppStrings.Feedback.DummyEnabled
+                                } else {
+                                    AppStrings.Feedback.DummyDisabled
+                                },
                             )
                     },
                 )
@@ -195,9 +222,9 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column {
-                    Text(text = "Izinkan Input Ulang Hari yang Sama", style = MaterialTheme.typography.body1)
+                    Text(text = AppStrings.Settings.DuplicateTitle, style = MaterialTheme.typography.body1)
                     Text(
-                        text = "Aktifkan jika perlu mencoba input duplikat.",
+                        text = AppStrings.Settings.DuplicateSubtitle,
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
@@ -211,9 +238,9 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                             UserFeedback(
                                 FeedbackType.SUCCESS,
                                 if (checked) {
-                                    "Input ulang hari yang sama diizinkan."
+                                    AppStrings.Feedback.DuplicateAllowed
                                 } else {
-                                    "Input ulang hari yang sama diblokir."
+                                    AppStrings.Feedback.DuplicateBlocked
                                 },
                             )
                     },
@@ -222,34 +249,45 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
         }
 
         SettingsSectionCard(
-            title = "Pemeliharaan Data",
-            subtitle = "Reset dan backup data lokal.",
+            title = AppStrings.Settings.MaintenanceTitle,
+            subtitle = AppStrings.Settings.MaintenanceSubtitle,
         ) {
             Text(
-                text = "Gunakan tombol di bawah untuk mengosongkan data inspeksi dan mengisi ulang data awal.",
+                text = AppStrings.Settings.MaintenanceBody,
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )
             PrimaryButton(
-                text = "Reset Data",
+                text = AppStrings.Actions.ResetData,
                 onClick = { showResetDialog = true },
             )
             Divider(color = NeutralBorder, thickness = 1.dp)
             Text(
-                text = "Backup/restore akan tersedia pada milestone berikutnya.",
+                text = AppStrings.Settings.BackupHint,
+                style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
+            )
+            Text(
+                text = AppStrings.Settings.RestoreHint,
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 SecondaryButton(
-                    text = "Backup (Nanti)",
-                    onClick = {},
-                    enabled = false,
+                    text = AppStrings.Actions.Backup,
+                    onClick = {
+                        val result = dependencies.backupDatabase.execute()
+                        feedback =
+                            if (result.isSuccess) {
+                                UserFeedback(FeedbackType.SUCCESS, AppStrings.Feedback.BackupSuccess)
+                            } else {
+                                UserFeedback(FeedbackType.ERROR, AppStrings.Feedback.BackupFailed)
+                            }
+                    },
                 )
                 SecondaryButton(
-                    text = "Restore (Nanti)",
-                    onClick = {},
-                    enabled = false,
+                    text = AppStrings.Actions.Restore,
+                    onClick = { showRestoreDialog = true },
                 )
             }
         }
@@ -257,22 +295,42 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
 
     ConfirmDialog(
         open = showResetDialog,
-        title = "Reset Data",
-        message = "Semua data inspeksi akan dihapus dan diisi ulang dengan data awal. Lanjutkan?",
-        confirmText = "Reset",
-        dismissText = "Batal",
+        title = AppStrings.Settings.ResetDialogTitle,
+        message = AppStrings.Settings.ResetDialogMessage,
+        confirmText = AppStrings.Actions.Reset,
+        dismissText = AppStrings.Actions.Cancel,
         onConfirm = {
             showResetDialog = false
             val success = dependencies.resetData.execute()
             feedback =
                 if (success) {
                     dependencies.onResetCompleted()
-                    UserFeedback(FeedbackType.SUCCESS, "Data berhasil direset. Master data telah dipulihkan.")
+                    UserFeedback(FeedbackType.SUCCESS, AppStrings.Feedback.ResetSuccess)
                 } else {
-                    UserFeedback(FeedbackType.ERROR, "Reset data gagal. Coba ulangi.")
+                    UserFeedback(FeedbackType.ERROR, AppStrings.Feedback.ResetFailed)
                 }
         },
         onDismiss = { showResetDialog = false },
+    )
+
+    ConfirmDialog(
+        open = showRestoreDialog,
+        title = AppStrings.Actions.Restore,
+        message = AppStrings.Settings.RestoreHint,
+        confirmText = AppStrings.Actions.Restore,
+        dismissText = AppStrings.Actions.Cancel,
+        onConfirm = {
+            showRestoreDialog = false
+            val result = dependencies.restoreDatabase.execute()
+            feedback =
+                if (result.isSuccess) {
+                    dependencies.onRestoreCompleted()
+                    UserFeedback(FeedbackType.SUCCESS, AppStrings.Settings.RestoreSuccess)
+                } else {
+                    UserFeedback(FeedbackType.ERROR, AppStrings.Feedback.RestoreFailed)
+                }
+        },
+        onDismiss = { showRestoreDialog = false },
     )
 }
 

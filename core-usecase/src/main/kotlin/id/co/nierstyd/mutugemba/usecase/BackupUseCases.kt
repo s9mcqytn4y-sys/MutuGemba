@@ -1,9 +1,16 @@
 package id.co.nierstyd.mutugemba.usecase
 
-class BackupDatabaseUseCase {
-    fun execute(): Result<Unit> = Result.failure(UnsupportedOperationException("Backup belum tersedia"))
+import id.co.nierstyd.mutugemba.domain.BackupRepository
+import id.co.nierstyd.mutugemba.domain.BackupSnapshot
+
+class BackupDatabaseUseCase(
+    private val repository: BackupRepository,
+) {
+    fun execute(): Result<BackupSnapshot> = repository.createBackup()
 }
 
-class RestoreDatabaseUseCase {
-    fun execute(): Result<Unit> = Result.failure(UnsupportedOperationException("Restore belum tersedia"))
+class RestoreDatabaseUseCase(
+    private val repository: BackupRepository,
+) {
+    fun execute(): Result<BackupSnapshot> = repository.restoreLatest()
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.OutlinedTextField
+import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -18,6 +19,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
@@ -30,7 +33,7 @@ fun AppDropdown(
     selectedOption: DropdownOption?,
     onSelected: (DropdownOption) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "Pilih",
+    placeholder: String = AppStrings.Common.Select,
     enabled: Boolean = true,
     helperText: String? = null,
 ) {
@@ -49,7 +52,11 @@ fun AppDropdown(
                 placeholder = { Text(placeholder) },
                 singleLine = true,
                 trailingIcon = {
-                    Text(text = if (expanded) "^" else "v", color = NeutralTextMuted)
+                    Icon(
+                        imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
+                        contentDescription = null,
+                        tint = NeutralTextMuted,
+                    )
                 },
                 modifier =
                     Modifier.fillMaxWidth(),

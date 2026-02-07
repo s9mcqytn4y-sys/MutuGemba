@@ -7,15 +7,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.ui.draw.shadow
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.Icon
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -34,8 +33,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import id.co.nierstyd.mutugemba.analytics.paretoCounts
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandRed
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
@@ -49,6 +48,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
+import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.domain.Line
@@ -92,9 +92,12 @@ private fun LineFilterChips(
     selectedLineId: Long?,
     onSelectedLine: (Long?) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+    ) {
         AnalyticsToggleChip(
-            label = "Semua",
+            label = AppStrings.Analytics.All,
             selected = selectedLineId == null,
             onClick = { onSelectedLine(null) },
         )
@@ -117,8 +120,10 @@ private fun AnalyticsToggleChip(
     val background = if (selected) BrandBlue else NeutralSurface
     val contentColor = if (selected) NeutralSurface else NeutralText
     Surface(
-        modifier = Modifier
-            .clickable { onClick() },
+        modifier =
+            Modifier
+                .sizeIn(minWidth = 88.dp, minHeight = 32.dp)
+                .clickable { onClick() },
         shape = MaterialTheme.shapes.small,
         color = background,
         elevation = 0.dp,
@@ -128,7 +133,7 @@ private fun AnalyticsToggleChip(
             text = label,
             style = MaterialTheme.typography.caption,
             color = contentColor,
-            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = 6.dp),
         )
     }
 }
@@ -160,9 +165,9 @@ fun MonthlyInsightCard(
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text(text = "Ringkasan Bulan Ini", style = MaterialTheme.typography.subtitle1)
+                    Text(text = AppStrings.Analytics.InsightTitle, style = MaterialTheme.typography.subtitle1)
                     Text(
-                        text = "${DateTimeFormats.formatMonth(month)} - Ringkasan checksheet harian.",
+                        text = AppStrings.Analytics.monthLabel(DateTimeFormats.formatMonth(month)),
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
@@ -171,64 +176,101 @@ fun MonthlyInsightCard(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MonthlyMetricCard(
-                    title = "Dokumen",
+                    title = AppStrings.Analytics.Documents,
                     value = totals.totalDocs.toString(),
                     modifier = Modifier.weight(1f),
                 )
                 MonthlyMetricCard(
-                    title = "Hari Terisi",
+                    title = AppStrings.Analytics.DaysFilled,
                     value = "${totals.daysWithInput}/${totals.daysInMonth}",
                     modifier = Modifier.weight(1f),
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MonthlyMetricCard(
-                    title = "Total Periksa",
+                    title = AppStrings.Common.TotalCheck,
                     value = totals.totalCheck.toString(),
                     modifier = Modifier.weight(1f),
                 )
                 MonthlyMetricCard(
-                    title = "Total NG",
+                    title = AppStrings.Common.TotalNg,
                     value = totals.totalDefect.toString(),
                     modifier = Modifier.weight(1f),
                 )
             }
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MonthlyMetricCard(
-                    title = "Hari Kosong",
+                    title = AppStrings.Analytics.EmptyDays,
                     value = (totals.daysInMonth - totals.daysWithInput).toString(),
                     modifier = Modifier.weight(1f),
                 )
                 MonthlyMetricCard(
-                    title = "NG/Dokumen",
-                    value = if (totals.totalDocs > 0) "%.1f".format(totals.totalDefect.toDouble() / totals.totalDocs.toDouble()) else "-",
+                    title = AppStrings.Analytics.NgPerDoc,
+                    value =
+                        if (totals.totalDocs > 0) {
+                            NumberFormats.formatNumberNoDecimal(
+                                totals.totalDefect.toDouble() / totals.totalDocs.toDouble(),
+                            )
+                        } else {
+                            AppStrings.Common.Placeholder
+                        },
                     modifier = Modifier.weight(1f),
                 )
             }
 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MonthlyMetricCard(
-                    title = "Rasio NG",
-                    value = formatPercent(totals.ratio),
+                    title = AppStrings.Common.NgRatio,
+                    value = NumberFormats.formatPercentNoDecimal(totals.ratio),
                     modifier = Modifier.weight(1f),
                 )
                 MonthlyMetricCard(
-                    title = "NG per Hari",
-                    value = if (totals.avgDefectPerDay <= 0.0) "-" else "%.1f".format(totals.avgDefectPerDay),
+                    title = AppStrings.Analytics.NgPerDay,
+                    value =
+                        if (totals.avgDefectPerDay <= 0.0) {
+                            AppStrings.Common.Placeholder
+                        } else {
+                            NumberFormats.formatNumberNoDecimal(totals.avgDefectPerDay)
+                        },
                     modifier = Modifier.weight(1f),
                 )
             }
+            val coveragePercent = NumberFormats.formatPercentNoDecimal(dayRatio.toDouble())
+            val coverageColor =
+                when {
+                    dayRatio >= 0.8f -> StatusSuccess
+                    dayRatio >= 0.5f -> StatusWarning
+                    else -> StatusError
+                }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(
-                    text = "Part tercatat: ${totals.totalParts}",
-                    style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
-                )
-                Text(text = "Cakupan hari input", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = AppStrings.Analytics.partRecorded(totals.totalParts),
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = coverageColor.copy(alpha = 0.12f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, coverageColor.copy(alpha = 0.4f)),
+                        elevation = 0.dp,
+                    ) {
+                        Text(
+                            text = coveragePercent,
+                            style = MaterialTheme.typography.caption,
+                            color = coverageColor,
+                            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp),
+                        )
+                    }
+                }
                 Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(8.dp)
+                            .height(6.dp)
                             .background(NeutralLight, MaterialTheme.shapes.small),
                 ) {
                     if (dayRatio > 0f) {
@@ -236,8 +278,8 @@ Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             modifier =
                                 Modifier
                                     .fillMaxWidth(dayRatio)
-                                    .height(8.dp)
-                                    .background(StatusSuccess, MaterialTheme.shapes.small),
+                                    .height(6.dp)
+                                    .background(coverageColor, MaterialTheme.shapes.small),
                         )
                     }
                 }
@@ -281,15 +323,14 @@ fun MonthlyParetoCard(
 ) {
     val paretoItems =
         remember(defectSummaries) {
-            if (defectSummaries.isEmpty()) {
-                emptyList()
-            } else {
-                val expanded =
-                    defectSummaries.flatMap { summary ->
-                        List(summary.totalQuantity.coerceAtMost(200)) { summary.defectName }
-                    }
-                paretoCounts(expanded).take(6)
-            }
+            defectSummaries
+                .filter { it.totalQuantity > 0 }
+                .map { it.defectName to it.totalQuantity }
+                .sortedWith(
+                    compareByDescending<Pair<String, Int>> { it.second }
+                        .thenBy { it.first },
+                )
+                .take(6)
         }
 
     Surface(
@@ -309,9 +350,9 @@ fun MonthlyParetoCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
-                    Text(text = "Pareto NG Bulan Ini", style = MaterialTheme.typography.subtitle1)
+                    Text(text = AppStrings.Analytics.ParetoTitle, style = MaterialTheme.typography.subtitle1)
                     Text(
-                        text = "Kontribusi NG terbesar & kumulatif (${DateTimeFormats.formatMonth(month)}).",
+                        text = AppStrings.Analytics.paretoSubtitle(DateTimeFormats.formatMonth(month)),
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
@@ -323,7 +364,7 @@ fun MonthlyParetoCard(
                 SkeletonBlock(width = 320.dp, height = 8.dp)
                 SkeletonBlock(width = 280.dp, height = 8.dp)
             } else if (paretoItems.isEmpty()) {
-                Text(text = "Belum ada data NG bulan ini.", style = MaterialTheme.typography.body2)
+                Text(text = AppStrings.Analytics.NoData, style = MaterialTheme.typography.body2)
             } else {
                 val maxValue = paretoItems.maxOfOrNull { it.second } ?: 1
                 val total = paretoItems.sumOf { it.second }.coerceAtLeast(1)
@@ -331,7 +372,7 @@ fun MonthlyParetoCard(
                 var cumulative = 0
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     Text(
-                        text = "Top 3 NG Dominan",
+                        text = AppStrings.Analytics.TopDominant,
                         style = MaterialTheme.typography.caption,
                         color = NeutralTextMuted,
                     )
@@ -356,7 +397,7 @@ fun MonthlyParetoCard(
                                                 .background(color, CircleShape),
                                     )
                                     Text(
-                                        text = "$label ($count)",
+                                        text = AppStrings.Analytics.topDominantItem(label, count),
                                         style = MaterialTheme.typography.caption,
                                         color = NeutralTextMuted,
                                     )
@@ -379,15 +420,15 @@ Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                             cumulative += count
                             val cumulativeRatio = cumulative.toDouble() / total.toDouble()
                             val ratio = count.toDouble() / total.toDouble()
-                            ParetoRow(
-                                label = label,
-                                value = count,
-                                maxValue = maxValue,
-                                ratio = ratio,
-                                cumulativeRatio = cumulativeRatio,
-                                accentColor = palette[index % palette.size],
-                            )
-                        }
+            ParetoRow(
+                label = label,
+                value = count,
+                maxValue = maxValue,
+                ratio = ratio,
+                cumulativeRatio = cumulativeRatio,
+                accentColor = palette[index % palette.size],
+            )
+        }
                     }
                 }
             }
@@ -430,7 +471,7 @@ private fun ParetoRow(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(text = label, style = MaterialTheme.typography.body2)
             Text(
-                text = "${value} (${formatPercent(ratio)})",
+                text = AppStrings.Analytics.valueWithPercent(value, NumberFormats.formatPercent(ratio)),
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
@@ -452,7 +493,7 @@ private fun ParetoRow(
             )
         }
         Text(
-            text = "Kumulatif ${formatPercent(cumulativeRatio)}",
+            text = AppStrings.Analytics.cumulativeLabel(NumberFormats.formatPercent(cumulativeRatio)),
             style = MaterialTheme.typography.caption,
             color = NeutralTextMuted,
         )
@@ -495,9 +536,9 @@ fun MonthlyTrendCard(
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text(text = "Trend NG Harian", style = MaterialTheme.typography.subtitle1)
+                    Text(text = AppStrings.Analytics.TrendTitle, style = MaterialTheme.typography.subtitle1)
                     Text(
-                        text = "Pergerakan NG harian untuk monitoring stabilitas proses.",
+                        text = AppStrings.Analytics.TrendSubtitle,
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
@@ -511,7 +552,7 @@ fun MonthlyTrendCard(
                 selectedLineId = selectedLineId,
             )
             Text(
-                text = "Tanggal di bawah grafik menunjukkan hari ke-1 s/d akhir bulan. Titik = NG harian.",
+                text = AppStrings.Analytics.TrendFootnote,
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
@@ -614,9 +655,3 @@ private fun TrendChart(
 }
 
 
-fun formatPercent(value: Double): String =
-    if (value <= 0.0) {
-        "-"
-    } else {
-        "${"%.1f".format(value * 100)}%"
-    }

@@ -11,12 +11,15 @@ Dokumen ini merangkum identitas aplikasi, target pengguna, prinsip UX, dan batas
 - Desktop (Windows 10/11) adalah prioritas MVP.
 - Android (HP/Tablet) menyusul tanpa rewrite besar dengan berbagi modul `core-*`.
 - Offline-only, internal perusahaan.
+- Data disimpan lokal: SQLite single file + folder lampiran.
+- Backup/restore 1 klik untuk operasional lapangan tanpa cloud.
 
 ## Prinsip UX untuk User Awam
 - Bahasa Indonesia sederhana (contoh: "Cacat", "Parameter Proses", "Tiket Abnormal", "Tindakan Penahanan").
 - Wizard input 3 langkah: Konteks -> Input -> Simpan.
 - Tombol besar, minim menu, nyaman dipakai satu tangan.
 - Default nilai otomatis (tanggal/shift, user, line terakhir).
+- Riwayat checksheet bersifat read-only agar data final terjaga.
 
 ## Arsitektur (Clean + Modular)
 - Modul:
@@ -30,7 +33,7 @@ Dokumen ini merangkum identitas aplikasi, target pengguna, prinsip UX, dan batas
 ## Library yang Disarankan (Opsional)
 - UI lintas platform: Compose Multiplatform/Compose Desktop.
 - DB type-safe + migrations: SQLDelight.
-- DI ringan: Koin.
+- DI ringan: manual container (tanpa framework) atau Koin jika dibutuhkan.
 
 ## Kualitas Kode & CI
 - Format/lint: ktlint-gradle.

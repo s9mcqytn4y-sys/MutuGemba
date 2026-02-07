@@ -25,13 +25,6 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,7 +50,8 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.buildLineColors
-import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.formatPercent
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
@@ -69,6 +63,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
+import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
@@ -207,8 +202,8 @@ fun ReportsScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
-            title = "Laporan Checksheet Harian",
-            subtitle = "Riwayat dan dokumen checksheet harian untuk evaluasi QC.",
+            title = AppStrings.Reports.Title,
+            subtitle = AppStrings.Reports.Subtitle,
         )
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -310,21 +305,21 @@ private fun MonthlyHistoryCard(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.CalendarToday,
+                            imageVector = AppIcons.CalendarToday,
                             contentDescription = null,
                             tint = MaterialTheme.colors.primary,
                             modifier = Modifier.size(18.dp),
                         )
-                        Text(text = "Riwayat Checksheet Bulan Ini", style = MaterialTheme.typography.subtitle1)
+                        Text(text = AppStrings.Reports.HistoryTitle, style = MaterialTheme.typography.subtitle1)
                     }
                     Text(
-                        text = "Bulan ${DateTimeFormats.formatMonth(month)} • Riwayat bersifat read-only.",
+                        text = AppStrings.Reports.historyMonthLabel(DateTimeFormats.formatMonth(month)),
                         style = MaterialTheme.typography.body2,
                         color = NeutralTextMuted,
                     )
                 }
                 AppBadge(
-                    text = "Read-only",
+                    text = AppStrings.App.ReadOnly,
                     backgroundColor = NeutralLight,
                     contentColor = NeutralText,
                 )
@@ -336,18 +331,18 @@ private fun MonthlyHistoryCard(
                 onMonthChange = onMonthChange,
             )
             Text(
-                text = "Ganti tanggal di bar di atas untuk melihat riwayat. Tanggal masa depan tidak bisa dibuka.",
+                text = AppStrings.Reports.HistoryHint,
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
 
             if (lines.isNotEmpty()) {
                 AppRadioGroup(
-                    label = "Pilih Line (Riwayat)",
+                    label = AppStrings.Reports.LineHistoryLabel,
                     options = lines.map { DropdownOption(it.id, it.name) },
                     selectedId = selectedLineId,
                     onSelected = { onLineSelected(it.id) },
-                    helperText = "Riwayat hanya menampilkan dokumen yang sudah tersimpan.",
+                    helperText = AppStrings.Reports.LineHistoryHint,
                 )
             }
 
@@ -376,7 +371,7 @@ private fun MonthlyHistoryCard(
                     feedback =
                         id.co.nierstyd.mutugemba.usecase.UserFeedback(
                             id.co.nierstyd.mutugemba.usecase.FeedbackType.INFO,
-                            "Data checksheet harian bersifat final. QC dapat menandai hari libur secara manual.",
+                            AppStrings.Reports.HistoryInfo,
                         ),
                     onDismiss = onCloseInfo,
                     dense = true,
@@ -402,8 +397,8 @@ private fun MonthSwitcher(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
             PagerNavButton(
                 enabled = canPrev,
-                icon = Icons.Filled.ChevronLeft,
-                label = "Bulan Sebelum",
+                icon = AppIcons.ChevronLeft,
+                label = AppStrings.Actions.PreviousMonth,
                 onClick = { onMonthChange(month.minusMonths(1)) },
             )
             Text(
@@ -413,15 +408,15 @@ private fun MonthSwitcher(
             )
             PagerNavButton(
                 enabled = canNext,
-                icon = Icons.Filled.ChevronRight,
-                label = "Bulan Berikut",
+                icon = AppIcons.ChevronRight,
+                label = AppStrings.Actions.NextMonth,
                 iconOnRight = true,
                 onClick = { onMonthChange(month.plusMonths(1)) },
             )
         }
         if (month != todayMonth) {
             SecondaryButton(
-                text = "Bulan Ini",
+                text = AppStrings.Actions.CurrentMonth,
                 onClick = { onMonthChange(todayMonth) },
             )
         }
@@ -477,9 +472,9 @@ private fun DayPager(
         if (pageDates.isNotEmpty()) {
             val start = pageDates.first().dayOfMonth
             val end = pageDates.last().dayOfMonth
-            "Tanggal $start–$end"
+            AppStrings.Reports.monthlyRangeLabel(start, end)
         } else {
-            "Tanggal"
+            AppStrings.Reports.MonthRangeLabel
         }
     val totalEnabled =
         pageDates.count {
@@ -500,8 +495,8 @@ private fun DayPager(
             PagerNavButton(
                 modifier = Modifier.widthIn(min = 140.dp),
                 enabled = currentPage > 0,
-                icon = Icons.Filled.ChevronLeft,
-                label = "Sebelumnya",
+                icon = AppIcons.ChevronLeft,
+                label = AppStrings.Actions.Previous,
                 onClick = { onPageChange(currentPage - 1) },
             )
             Column(
@@ -509,7 +504,7 @@ private fun DayPager(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "Halaman ${currentPage + 1} / $totalPages",
+                    text = AppStrings.Reports.pageLabel(currentPage + 1, totalPages),
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
@@ -522,8 +517,8 @@ private fun DayPager(
             PagerNavButton(
                 modifier = Modifier.widthIn(min = 140.dp),
                 enabled = currentPage < totalPages - 1,
-                icon = Icons.Filled.ChevronRight,
-                label = "Berikutnya",
+                icon = AppIcons.ChevronRight,
+                label = AppStrings.Actions.Next,
                 iconOnRight = true,
                 onClick = { onPageChange(currentPage + 1) },
             )
@@ -571,13 +566,13 @@ private fun DayPager(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AppBadge(
-                text = "Terisi $totalFilled/$totalEnabled",
+                text = AppStrings.Reports.filledCount(totalFilled, totalEnabled),
                 backgroundColor = StatusSuccess.copy(alpha = 0.12f),
                 contentColor = StatusSuccess,
                 modifier = Modifier.widthIn(min = 96.dp),
             )
             AppBadge(
-                text = "Libur $totalWeekend",
+                text = AppStrings.Reports.holidayCount(totalWeekend),
                 backgroundColor = StatusWarning.copy(alpha = 0.12f),
                 contentColor = StatusWarning,
                 modifier = Modifier.widthIn(min = 96.dp),
@@ -585,7 +580,12 @@ private fun DayPager(
             Spacer(modifier = Modifier.weight(1f))
             val canToggleHoliday = !selectedDate.isAfter(today) && summaryByDate[selectedDate] == null
             SecondaryButton(
-                text = if (manualHolidays.contains(selectedDate)) "Batalkan Libur" else "Tandai Libur",
+                text =
+                    if (manualHolidays.contains(selectedDate)) {
+                        AppStrings.Reports.ToggleHolidayOff
+                    } else {
+                        AppStrings.Reports.ToggleHoliday
+                    },
                 onClick = { if (canToggleHoliday) onToggleHoliday(selectedDate) },
                 enabled = canToggleHoliday,
             )
@@ -658,9 +658,9 @@ private fun DateButton(
     val alpha = if (enabled) 1f else 0.45f
     val tooltipText =
         if (summary == null) {
-            "Belum ada input"
+            AppStrings.Reports.NoInput
         } else {
-            "NG ${summary.totalDefect} • Periksa ${summary.totalCheck}"
+            AppStrings.Reports.ngCheckTooltip(summary.totalDefect, summary.totalCheck)
         }
     Box(modifier = modifier) {
         TooltipArea(
@@ -686,18 +686,18 @@ private fun DateButton(
                 )
                 if (isHoliday && summary == null) {
                     Text(
-                        text = "Libur",
+                        text = AppStrings.Reports.HolidayLabel,
                         style = MaterialTheme.typography.caption,
                         color = StatusWarning,
                     )
                 }
-                    if (summary != null && summary.totalDefect > 0) {
-                        Text(
-                            text = "NG ${summary.totalDefect}",
-                            style = MaterialTheme.typography.caption,
-                            color = StatusWarning,
-                        )
-                    }
+                if (summary != null && summary.totalDefect > 0) {
+                    Text(
+                        text = AppStrings.Reports.ngCountLabel(summary.totalDefect),
+                        style = MaterialTheme.typography.caption,
+                        color = StatusWarning,
+                    )
+                }
                     if (lineCounts.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                             lineCounts.entries.sortedBy { it.key }.forEach { (lineId, count) ->
@@ -711,7 +711,7 @@ private fun DateButton(
                     }
                     if (hasInput) {
                         Icon(
-                            imageVector = Icons.Filled.CheckCircle,
+                            imageVector = AppIcons.CheckCircle,
                             contentDescription = null,
                             tint = StatusSuccess,
                             modifier = Modifier.size(12.dp),
@@ -730,23 +730,23 @@ private fun HistoryLegend() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LegendPill(
-            icon = Icons.Filled.CheckCircle,
+            icon = AppIcons.CheckCircle,
             color = StatusSuccess,
-            label = "Sudah Input",
+            label = AppStrings.Reports.LegendFilled,
         )
         LegendPill(
-            icon = Icons.Filled.RadioButtonUnchecked,
+            icon = AppIcons.RadioButtonUnchecked,
             color = NeutralBorder,
-            label = "Belum Input",
+            label = AppStrings.Reports.LegendEmpty,
         )
         LegendPill(
-            icon = Icons.Filled.RadioButtonUnchecked,
+            icon = AppIcons.RadioButtonUnchecked,
             color = StatusWarning,
-            label = "Akhir Pekan/Libur",
+            label = AppStrings.Reports.LegendWeekend,
         )
     }
     Text(
-        text = "Angka kecil di tanggal menunjukkan jumlah input per line.",
+        text = AppStrings.Reports.LineCountHint,
         style = MaterialTheme.typography.caption,
         color = NeutralTextMuted,
         modifier = Modifier.padding(top = Spacing.xs),
@@ -819,20 +819,20 @@ private fun DailyDocumentSection(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = Icons.Filled.Description,
+                imageVector = AppIcons.Description,
                 contentDescription = null,
                 tint = MaterialTheme.colors.primary,
                 modifier = Modifier.size(18.dp),
             )
-            Text(text = "Dokumen Checksheet Harian", style = MaterialTheme.typography.subtitle1)
+            Text(text = AppStrings.Reports.DailyDocumentTitle, style = MaterialTheme.typography.subtitle1)
             AppBadge(
-                text = "Read-only",
+                text = AppStrings.App.ReadOnly,
                 backgroundColor = NeutralLight,
                 contentColor = NeutralTextMuted,
             )
         }
         Text(
-            text = "Rincian dokumen untuk ${DateTimeFormats.formatDate(selectedDate)}.",
+            text = AppStrings.Reports.dailyDocumentLabel(DateTimeFormats.formatDate(selectedDate)),
             style = MaterialTheme.typography.body2,
             color = NeutralTextMuted,
         )
@@ -868,12 +868,12 @@ private fun DocumentViewToggle(
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         ToggleChip(
-            label = "Preview Sebelum Cetak",
+            label = AppStrings.Reports.PreviewBeforePrint,
             selected = viewMode == DocumentViewMode.PREVIEW,
             onClick = { onModeChange(DocumentViewMode.PREVIEW) },
         )
         ToggleChip(
-            label = "Dokumen Lengkap",
+            label = AppStrings.Reports.DocumentFull,
             selected = viewMode == DocumentViewMode.FULL,
             onClick = { onModeChange(DocumentViewMode.FULL) },
         )
@@ -920,9 +920,9 @@ private fun EmptyHistoryState(selectedDate: LocalDate) {
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
-            Text(text = "Belum ada dokumen", style = MaterialTheme.typography.subtitle1)
+            Text(text = AppStrings.Reports.DocumentEmptyTitle, style = MaterialTheme.typography.subtitle1)
             Text(
-                text = "Tidak ditemukan data checksheet untuk ${DateTimeFormats.formatDate(selectedDate)}.",
+                text = AppStrings.Reports.documentNotFound(DateTimeFormats.formatDate(selectedDate)),
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )
@@ -1007,9 +1007,9 @@ private fun DocumentPreviewCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(text = "Preview Dokumen (Ringkas)", style = MaterialTheme.typography.subtitle1)
+                Text(text = AppStrings.Reports.DocumentPreviewTitle, style = MaterialTheme.typography.subtitle1)
                 SecondaryButton(
-                    text = "Lihat Dokumen Lengkap",
+                    text = AppStrings.Actions.ViewFullDocument,
                     onClick = onExpand,
                 )
             }
@@ -1017,7 +1017,7 @@ private fun DocumentPreviewCard(
             DocumentTotalsRow(totals = totals)
             DocumentEntryTable(entries = previewRows, totals = totals)
             Text(
-                text = "Menampilkan ${previewRows.size} dari ${detail.entries.size} part.",
+                text = AppStrings.Reports.previewCount(previewRows.size, detail.entries.size),
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
@@ -1033,24 +1033,24 @@ private fun DailyDocumentMiniHeader(detail: DailyChecksheetDetail) {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(text = "PT. Primaraya Graha Nusantara", style = MaterialTheme.typography.subtitle2)
+                Text(text = AppStrings.App.CompanyName, style = MaterialTheme.typography.subtitle2)
                 Text(
-                    text = "Quality Assurance Dept.",
+                    text = AppStrings.App.DepartmentName,
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(text = "No. Dokumen", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(text = AppStrings.Reports.DocumentNumberLabel, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
                 Text(text = detail.docNumber, style = MaterialTheme.typography.body2)
             }
         }
         Divider(color = NeutralBorder, thickness = 1.dp)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            DocumentMetaItem(label = "Tanggal", value = DateTimeFormats.formatDate(detail.date), modifier = Modifier.weight(1f))
-            DocumentMetaItem(label = "Line", value = detail.lineName, modifier = Modifier.weight(1f))
-            DocumentMetaItem(label = "Shift", value = detail.shiftName, modifier = Modifier.weight(1f))
-            DocumentMetaItem(label = "PIC", value = detail.picName, modifier = Modifier.weight(1f))
+            DocumentMetaItem(label = AppStrings.Reports.DocumentMetaDate, value = DateTimeFormats.formatDate(detail.date), modifier = Modifier.weight(1f))
+            DocumentMetaItem(label = AppStrings.Reports.DocumentMetaLine, value = detail.lineName, modifier = Modifier.weight(1f))
+            DocumentMetaItem(label = AppStrings.Reports.DocumentMetaShift, value = detail.shiftName, modifier = Modifier.weight(1f))
+            DocumentMetaItem(label = AppStrings.Reports.DocumentMetaPic, value = detail.picName, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -1072,9 +1072,9 @@ private fun DocumentHeader(detail: DailyChecksheetDetail) {
                     modifier = Modifier.heightIn(min = 40.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(text = "PT. Primaraya Graha Nusantara", style = MaterialTheme.typography.subtitle2)
+                    Text(text = AppStrings.App.CompanyName, style = MaterialTheme.typography.subtitle2)
                     Text(
-                        text = "Quality Assurance Dept.",
+                        text = AppStrings.App.DepartmentName,
                         style = MaterialTheme.typography.caption,
                         color = NeutralTextMuted,
                     )
@@ -1082,13 +1082,13 @@ private fun DocumentHeader(detail: DailyChecksheetDetail) {
             }
             Column(modifier = Modifier.weight(1.6f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "CHECKSHEET HARIAN",
+                    text = AppStrings.Reports.DocumentHeaderTitle,
                     style = MaterialTheme.typography.h6.copy(fontWeight = FontWeight.SemiBold),
                     textAlign = TextAlign.Center,
                 )
             }
             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                Text(text = "No. Dokumen", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(text = AppStrings.Reports.DocumentNumberLabel, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
                 Text(
                     text = detail.docNumber,
                     style = MaterialTheme.typography.body2,
@@ -1102,22 +1102,22 @@ private fun DocumentHeader(detail: DailyChecksheetDetail) {
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             DocumentMetaItem(
-                label = "Tanggal",
+                label = AppStrings.Reports.DocumentMetaDate,
                 value = DateTimeFormats.formatDate(detail.date),
                 modifier = Modifier.weight(1f),
             )
             DocumentMetaItem(
-                label = "Line",
+                label = AppStrings.Reports.DocumentMetaLine,
                 value = detail.lineName,
                 modifier = Modifier.weight(1f),
             )
             DocumentMetaItem(
-                label = "Shift",
+                label = AppStrings.Reports.DocumentMetaShift,
                 value = detail.shiftName,
                 modifier = Modifier.weight(1f),
             )
             DocumentMetaItem(
-                label = "PIC",
+                label = AppStrings.Reports.DocumentMetaPic,
                 value = detail.picName,
                 modifier = Modifier.weight(1f),
             )
@@ -1135,7 +1135,7 @@ private fun LogoMark() {
         elevation = 0.dp,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(text = "LOGO", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            Text(text = AppStrings.App.Logo, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         }
     }
 }
@@ -1158,10 +1158,10 @@ private fun DocumentTotalsRow(totals: DocumentTotals) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        DocumentStatCard(title = "Total Periksa", value = totals.totalCheck.toString())
-        DocumentStatCard(title = "Total NG", value = totals.totalDefect.toString())
-        DocumentStatCard(title = "Total OK", value = totals.totalOk.toString())
-        DocumentStatCard(title = "Rasio NG", value = formatPercent(totals.ratio))
+        DocumentStatCard(title = AppStrings.Reports.DocumentTableTotalCheck, value = totals.totalCheck.toString())
+        DocumentStatCard(title = AppStrings.Reports.DocumentTableTotalNg, value = totals.totalDefect.toString())
+        DocumentStatCard(title = AppStrings.Reports.DocumentTableTotalOk, value = totals.totalOk.toString())
+        DocumentStatCard(title = AppStrings.Reports.DocumentTableNgRatio, value = NumberFormats.formatPercent(totals.ratio))
     }
 }
 
@@ -1194,13 +1194,13 @@ private fun DocumentEntryTable(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            DocumentHeaderCell(text = "Part UNIQ", weight = 1.05f)
-            DocumentHeaderCell(text = "Part Number", weight = 1.2f)
-            DocumentHeaderCell(text = "Part Name", weight = 1.55f)
-            DocumentHeaderCell(text = "Total Periksa", weight = 0.8f)
-            DocumentHeaderCell(text = "Total NG", weight = 0.7f)
-            DocumentHeaderCell(text = "Total OK", weight = 0.7f)
-            DocumentHeaderCell(text = "Rasio NG", weight = 0.8f)
+            DocumentHeaderCell(text = AppStrings.Reports.DocumentTablePartUniq, weight = 1.05f)
+            DocumentHeaderCell(text = AppStrings.Reports.DocumentTablePartNumber, weight = 1.2f)
+            DocumentHeaderCell(text = AppStrings.Reports.DocumentTablePartName, weight = 1.55f)
+            DocumentHeaderCell(text = AppStrings.Reports.DocumentTableTotalCheck, weight = 0.8f)
+            DocumentHeaderCell(text = AppStrings.Reports.DocumentTableTotalNg, weight = 0.7f)
+            DocumentHeaderCell(text = AppStrings.Reports.DocumentTableTotalOk, weight = 0.7f)
+            DocumentHeaderCell(text = AppStrings.Reports.DocumentTableNgRatio, weight = 0.8f)
         }
 
         entries.forEachIndexed { index, entry ->
@@ -1229,7 +1229,7 @@ private fun DocumentEntryTable(
                     backgroundColor = rowBackground,
                 )
                 DocumentBodyCell(
-                    text = formatPercent(ratio),
+                    text = NumberFormats.formatPercent(ratio),
                     weight = 0.8f,
                     alignCenter = true,
                     backgroundColor = rowBackground,
@@ -1238,11 +1238,11 @@ private fun DocumentEntryTable(
         }
 
         Row(modifier = Modifier.fillMaxWidth()) {
-            DocumentFooterCell(text = "Total", weight = 1.05f + 1.2f + 1.55f)
+            DocumentFooterCell(text = AppStrings.Reports.DocumentTableTotal, weight = 1.05f + 1.2f + 1.55f)
             DocumentFooterCell(text = totals.totalCheck.toString(), weight = 0.8f, alignCenter = true)
             DocumentFooterCell(text = totals.totalDefect.toString(), weight = 0.7f, alignCenter = true)
             DocumentFooterCell(text = totals.totalOk.toString(), weight = 0.7f, alignCenter = true)
-            DocumentFooterCell(text = formatPercent(totals.ratio), weight = 0.8f, alignCenter = true)
+            DocumentFooterCell(text = NumberFormats.formatPercent(totals.ratio), weight = 0.8f, alignCenter = true)
         }
     }
 }
@@ -1340,27 +1340,27 @@ private fun DailyStatsCard(detail: DailyChecksheetDetail) {
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(text = "Ringkasan Statistik Harian", style = MaterialTheme.typography.subtitle1)
+            Text(text = AppStrings.Reports.DocumentTotalsTitle, style = MaterialTheme.typography.subtitle1)
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 StatInline(
-                    label = "Part dengan NG terbanyak",
-                    value = mostNg?.let { "${it.partNumber} ${it.partName}" } ?: "-",
+                    label = AppStrings.Reports.DocumentTotalsPart,
+                    value = mostNg?.let { "${it.partNumber} ${it.partName}" } ?: AppStrings.Common.Placeholder,
                 )
                 StatInline(
-                    label = "Rasio NG part tertinggi",
+                    label = AppStrings.Reports.DocumentTotalsRatio,
                     value =
                         highestRatio?.let {
                             val ratio = it.totalDefect.toDouble() / it.totalCheck.toDouble()
-                            "${it.partNumber} (${formatPercent(ratio)})"
-                        } ?: "-",
+                            "${it.partNumber} (${NumberFormats.formatPercent(ratio)})"
+                        } ?: AppStrings.Common.Placeholder,
                 )
                 StatInline(
-                    label = "Rasio NG total hari ini",
-                    value = formatPercent(overallRatio),
+                    label = AppStrings.Reports.DocumentTotalsOverall,
+                    value = NumberFormats.formatPercent(overallRatio),
                 )
                 StatInline(
-                    label = "Jenis NG terbanyak",
-                    value = topDefect?.let { "${it.defectName} (${it.totalQuantity})" } ?: "-",
+                    label = AppStrings.Reports.DocumentTotalsDefect,
+                    value = topDefect?.let { "${it.defectName} (${it.totalQuantity})" } ?: AppStrings.Common.Placeholder,
                 )
             }
         }
@@ -1444,9 +1444,9 @@ private fun SignatureFooter() {
             modifier = Modifier.widthIn(max = 520.dp),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            SignatureCell(label = "Prepared")
-            SignatureCell(label = "Checked")
-            SignatureCell(label = "Approved")
+            SignatureCell(label = AppStrings.Reports.DocumentSignaturePrepared)
+            SignatureCell(label = AppStrings.Reports.DocumentSignatureChecked)
+            SignatureCell(label = AppStrings.Reports.DocumentSignatureApproved)
         }
     }
 }
@@ -1467,7 +1467,7 @@ private fun RowScope.SignatureCell(label: String) {
         ) {
             Text(text = label, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
             Box(modifier = Modifier.height(64.dp).fillMaxWidth().background(NeutralLight))
-            Text(text = "Nama & TTD", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            Text(text = AppStrings.Reports.DocumentSignatureName, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         }
     }
 }
@@ -1479,12 +1479,12 @@ private fun DocumentActionRow() {
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         SecondaryButton(
-            text = "Cetak Dokumen",
+            text = AppStrings.Actions.PrintDocument,
             onClick = {},
             modifier = Modifier.weight(1f),
         )
         PrimaryButton(
-            text = "Ekspor PDF",
+            text = AppStrings.Actions.ExportPdf,
             onClick = {},
             modifier = Modifier.weight(1f),
         )

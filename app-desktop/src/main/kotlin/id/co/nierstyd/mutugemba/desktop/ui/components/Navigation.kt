@@ -26,15 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.automirrored.filled.FactCheck
-import androidx.compose.material.icons.filled.Report
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.CalendarMonth
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.navigation.AppRoute
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
@@ -65,11 +58,11 @@ fun SidebarMenu(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(
-                    text = "MutuGemba",
+                    text = AppStrings.App.Name,
                     style = MaterialTheme.typography.h6,
                 )
                 Text(
-                    text = "QC TPS Harian",
+                    text = AppStrings.App.HeaderBadge,
                     style = MaterialTheme.typography.caption,
                     color = MaterialTheme.colors.primary,
                 )
@@ -86,21 +79,21 @@ fun SidebarMenu(
                     val reportSelected = currentRoute == AppRoute.Reports || currentRoute == AppRoute.ReportsMonthly
                     SidebarSectionHeader(
                         label = route.label,
-                        icon = Icons.Filled.Report,
+                        icon = AppIcons.Reports,
                         selected = reportSelected,
                         expanded = reportsExpanded,
                         onClick = { reportsExpanded = !reportsExpanded },
                     )
                     if (reportsExpanded) {
                         SidebarSubItem(
-                            label = "Laporan Harian",
-                            icon = Icons.AutoMirrored.Filled.FactCheck,
+                            label = AppStrings.Navigation.ReportsDaily,
+                            icon = AppIcons.ReportsDaily,
                             selected = currentRoute == AppRoute.Reports,
                             onClick = { onRouteSelected(AppRoute.Reports) },
                         )
                         SidebarSubItem(
-                            label = "Laporan Bulanan",
-                            icon = Icons.Filled.CalendarMonth,
+                            label = AppStrings.Navigation.ReportsMonthly,
+                            icon = AppIcons.ReportsMonthly,
                             selected = currentRoute == AppRoute.ReportsMonthly,
                             onClick = { onRouteSelected(AppRoute.ReportsMonthly) },
                         )
@@ -108,13 +101,14 @@ fun SidebarMenu(
                 } else if (route != AppRoute.ReportsMonthly) {
                     SidebarItem(
                         label = route.label,
-                        icon = when (route) {
-                            AppRoute.Home -> Icons.Filled.Home
-                            AppRoute.Inspection -> Icons.AutoMirrored.Filled.FactCheck
-                            AppRoute.Abnormal -> Icons.Filled.Warning
-                            AppRoute.Settings -> Icons.Filled.Settings
-                            else -> Icons.Filled.Report
-                        },
+                        icon =
+                            when (route) {
+                                AppRoute.Home -> AppIcons.Home
+                                AppRoute.Inspection -> AppIcons.Inspection
+                                AppRoute.Abnormal -> AppIcons.Abnormal
+                                AppRoute.Settings -> AppIcons.Settings
+                                else -> AppIcons.Reports
+                            },
                         selected = route == currentRoute,
                         onClick = { onRouteSelected(route) },
                     )
@@ -129,7 +123,7 @@ fun SidebarMenu(
                         .height(1.dp),
             ) {}
             Text(
-                text = "Offline",
+                text = AppStrings.App.Offline,
                 style = MaterialTheme.typography.body2,
                 modifier = Modifier.padding(top = Spacing.sm),
             )
@@ -220,7 +214,7 @@ private fun SidebarSectionHeader(
             )
         }
         Icon(
-            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
             contentDescription = null,
             tint = textColor,
         )

@@ -7,6 +7,8 @@ Tujuan: menjaga istilah tetap konsisten untuk user awam.
 - Input Inspeksi
 - Tiket Abnormal
 - Laporan
+- Laporan Harian
+- Laporan Bulanan
 - Pengaturan
 
 ## Istilah Operasional
@@ -33,11 +35,21 @@ Tujuan: menjaga istilah tetap konsisten untuk user awam.
 
 ## Tombol & Aksi
 - Mulai Input Inspeksi
-- Kembali
-- Lanjut
-- Simpan
+- Konfirmasi & Simpan
+- Simpan Sekarang
+- Bersihkan Semua
+- Reset Data
+- Backup Data
+- Pulihkan Data
+- Cetak Dokumen
+- Ekspor PDF
+- Lihat Dokumen Lengkap
 
 ## Status & Pesan
 - Offline - Lokal
-- Data dummy
-- Reset data dummy
+- Read-only
+- Mode Demo
+- Data Dummy
+- Reset berhasil
+- Backup berhasil / gagal
+- Restore selesai / gagal
