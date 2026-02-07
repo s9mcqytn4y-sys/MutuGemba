@@ -265,6 +265,8 @@ private fun exportMonthlyPdf(
     Files.createDirectories(exportDir)
     val filename = "MonthlyReport-${document.header.lineCode.name}-${document.header.month}.pdf"
     val outputPath = exportDir.resolve(filename)
+    // Avoid writing over a file that may still be open by the PDF viewer.
+    Files.deleteIfExists(outputPath)
     val meta =
         MonthlyReportPrintMeta(
             companyName = AppStrings.App.CompanyName,

@@ -267,7 +267,7 @@ fun HomeScreen(
             )
         }
         item {
-            SectionTitle(
+            DashboardSectionHeader(
                 title = AppStrings.Home.AnalyticsTitle,
                 subtitle = AppStrings.Home.AnalyticsSubtitle,
             )
@@ -278,7 +278,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 verticalAlignment = Alignment.Top,
             ) {
-                Column(modifier = Modifier.weight(1.25f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Column(modifier = Modifier.weight(1.35f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     MonthlyParetoCard(
                         month = month,
                         defectSummaries = analysisDefects,
@@ -297,7 +297,7 @@ fun HomeScreen(
                         onSelectedLine = { trendLineId = it },
                     )
                 }
-                Column(modifier = Modifier.weight(0.75f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Column(modifier = Modifier.weight(0.65f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     MonthlyInsightCard(
                         month = month,
                         totals = monthlyTotals,
@@ -318,7 +318,7 @@ fun HomeScreen(
             }
         }
         item {
-            SectionTitle(
+            DashboardSectionHeader(
                 title = AppStrings.Home.OpsTitle,
                 subtitle = AppStrings.Home.OpsSubtitle,
             )
@@ -411,8 +411,8 @@ private fun HeroSummaryCard(
         elevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(text = AppStrings.Home.SummaryTitle, style = MaterialTheme.typography.subtitle1)
@@ -690,7 +690,7 @@ private fun MetricCard(
         elevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
             Row(
@@ -711,7 +711,7 @@ private fun MetricCard(
                 }
                 Text(text = title, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
             }
-            Text(text = value, style = MaterialTheme.typography.h6)
+            Text(text = value, style = MaterialTheme.typography.subtitle1, color = NeutralText)
         }
     }
 }
@@ -728,13 +728,20 @@ private fun RowScope.SummaryStat(
 }
 
 @Composable
-private fun SectionTitle(
+private fun DashboardSectionHeader(
     title: String,
     subtitle: String,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(text = title, style = MaterialTheme.typography.subtitle1)
         Text(text = subtitle, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(NeutralBorder.copy(alpha = 0.6f)),
+        )
     }
 }
 

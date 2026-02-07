@@ -6,7 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +27,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -101,9 +104,10 @@ private fun LineFilterChips(
     selectedLineId: Long?,
     onSelectedLine: (Long?) -> Unit,
 ) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         AnalyticsToggleChip(
             label = AppStrings.Analytics.All,
@@ -131,7 +135,7 @@ private fun AnalyticsToggleChip(
     Surface(
         modifier =
             Modifier
-                .sizeIn(minWidth = 72.dp, minHeight = 28.dp)
+                .sizeIn(minWidth = 88.dp, minHeight = 32.dp)
                 .clickable { onClick() },
         shape = MaterialTheme.shapes.small,
         color = background,
@@ -142,7 +146,13 @@ private fun AnalyticsToggleChip(
             text = label,
             style = MaterialTheme.typography.caption,
             color = contentColor,
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.sm, vertical = 6.dp),
         )
     }
 }
@@ -172,30 +182,24 @@ fun MonthlyInsightCard(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text(text = AppStrings.Analytics.InsightTitle, style = MaterialTheme.typography.subtitle1)
-                    Text(
-                        text = AppStrings.Analytics.monthLabel(DateTimeFormats.formatMonth(month)),
-                        style = MaterialTheme.typography.body2,
-                        color = NeutralTextMuted,
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(text = AppStrings.Analytics.InsightTitle, style = MaterialTheme.typography.subtitle1)
+                Text(
+                    text = AppStrings.Analytics.monthLabel(DateTimeFormats.formatMonth(month)),
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
                 LineFilterChips(lines = lines, selectedLineId = selectedLineId, onSelectedLine = onSelectedLine)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MonthlyMetricCard(
-                    title = AppStrings.Analytics.Documents,
-                    value = totals.totalDocs.toString(),
+                    title = AppStrings.Common.TotalNg,
+                    value = totals.totalDefect.toString(),
                     modifier = Modifier.weight(1f),
                 )
                 MonthlyMetricCard(
-                    title = AppStrings.Analytics.DaysFilled,
-                    value = "${totals.daysWithInput}/${totals.daysInMonth}",
+                    title = AppStrings.Common.NgRatio,
+                    value = NumberFormats.formatPercentNoDecimal(totals.ratio),
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -206,15 +210,15 @@ fun MonthlyInsightCard(
                     modifier = Modifier.weight(1f),
                 )
                 MonthlyMetricCard(
-                    title = AppStrings.Common.TotalNg,
-                    value = totals.totalDefect.toString(),
+                    title = AppStrings.Analytics.Documents,
+                    value = totals.totalDocs.toString(),
                     modifier = Modifier.weight(1f),
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MonthlyMetricCard(
-                    title = AppStrings.Analytics.EmptyDays,
-                    value = (totals.daysInMonth - totals.daysWithInput).toString(),
+                    title = AppStrings.Analytics.DaysFilled,
+                    value = "${totals.daysWithInput}/${totals.daysInMonth}",
                     modifier = Modifier.weight(1f),
                 )
                 MonthlyMetricCard(
@@ -226,23 +230,6 @@ fun MonthlyInsightCard(
                             )
                         } else {
                             AppStrings.Common.Placeholder
-                        },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                MonthlyMetricCard(
-                    title = AppStrings.Common.NgRatio,
-                    value = NumberFormats.formatPercentNoDecimal(totals.ratio),
-                    modifier = Modifier.weight(1f),
-                )
-                MonthlyMetricCard(
-                    title = AppStrings.Analytics.NgPerDay,
-                    value =
-                        if (totals.avgDefectPerDay <= 0.0) {
-                            AppStrings.Common.Placeholder
-                        } else {
-                            NumberFormats.formatNumberNoDecimal(totals.avgDefectPerDay)
                         },
                     modifier = Modifier.weight(1f),
                 )
@@ -598,19 +585,13 @@ fun TopProblemItemCard(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text(text = AppStrings.Analytics.TopProblemTitle, style = MaterialTheme.typography.subtitle1)
-                    Text(
-                        text = AppStrings.Analytics.TopProblemSubtitle,
-                        style = MaterialTheme.typography.body2,
-                        color = NeutralTextMuted,
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(text = AppStrings.Analytics.TopProblemTitle, style = MaterialTheme.typography.subtitle1)
+                Text(
+                    text = AppStrings.Analytics.TopProblemSubtitle,
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
                 LineFilterChips(lines = lines, selectedLineId = selectedLineId, onSelectedLine = onSelectedLine)
             }
             Text(

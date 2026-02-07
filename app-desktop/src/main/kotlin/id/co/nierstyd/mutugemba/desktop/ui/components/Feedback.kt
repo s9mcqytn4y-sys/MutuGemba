@@ -1,6 +1,7 @@
 ﻿package id.co.nierstyd.mutugemba.desktop.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -35,7 +37,7 @@ fun StatusBanner(
     onDismiss: (() -> Unit)? = null,
     dense: Boolean = false,
 ) {
-    val background =
+    val accent =
         when (feedback.type) {
             FeedbackType.INFO -> StatusInfo
             FeedbackType.WARNING -> StatusWarning
@@ -43,17 +45,28 @@ fun StatusBanner(
             FeedbackType.SUCCESS -> StatusSuccess
         }
 
-    val verticalPadding = if (dense) Spacing.xs else Spacing.sm
+    val background = accent.copy(alpha = if (dense) 0.12f else 0.16f)
+    val borderColor = accent.copy(alpha = 0.35f)
+    val verticalPadding = if (dense) 6.dp else Spacing.sm
     val messageStyle = if (dense) MaterialTheme.typography.caption else MaterialTheme.typography.body2
-    Column(
+    Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.small)
                 .background(background)
-                .padding(horizontal = Spacing.md, vertical = verticalPadding),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                .border(1.dp, borderColor, MaterialTheme.shapes.small),
     ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(4.dp)
+                    .background(accent),
+        )
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = verticalPadding),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
         val label =
             when (feedback.type) {
                 FeedbackType.INFO -> AppStrings.Common.Info
@@ -68,20 +81,20 @@ fun StatusBanner(
             Text(
                 text = label,
                 style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colors.onPrimary,
+                color = accent,
             )
             if (onDismiss != null) {
                 Box(
                     modifier =
                         Modifier
-                            .size(18.dp)
+                            .size(20.dp)
                             .clickable { onDismiss() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = AppIcons.Close,
                         contentDescription = AppStrings.Common.Close,
-                        tint = MaterialTheme.colors.onPrimary,
+                        tint = accent,
                     )
                 }
             }
@@ -89,7 +102,8 @@ fun StatusBanner(
         Text(
             text = feedback.message,
             style = messageStyle,
-            color = MaterialTheme.colors.onPrimary,
+            color = MaterialTheme.colors.onSurface,
         )
+        }
     }
 }
