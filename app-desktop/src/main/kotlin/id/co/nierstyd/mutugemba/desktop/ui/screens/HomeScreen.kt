@@ -22,11 +22,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Apartment
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.InsertChart
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +46,11 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyInsightCard
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyParetoCard
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyTotalsUi
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyTrendCard
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.buildLineColors
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
@@ -52,20 +62,29 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.Line
+import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
+import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
 import java.time.LocalDate
+import java.time.YearMonth
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun HomeScreen(
     recentRecords: List<InspectionRecord>,
     lines: List<Line>,
+    dailySummaries: List<DailyChecksheetSummary>,
+    loadDailyDetail: (Long, LocalDate) -> id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail?,
+    loadMonthlyDefectSummary: (YearMonth) -> List<DefectSummary>,
     resetData: ResetDataUseCase,
     onNavigateToInspection: () -> Unit,
     onRefreshData: () -> Unit,
 ) {
     val today = LocalDate.now()
+    val month = YearMonth.from(today)
     val recordsToday =
         recentRecords.filter { record ->
             DateTimeFormats
@@ -86,63 +105,192 @@ fun HomeScreen(
     var showResetDialog by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
-        SectionHeader(
-            title = "Beranda",
-            subtitle = "Dashboard hasil input checksheet harian.",
-        )
+    val summariesToday = dailySummaries.filter { it.date == today }
+    val totalDefectToday = summariesToday.sumOf { it.totalDefect }
+    val totalCheckFromSummary = summariesToday.sumOf { it.totalCheck }
+    val ratioToday = if (totalCheckFromSummary > 0) totalDefectToday.toDouble() / totalCheckFromSummary.toDouble() else 0.0
+    val mostActiveLine =
+        recordsToday.groupBy { it.lineName }.maxByOrNull { it.value.size }?.key
+    val mostCheckedPart =
+        recordsToday.groupBy { it.partNumber }.maxByOrNull { it.value.size }?.value?.firstOrNull()
 
-        HeroSummaryCard(
-            dateLabel = DateTimeFormats.formatDate(today),
-            totalToday = totalToday,
-            totalParts = totalPartsToday,
-            activeLines = activeLinesToday,
-            totalCheck = totalCheckToday,
-            totalLines = totalLines,
-        )
+    val lineColors = remember(lines) { buildLineColors(lines) }
+    var paretoLineId by remember { mutableStateOf<Long?>(null) }
+    var trendLineId by remember { mutableStateOf<Long?>(null) }
+    var insightLineId by remember { mutableStateOf<Long?>(null) }
+    var analysisDefects by remember { mutableStateOf<List<DefectSummary>>(emptyList()) }
+    var analysisLoading by remember { mutableStateOf(false) }
+    var monthlyDefects by remember { mutableStateOf(emptyList<DefectSummary>()) }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(modifier = Modifier.weight(1.2f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                SectionTitle(
-                    title = "Status Line Hari Ini",
-                    subtitle = "Klik untuk melihat detail part per line.",
-                )
-                DailyLineStatusCard(
-                    lines = lines,
-                    recordsToday = recordsToday,
-                    expanded = showLineDetail,
-                    onToggleExpanded = { showLineDetail = !showLineDetail },
-                )
+    LaunchedEffect(month, dailySummaries) {
+        monthlyDefects = loadMonthlyDefectSummary(month)
+    }
+
+    LaunchedEffect(month, paretoLineId) {
+        if (paretoLineId == null) {
+            analysisDefects = monthlyDefects
+            return@LaunchedEffect
+        }
+        analysisLoading = true
+        val lineId = paretoLineId ?: return@LaunchedEffect
+        val totals =
+            withContext(Dispatchers.Default) {
+                val acc = mutableMapOf<Long, DefectSummary>()
+                (1..month.lengthOfMonth()).map { month.atDay(it) }.forEach { date ->
+                    val detail = loadDailyDetail(lineId, date)
+                    detail?.defectSummaries?.forEach { summary ->
+                        val existing = acc[summary.defectTypeId]
+                        val total = (existing?.totalQuantity ?: 0) + summary.totalQuantity
+                        acc[summary.defectTypeId] = summary.copy(totalQuantity = total)
+                    }
+                }
+                acc.values.sortedByDescending { it.totalQuantity }
             }
-            Column(modifier = Modifier.weight(0.8f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                DailyChecksheetSummaryCard(
-                    totalParts = totalPartsToday,
-                    totalLines = lines.size,
-                    activeLines = activeLinesToday,
-                    totalCheck = totalCheckToday,
-                    lastInputLabel = lastInputLabel,
-                )
-                ActionCard(
-                    onNavigateToInspection = onNavigateToInspection,
-                    onReset = { showResetDialog = true },
-                )
-                feedback?.let { StatusBanner(feedback = it) }
-            }
+        analysisDefects = totals
+        analysisLoading = false
+    }
+
+    val monthlyTotals =
+        remember(dailySummaries, month, insightLineId) {
+            val summariesForMonth = dailySummaries.filter { YearMonth.from(it.date) == month && (insightLineId == null || it.lineId == insightLineId) }
+            val totalDocs = summariesForMonth.size
+            val totalCheck = summariesForMonth.sumOf { it.totalCheck }
+            val totalDefect = summariesForMonth.sumOf { it.totalDefect }
+            val ratio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
+            val daysWithInput = summariesForMonth.map { it.date }.distinct().size
+            val daysInMonth = month.lengthOfMonth()
+            val totalParts = summariesForMonth.sumOf { it.totalParts }
+            val avgDefectPerDay = if (daysWithInput > 0) totalDefect.toDouble() / daysWithInput.toDouble() else 0.0
+            MonthlyTotalsUi(
+                totalDocs = totalDocs,
+                totalCheck = totalCheck,
+                totalDefect = totalDefect,
+                ratio = ratio,
+                daysWithInput = daysWithInput,
+                daysInMonth = daysInMonth,
+                totalParts = totalParts,
+                avgDefectPerDay = avgDefectPerDay,
+            )
         }
 
-        Text(
-            text = "Status: Offline - Lokal",
-            style = MaterialTheme.typography.body2,
-            color = NeutralTextMuted,
-            modifier = Modifier.padding(top = Spacing.sm),
-        )
+    val listState = rememberLazyListState()
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        state = listState,
+    ) {
+        item {
+            SectionHeader(
+                title = "Beranda",
+                subtitle = "Dashboard hasil input checksheet harian.",
+            )
+        }
+        item {
+            HeroSummaryCard(
+                dateLabel = DateTimeFormats.formatDate(today),
+                totalToday = totalToday,
+                totalParts = totalPartsToday,
+                activeLines = activeLinesToday,
+                totalCheck = totalCheckToday,
+                totalLines = totalLines,
+                lastInputLabel = lastInputLabel,
+                totalDefect = totalDefectToday,
+                ratioDefect = ratioToday,
+            )
+        }
+        item {
+            SectionTitle(
+                title = "Sorotan Analitik QC",
+                subtitle = "Pareto & trend NG untuk evaluasi bulanan.",
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(modifier = Modifier.weight(1.25f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    MonthlyParetoCard(
+                        month = month,
+                        defectSummaries = analysisDefects,
+                        accentColor = lineColors[paretoLineId] ?: StatusInfo,
+                        loading = analysisLoading,
+                        lines = lines,
+                        selectedLineId = paretoLineId,
+                        onSelectedLine = { paretoLineId = it },
+                    )
+                    MonthlyTrendCard(
+                        month = month,
+                        dailySummaries = dailySummaries.filter { YearMonth.from(it.date) == month },
+                        lineColors = lineColors,
+                        lines = lines,
+                        selectedLineId = trendLineId,
+                        onSelectedLine = { trendLineId = it },
+                    )
+                }
+                Column(modifier = Modifier.weight(0.75f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    MonthlyInsightCard(
+                        month = month,
+                        totals = monthlyTotals,
+                        lines = lines,
+                        selectedLineId = insightLineId,
+                        onSelectedLine = { insightLineId = it },
+                    )
+                }
+            }
+        }
+        item {
+            SectionTitle(
+                title = "Operasional Hari Ini",
+                subtitle = "Status input dan aktivitas QC.",
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(modifier = Modifier.weight(1.2f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    DailyChecksheetSummaryCard(
+                        totalParts = totalPartsToday,
+                        totalLines = lines.size,
+                        activeLines = activeLinesToday,
+                        totalCheck = totalCheckToday,
+                        lastInputLabel = lastInputLabel,
+                    )
+                    DailyLineStatusCard(
+                        lines = lines,
+                        recordsToday = recordsToday,
+                        expanded = showLineDetail,
+                        onToggleExpanded = { showLineDetail = !showLineDetail },
+                    )
+                }
+                Column(modifier = Modifier.weight(0.8f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    QcActivityCard(
+                        totalInput = totalToday,
+                        mostActiveLine = mostActiveLine,
+                        mostCheckedPart = mostCheckedPart?.partName,
+                        mostCheckedPartNumber = mostCheckedPart?.partNumber,
+                        lastInputLabel = lastInputLabel,
+                    )
+                    ActionCard(
+                        onNavigateToInspection = onNavigateToInspection,
+                        onReset = { showResetDialog = true },
+                    )
+                    feedback?.let { StatusBanner(feedback = it) }
+                }
+            }
+        }
+        item {
+            Text(
+                text = "Status: Offline - Lokal",
+                style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
+                modifier = Modifier.padding(top = Spacing.sm),
+            )
+        }
     }
 
     ConfirmDialog(
@@ -174,6 +322,9 @@ private fun HeroSummaryCard(
     activeLines: Int,
     totalCheck: Int,
     totalLines: Int,
+    lastInputLabel: String?,
+    totalDefect: Int,
+    ratioDefect: Double,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -193,6 +344,11 @@ private fun HeroSummaryCard(
                     style = MaterialTheme.typography.body2,
                     color = NeutralTextMuted,
                 )
+                Text(
+                    text = "Input terakhir: ${lastInputLabel ?: "-"}",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 MetricCard(
@@ -201,6 +357,20 @@ private fun HeroSummaryCard(
                     icon = Icons.AutoMirrored.Filled.Assignment,
                     modifier = Modifier.weight(1f),
                 )
+                MetricCard(
+                    title = "Total NG",
+                    value = totalDefect.toString(),
+                    icon = Icons.Filled.ErrorOutline,
+                    modifier = Modifier.weight(1f),
+                )
+                MetricCard(
+                    title = "Rasio NG",
+                    value = if (ratioDefect <= 0.0) "-" else "${"%.1f".format(ratioDefect * 100)}%",
+                    icon = Icons.Filled.InsertChart,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 MetricCard(
                     title = "Part Tercatat",
                     value = totalParts.toString(),
@@ -290,6 +460,51 @@ private fun DailyChecksheetSummaryCard(
                     text = "$activeLines dari $totalLines line tercatat hari ini.",
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
+                )
+            }
+            Text(
+                text = "Input terakhir: ${lastInputLabel ?: "-"}",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun QcActivityCard(
+    totalInput: Int,
+    mostActiveLine: String?,
+    mostCheckedPart: String?,
+    mostCheckedPartNumber: String?,
+    lastInputLabel: String?,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = NeutralSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Text(text = "Aktivitas QC Hari Ini", style = MaterialTheme.typography.subtitle1)
+            Text(
+                text = "Pantau aktivitas input QC untuk evaluasi cepat.",
+                style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                SummaryStat(title = "Input", value = totalInput.toString())
+                SummaryStat(title = "Line Aktif", value = mostActiveLine ?: "-")
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(text = "Part Terbanyak", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(
+                    text = listOfNotNull(mostCheckedPartNumber, mostCheckedPart).joinToString(" • ").ifBlank { "-" },
+                    style = MaterialTheme.typography.body2,
                 )
             }
             Text(

@@ -2,20 +2,24 @@
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
+import androidx.compose.foundation.clickable
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
@@ -29,6 +33,7 @@ fun StatusBanner(
     feedback: UserFeedback,
     modifier: Modifier = Modifier,
     onDismiss: (() -> Unit)? = null,
+    dense: Boolean = false,
 ) {
     val background =
         when (feedback.type) {
@@ -38,13 +43,15 @@ fun StatusBanner(
             FeedbackType.SUCCESS -> StatusSuccess
         }
 
+    val verticalPadding = if (dense) Spacing.xs else Spacing.sm
+    val messageStyle = if (dense) MaterialTheme.typography.caption else MaterialTheme.typography.body2
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.small)
                 .background(background)
-                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                .padding(horizontal = Spacing.md, vertical = verticalPadding),
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
         val label =
@@ -64,7 +71,13 @@ fun StatusBanner(
                 color = MaterialTheme.colors.onPrimary,
             )
             if (onDismiss != null) {
-                IconButton(onClick = onDismiss) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(18.dp)
+                            .clickable { onDismiss() },
+                    contentAlignment = Alignment.Center,
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = "Tutup",
@@ -75,7 +88,7 @@ fun StatusBanner(
         }
         Text(
             text = feedback.message,
-            style = MaterialTheme.typography.body2,
+            style = messageStyle,
             color = MaterialTheme.colors.onPrimary,
         )
     }

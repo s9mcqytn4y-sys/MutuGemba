@@ -8,6 +8,7 @@ enum class AppRoute(
     Inspection("inspection", "Input Inspeksi"),
     Abnormal("abnormal", "Tiket Abnormal"),
     Reports("reports", "Laporan"),
+    ReportsMonthly("reports_monthly", "Laporan Bulanan"),
     Settings("settings", "Pengaturan"),
     ;
 

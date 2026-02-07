@@ -51,18 +51,26 @@ fun HeaderBar(
                 Column {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.h4,
+                        style = MaterialTheme.typography.h5,
                     )
                     Text(
                         text = subtitle,
-                        style = MaterialTheme.typography.body1,
+                        style = MaterialTheme.typography.body2,
+                        color = NeutralTextMuted,
                     )
                 }
-                AppBadge(
-                    text = "QC TPS Harian",
-                    backgroundColor = StatusInfo,
-                    contentColor = NeutralSurface,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                    AppBadge(
+                        text = "QC TPS Harian",
+                        backgroundColor = StatusInfo,
+                        contentColor = NeutralSurface,
+                    )
+                    AppBadge(
+                        text = "Offline",
+                        backgroundColor = NeutralBorder,
+                        contentColor = NeutralTextMuted,
+                    )
+                }
             }
             Row(
                 modifier =
@@ -106,11 +114,11 @@ fun FooterBar(
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
             )
             Text(
                 text = hintText,
                 style = MaterialTheme.typography.body2,
-                color = NeutralTextMuted,
             )
         }
     }

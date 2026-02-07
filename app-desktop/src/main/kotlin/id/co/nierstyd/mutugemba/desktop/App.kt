@@ -26,6 +26,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.screens.MasterDataUseCaseBundle
 import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsScreen
+import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsMonthlyScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.theme.MutuGembaTheme
@@ -156,7 +157,7 @@ fun MutuGembaApp() {
             routes = AppRoute.values().toList(),
             currentRoute = currentRoute,
             onRouteSelected = { currentRoute = it },
-            scrollableContent = currentRoute != AppRoute.Inspection && currentRoute != AppRoute.Reports,
+            scrollableContent = currentRoute != AppRoute.Inspection && currentRoute != AppRoute.Home,
             headerContent = {
                 HeaderBar(
                     title = "MutuGemba",
@@ -175,6 +176,9 @@ fun MutuGembaApp() {
                     HomeScreen(
                         recentRecords = inspectionRecords,
                         lines = lines,
+                        dailySummaries = dailySummaries,
+                        loadDailyDetail = { lineId, date -> getDailyDetailUseCase.execute(lineId, date) },
+                        loadMonthlyDefectSummary = { month -> getMonthlyDefectSummaryUseCase.execute(month) },
                         resetData = resetDataUseCase,
                         onNavigateToInspection = { currentRoute = AppRoute.Inspection },
                         onRefreshData = refreshData,
@@ -194,10 +198,10 @@ fun MutuGembaApp() {
                         lines = lines,
                         dailySummaries = dailySummaries,
                         loadDailyDetail = { lineId, date -> getDailyDetailUseCase.execute(lineId, date) },
-                        loadMonthlyDefectSummary = { month -> getMonthlyDefectSummaryUseCase.execute(month) },
                         loadManualHolidays = { getManualHolidayDatesUseCase.execute() },
                         saveManualHolidays = { saveManualHolidayDatesUseCase.execute(it) },
                     )
+                AppRoute.ReportsMonthly -> ReportsMonthlyScreen()
                 AppRoute.Settings ->
                     SettingsScreen(
                         dependencies =

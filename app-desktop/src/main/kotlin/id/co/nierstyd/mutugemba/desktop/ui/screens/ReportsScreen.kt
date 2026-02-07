@@ -6,8 +6,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,7 +48,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import id.co.nierstyd.mutugemba.analytics.paretoCounts
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
@@ -59,6 +56,8 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.buildLineColors
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.formatPercent
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
@@ -109,21 +108,12 @@ private data class DocumentTotals(
     val ratio: Double,
 )
 
-private data class MonthlyTotals(
-    val totalDocs: Int,
-    val totalCheck: Int,
-    val totalDefect: Int,
-    val ratio: Double,
-    val daysWithInput: Int,
-    val daysInMonth: Int,
-)
 
 @Composable
 fun ReportsScreen(
     lines: List<Line>,
     dailySummaries: List<DailyChecksheetSummary>,
     loadDailyDetail: (Long, LocalDate) -> DailyChecksheetDetail?,
-    loadMonthlyDefectSummary: (YearMonth) -> List<DefectSummary>,
     loadManualHolidays: () -> Set<LocalDate>,
     saveManualHolidays: (Set<LocalDate>) -> Unit,
 ) {
@@ -149,7 +139,6 @@ fun ReportsScreen(
     val availableDates = remember(month) { buildAvailableDates(month) }
     var pageIndex by remember { mutableStateOf(0) }
     var detailState by remember { mutableStateOf<HistoryDetailState>(HistoryDetailState.Empty) }
-    var monthlyDefects by remember { mutableStateOf(emptyList<DefectSummary>()) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var showHistoryInfo by remember { mutableStateOf(true) }
 
@@ -191,9 +180,6 @@ fun ReportsScreen(
         detailState = detail?.let { HistoryDetailState.Loaded(it) } ?: HistoryDetailState.Empty
     }
 
-    LaunchedEffect(month, dailySummaries) {
-        monthlyDefects = loadMonthlyDefectSummary(month)
-    }
 
     val summaryByDate =
         remember(selectedLineId, dailySummaries, month) {
@@ -216,199 +202,68 @@ fun ReportsScreen(
             buildLineColors(lines)
         }
 
-    var analysisLineId by remember { mutableStateOf<Long?>(null) }
-    var analysisDefects by remember { mutableStateOf<List<DefectSummary>>(emptyList()) }
-    var analysisLoading by remember { mutableStateOf(false) }
-
-    LaunchedEffect(month, analysisLineId, availableDates) {
-        if (analysisLineId == null) {
-            analysisDefects = monthlyDefects
-            return@LaunchedEffect
-        }
-        analysisLoading = true
-        val lineId = analysisLineId ?: return@LaunchedEffect
-        val totals =
-            withContext(Dispatchers.Default) {
-                val acc = mutableMapOf<Long, DefectSummary>()
-                availableDates.forEach { date ->
-                    val detail = loadDailyDetail(lineId, date)
-                    detail?.defectSummaries?.forEach { summary ->
-                        val existing = acc[summary.defectTypeId]
-                        val total = (existing?.totalQuantity ?: 0) + summary.totalQuantity
-                        acc[summary.defectTypeId] = summary.copy(totalQuantity = total)
-                    }
-                }
-                acc.values.sortedByDescending { it.totalQuantity }
-            }
-        analysisDefects = totals
-        analysisLoading = false
-    }
-    val monthlyTotals =
-        remember(dailySummaries, month) {
-            val summariesForMonth = dailySummaries.filter { YearMonth.from(it.date) == month }
-            val totalDocs = summariesForMonth.size
-            val totalCheck = summariesForMonth.sumOf { it.totalCheck }
-            val totalDefect = summariesForMonth.sumOf { it.totalDefect }
-            val ratio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
-            val daysWithInput = summariesForMonth.map { it.date }.distinct().size
-            val daysInMonth = month.lengthOfMonth()
-            MonthlyTotals(
-                totalDocs = totalDocs,
-                totalCheck = totalCheck,
-                totalDefect = totalDefect,
-                ratio = ratio,
-                daysWithInput = daysWithInput,
-                daysInMonth = daysInMonth,
-            )
-        }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
             title = "Laporan Checksheet Harian",
-            subtitle = "Ringkasan dokumen harian dan statistik bulanan untuk evaluasi QC.",
+            subtitle = "Riwayat dan dokumen checksheet harian untuk evaluasi QC.",
         )
-        Surface(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            color = NeutralSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-            elevation = 0.dp,
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1.35f),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                ) {
-                    DayPager(
-                        month = month,
-                        dates = availableDates,
-                        pageIndex = pageIndex,
-                        onPageChange = { pageIndex = it },
-                        selectedDate = selectedDate,
-                        onDateSelected = {
-                            selectedDate = it
-                            val targetIndex = availableDates.indexOf(it).coerceAtLeast(0)
-                            pageIndex = targetIndex / HISTORY_PAGE_SIZE
-                        },
-                        summaryByDate = summaryByDate,
-                        lineCountsByDate = lineCountsByDate,
-                        lineColors = lineColors,
-                        today = today,
-                        manualHolidays = manualHolidays,
-                        onToggleHoliday = { date ->
-                            if (!date.isAfter(today)) {
-                                val updated =
-                                    if (manualHolidays.contains(date)) {
-                                        manualHolidays - date
-                                    } else {
-                                        manualHolidays + date
-                                    }
-                                manualHolidays = updated
-                                saveManualHolidays(updated)
+            MonthlyHistoryCard(
+                month = month,
+                todayMonth = todayMonth,
+                lines = lines,
+                selectedLineId = selectedLineId,
+                onLineSelected = { selectedLineId = it },
+                dates = availableDates,
+                pageIndex = pageIndex,
+                onPageChange = { pageIndex = it },
+                selectedDate = selectedDate,
+                onDateSelected = {
+                    selectedDate = it
+                    val targetIndex = availableDates.indexOf(it).coerceAtLeast(0)
+                    pageIndex = targetIndex / HISTORY_PAGE_SIZE
+                },
+                summaryByDate = summaryByDate,
+                lineCountsByDate = lineCountsByDate,
+                lineColors = lineColors,
+                today = today,
+                onMonthChange = { target ->
+                    month = if (target.isAfter(todayMonth)) todayMonth else target
+                },
+                manualHolidays = manualHolidays,
+                onToggleHoliday = { date ->
+                    if (!date.isAfter(today)) {
+                        val updated =
+                            if (manualHolidays.contains(date)) {
+                                manualHolidays - date
+                            } else {
+                                manualHolidays + date
                             }
-                        },
-                    )
-                }
-                Spacer(modifier = Modifier.weight(0.85f))
-            }
-        }
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1.35f),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
-                ) {
-                    MonthlyHistoryCard(
-                        month = month,
-                        todayMonth = todayMonth,
-                        lines = lines,
-                        selectedLineId = selectedLineId,
-                        onLineSelected = { selectedLineId = it },
-                        selectedDate = selectedDate,
-                        summaryByDate = summaryByDate,
-                        lineColors = lineColors,
-                        today = today,
-                        onMonthChange = { target ->
-                            month = if (target.isAfter(todayMonth)) todayMonth else target
-                        },
-                        showInfo = showHistoryInfo,
-                        onCloseInfo = { showHistoryInfo = false },
-                    )
-                    SectionDivider()
+                        manualHolidays = updated
+                        saveManualHolidays(updated)
+                    }
+                },
+                showInfo = showHistoryInfo,
+                onCloseInfo = { showHistoryInfo = false },
+            )
+            SectionDivider()
 
-                    DailyDocumentSection(
-                        detailState = detailState,
-                        selectedDate = selectedDate,
-                    )
-                }
-
-                Column(
-                    modifier = Modifier.weight(0.85f),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
-                ) {
-                    AnalysisFilterCard(
-                        lines = lines,
-                        selectedLineId = analysisLineId,
-                        onSelected = { analysisLineId = it },
-                    )
-                    MonthlyInsightCard(
-                        month = month,
-                        totals = monthlyTotals,
-                    )
-                    SectionDivider()
-                    MonthlyParetoCard(
-                        month = month,
-                        defectSummaries = analysisDefects,
-                        accentColor = lineColors[analysisLineId] ?: StatusInfo,
-                        loading = analysisLoading,
-                    )
-                    MonthlyTrendCard(
-                        month = month,
-                        dailySummaries = dailySummaries.filter { YearMonth.from(it.date) == month },
-                        lineColors = lineColors,
-                        lines = lines,
-                        selectedLineId = analysisLineId,
-                    )
-                }
-            }
+            DailyDocumentSection(
+                detailState = detailState,
+                selectedDate = selectedDate,
+            )
         }
     }
 }
 
-private fun buildLineColors(lines: List<Line>): Map<Long, androidx.compose.ui.graphics.Color> {
-    val palette =
-        listOf(
-            BrandBlue,
-            StatusSuccess,
-            StatusWarning,
-            StatusInfo,
-        )
-    return lines.mapIndexed { index, line -> line.id to palette[index % palette.size] }.toMap()
-}
-
 private fun buildAvailableDates(month: YearMonth): List<LocalDate> {
     return (1..month.lengthOfMonth()).map { month.atDay(it) }
-}
-
-private fun weekStartFor(date: LocalDate): LocalDate {
-    val offset = (date.dayOfWeek.value + 6) % 7
-    return date.minusDays(offset.toLong())
 }
 
 @Composable
@@ -418,11 +273,18 @@ private fun MonthlyHistoryCard(
     lines: List<Line>,
     selectedLineId: Long?,
     onLineSelected: (Long) -> Unit,
+    dates: List<LocalDate>,
+    pageIndex: Int,
+    onPageChange: (Int) -> Unit,
     selectedDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
+    lineCountsByDate: Map<LocalDate, Map<Long, Int>>,
     lineColors: Map<Long, androidx.compose.ui.graphics.Color>,
     today: LocalDate,
     onMonthChange: (YearMonth) -> Unit,
+    manualHolidays: Set<LocalDate>,
+    onToggleHoliday: (LocalDate) -> Unit,
     showInfo: Boolean,
     onCloseInfo: () -> Unit,
 ) {
@@ -489,6 +351,21 @@ private fun MonthlyHistoryCard(
                 )
             }
 
+            DayPager(
+                month = month,
+                dates = dates,
+                pageIndex = pageIndex,
+                onPageChange = onPageChange,
+                selectedDate = selectedDate,
+                onDateSelected = onDateSelected,
+                summaryByDate = summaryByDate,
+                lineCountsByDate = lineCountsByDate,
+                lineColors = lineColors,
+                today = today,
+                manualHolidays = manualHolidays,
+                onToggleHoliday = onToggleHoliday,
+            )
+
             HistoryLegend()
             if (lines.isNotEmpty()) {
                 LineLegend(lines = lines, lineColors = lineColors)
@@ -502,6 +379,7 @@ private fun MonthlyHistoryCard(
                             "Data checksheet harian bersifat final. QC dapat menandai hari libur secara manual.",
                         ),
                     onDismiss = onCloseInfo,
+                    dense = true,
                 )
             }
         }
@@ -1612,428 +1490,3 @@ private fun DocumentActionRow() {
         )
     }
 }
-
-@Composable
-private fun MonthlyInsightCard(
-    month: YearMonth,
-    totals: MonthlyTotals,
-) {
-    val dayRatio =
-        if (totals.daysInMonth > 0) {
-            totals.daysWithInput.toFloat() / totals.daysInMonth.toFloat()
-        } else {
-            0f
-        }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = NeutralSurface,
-        shape = MaterialTheme.shapes.medium,
-        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            Text(text = "Ringkasan Bulan Ini", style = MaterialTheme.typography.subtitle1)
-            Text(
-                text = "${DateTimeFormats.formatMonth(month)} • Ringkasan checksheet harian.",
-                style = MaterialTheme.typography.body2,
-                color = NeutralTextMuted,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                MonthlyMetricCard(
-                    title = "Hari Terisi",
-                    value = "${totals.daysWithInput}/${totals.daysInMonth}",
-                    modifier = Modifier.weight(1f),
-                )
-                MonthlyMetricCard(
-                    title = "Dokumen",
-                    value = totals.totalDocs.toString(),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                MonthlyMetricCard(
-                    title = "Total Periksa",
-                    value = totals.totalCheck.toString(),
-                    modifier = Modifier.weight(1f),
-                )
-                MonthlyMetricCard(
-                    title = "Rasio NG",
-                    value = formatPercent(totals.ratio),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = "Cakupan hari input", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .background(NeutralLight, MaterialTheme.shapes.small),
-                ) {
-                    if (dayRatio > 0f) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth(dayRatio)
-                                    .height(8.dp)
-                                    .background(StatusSuccess, MaterialTheme.shapes.small),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnalysisFilterCard(
-    lines: List<Line>,
-    selectedLineId: Long?,
-    onSelected: (Long?) -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = NeutralSurface,
-        shape = MaterialTheme.shapes.medium,
-        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            Text(text = "Filter Analisis NG", style = MaterialTheme.typography.subtitle1)
-            Text(
-                text = "Pilih line untuk analisis Pareto dan trend.",
-                style = MaterialTheme.typography.body2,
-                color = NeutralTextMuted,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                ToggleChip(
-                    label = "Semua Line",
-                    selected = selectedLineId == null,
-                    onClick = { onSelected(null) },
-                )
-                lines.forEach { line ->
-                    ToggleChip(
-                        label = line.name,
-                        selected = selectedLineId == line.id,
-                        onClick = { onSelected(line.id) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MonthlyMetricCard(
-    title: String,
-    value: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.small,
-        color = NeutralLight,
-        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-        ) {
-            Text(text = title, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-            Text(text = value, style = MaterialTheme.typography.subtitle1, color = NeutralText)
-        }
-    }
-}
-
-@Composable
-private fun MonthlyParetoCard(
-    month: YearMonth,
-    defectSummaries: List<DefectSummary>,
-    accentColor: androidx.compose.ui.graphics.Color,
-    loading: Boolean,
-) {
-    val paretoItems =
-        remember(defectSummaries) {
-            if (defectSummaries.isEmpty()) {
-                emptyList()
-            } else {
-                val expanded =
-                    defectSummaries.flatMap { summary ->
-                        List(summary.totalQuantity.coerceAtMost(200)) { summary.defectName }
-                    }
-                paretoCounts(expanded).take(6)
-            }
-        }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = NeutralSurface,
-        shape = MaterialTheme.shapes.medium,
-        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            Text(text = "Pareto NG Bulan Ini", style = MaterialTheme.typography.subtitle1)
-            Text(
-                text = "Kontribusi NG terbesar & kumulatif (${DateTimeFormats.formatMonth(month)}).",
-                style = MaterialTheme.typography.body2,
-                color = NeutralTextMuted,
-            )
-            if (loading) {
-                SkeletonBlock(width = 240.dp, height = 18.dp)
-                SkeletonBlock(width = 320.dp, height = 8.dp)
-                SkeletonBlock(width = 280.dp, height = 8.dp)
-            } else if (paretoItems.isEmpty()) {
-                Text(text = "Belum ada data NG bulan ini.", style = MaterialTheme.typography.body2)
-            } else {
-                val maxValue = paretoItems.maxOfOrNull { it.second } ?: 1
-                val total = paretoItems.sumOf { it.second }.coerceAtLeast(1)
-                var cumulative = 0
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    ParetoPieChart(
-                        items = paretoItems,
-                        accentColor = accentColor,
-                        modifier = Modifier.size(140.dp),
-                    )
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-                    ) {
-                        paretoItems.forEach { (label, count) ->
-                            cumulative += count
-                            val cumulativeRatio = cumulative.toDouble() / total.toDouble()
-                            val ratio = count.toDouble() / total.toDouble()
-                            ParetoRow(
-                                label = label,
-                                value = count,
-                                maxValue = maxValue,
-                                ratio = ratio,
-                                cumulativeRatio = cumulativeRatio,
-                                accentColor = accentColor,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ParetoPieChart(
-    items: List<Pair<String, Int>>,
-    accentColor: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier,
-) {
-    val total = items.sumOf { it.second }.coerceAtLeast(1)
-    val palette =
-        listOf(
-            accentColor,
-            accentColor.copy(alpha = 0.85f),
-            StatusSuccess,
-            StatusWarning,
-            StatusInfo,
-            NeutralBorder,
-        )
-    Canvas(modifier = modifier) {
-        var startAngle = -90f
-        items.forEachIndexed { index, item ->
-            val sweep = (item.second.toFloat() / total.toFloat()) * 360f
-            drawArc(
-                color = palette[index % palette.size],
-                startAngle = startAngle,
-                sweepAngle = sweep,
-                useCenter = true,
-            )
-            startAngle += sweep
-        }
-    }
-}
-
-@Composable
-private fun ParetoRow(
-    label: String,
-    value: Int,
-    maxValue: Int,
-    ratio: Double,
-    cumulativeRatio: Double,
-    accentColor: androidx.compose.ui.graphics.Color,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = label, style = MaterialTheme.typography.body2)
-            Text(
-                text = "${value} (${formatPercent(ratio)})",
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-        }
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .background(NeutralLight, MaterialTheme.shapes.small),
-        ) {
-            val ratio = value.toFloat() / maxValue.toFloat()
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth(ratio)
-                        .height(8.dp)
-                        .background(accentColor, MaterialTheme.shapes.small),
-            )
-        }
-        Text(
-            text = "Kumulatif ${formatPercent(cumulativeRatio)}",
-            style = MaterialTheme.typography.caption,
-            color = NeutralTextMuted,
-        )
-    }
-}
-
-@Composable
-private fun MonthlyTrendCard(
-    month: YearMonth,
-    dailySummaries: List<DailyChecksheetSummary>,
-    lineColors: Map<Long, androidx.compose.ui.graphics.Color>,
-    lines: List<Line>,
-    selectedLineId: Long?,
-) {
-    val seriesByLine =
-        remember(dailySummaries, month, lines) {
-            val daysInMonth = month.lengthOfMonth()
-            val grouped = dailySummaries.groupBy { it.lineId }
-            lines.associate { line ->
-                val totalsByDate =
-                    grouped[line.id].orEmpty()
-                        .groupBy { it.date }
-                        .mapValues { (_, items) -> items.sumOf { it.totalDefect } }
-                line.id to (1..daysInMonth).map { day ->
-                    totalsByDate[month.atDay(day)] ?: 0
-                }
-            }
-        }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = NeutralSurface,
-        shape = MaterialTheme.shapes.medium,
-        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            Text(text = "Trend NG Harian", style = MaterialTheme.typography.subtitle1)
-            Text(
-                text = "Pergerakan NG harian untuk monitoring stabilitas proses.",
-                style = MaterialTheme.typography.body2,
-                color = NeutralTextMuted,
-            )
-            TrendChart(
-                seriesByLine = seriesByLine,
-                lineColors = lineColors,
-                lines = lines,
-                selectedLineId = selectedLineId,
-            )
-            Text(
-                text = "Sumbu Y: jumlah NG per hari.",
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-        }
-    }
-}
-
-@Composable
-private fun TrendChart(
-    seriesByLine: Map<Long, List<Int>>,
-    lineColors: Map<Long, androidx.compose.ui.graphics.Color>,
-    lines: List<Line>,
-    selectedLineId: Long?,
-) {
-    val allValues = seriesByLine.values.flatten()
-    val maxValue = allValues.maxOrNull()?.coerceAtLeast(1) ?: 1
-    val activeLines =
-        if (selectedLineId == null) {
-            lines
-        } else {
-            lines.filter { it.id == selectedLineId }
-        }
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            activeLines.forEach { line ->
-                val color = lineColors[line.id] ?: StatusInfo
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(10.dp)
-                                .background(color, CircleShape),
-                    )
-                    Text(text = line.name, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-                }
-            }
-        }
-        Canvas(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(90.dp)
-                    .background(NeutralLight, MaterialTheme.shapes.small),
-        ) {
-            seriesByLine.forEach { (lineId, values) ->
-                if (selectedLineId != null && lineId != selectedLineId) return@forEach
-                if (values.isEmpty()) return@forEach
-                val color = lineColors[lineId] ?: StatusInfo
-                val stepX = size.width / (values.size - 1).coerceAtLeast(1)
-                val chartHeight = size.height - 12f
-                val path = Path()
-                values.forEachIndexed { index, value ->
-                    val ratio = value.toFloat() / maxValue.toFloat()
-                    val x = stepX * index
-                    val y = chartHeight - (chartHeight * ratio) + 6f
-                    if (index == 0) {
-                        path.moveTo(x, y)
-                    } else {
-                        path.lineTo(x, y)
-                    }
-                }
-                drawPath(
-                    path = path,
-                    color = color,
-                    style = Stroke(width = 3f, cap = StrokeCap.Round),
-                )
-                values.forEachIndexed { index, value ->
-                    val ratio = value.toFloat() / maxValue.toFloat()
-                    val x = stepX * index
-                    val y = chartHeight - (chartHeight * ratio) + 6f
-                    drawCircle(
-                        color = color,
-                        radius = 4f,
-                        center = Offset(x, y),
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun formatPercent(value: Double): String =
-    if (value <= 0.0) {
-        "-"
-    } else {
-        "${"%.1f".format(value * 100)}%"
-    }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Icon
@@ -23,10 +24,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.CalendarMonth
 import id.co.nierstyd.mutugemba.desktop.navigation.AppRoute
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
@@ -75,22 +83,38 @@ fun SidebarMenu(
             ) {}
             routes.forEach { route ->
                 if (route == AppRoute.Reports) {
+                    val reportSelected = currentRoute == AppRoute.Reports || currentRoute == AppRoute.ReportsMonthly
                     SidebarSectionHeader(
                         label = route.label,
-                        selected = route == currentRoute,
+                        icon = Icons.Filled.Report,
+                        selected = reportSelected,
                         expanded = reportsExpanded,
                         onClick = { reportsExpanded = !reportsExpanded },
                     )
                     if (reportsExpanded) {
                         SidebarSubItem(
                             label = "Laporan Harian",
+                            icon = Icons.AutoMirrored.Filled.FactCheck,
                             selected = currentRoute == AppRoute.Reports,
-                            onClick = { onRouteSelected(route) },
+                            onClick = { onRouteSelected(AppRoute.Reports) },
+                        )
+                        SidebarSubItem(
+                            label = "Laporan Bulanan",
+                            icon = Icons.Filled.CalendarMonth,
+                            selected = currentRoute == AppRoute.ReportsMonthly,
+                            onClick = { onRouteSelected(AppRoute.ReportsMonthly) },
                         )
                     }
-                } else {
+                } else if (route != AppRoute.ReportsMonthly) {
                     SidebarItem(
                         label = route.label,
+                        icon = when (route) {
+                            AppRoute.Home -> Icons.Filled.Home
+                            AppRoute.Inspection -> Icons.AutoMirrored.Filled.FactCheck
+                            AppRoute.Abnormal -> Icons.Filled.Warning
+                            AppRoute.Settings -> Icons.Filled.Settings
+                            else -> Icons.Filled.Report
+                        },
                         selected = route == currentRoute,
                         onClick = { onRouteSelected(route) },
                     )
@@ -116,6 +140,7 @@ fun SidebarMenu(
 @Composable
 private fun SidebarItem(
     label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -143,6 +168,8 @@ private fun SidebarItem(
                     ),
         )
         Spacer(modifier = Modifier.width(Spacing.sm))
+        Icon(imageVector = icon, contentDescription = null, tint = textColor)
+        Spacer(modifier = Modifier.width(Spacing.sm))
         Text(
             text = label,
             color = textColor,
@@ -154,6 +181,7 @@ private fun SidebarItem(
 @Composable
 private fun SidebarSectionHeader(
     label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
     expanded: Boolean,
     onClick: () -> Unit,
@@ -183,6 +211,8 @@ private fun SidebarSectionHeader(
                         ),
             )
             Spacer(modifier = Modifier.width(Spacing.sm))
+            Icon(imageVector = icon, contentDescription = null, tint = textColor)
+            Spacer(modifier = Modifier.width(Spacing.sm))
             Text(
                 text = label,
                 color = textColor,
@@ -200,6 +230,7 @@ private fun SidebarSectionHeader(
 @Composable
 private fun SidebarSubItem(
     label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -214,13 +245,7 @@ private fun SidebarSubItem(
                 .padding(start = Spacing.lg, end = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .width(6.dp)
-                    .height(6.dp)
-                    .background(textColor, MaterialTheme.shapes.small),
-        )
+        Icon(imageVector = icon, contentDescription = null, tint = textColor, modifier = Modifier.size(12.dp))
         Spacer(modifier = Modifier.width(Spacing.sm))
         Text(
             text = label,
