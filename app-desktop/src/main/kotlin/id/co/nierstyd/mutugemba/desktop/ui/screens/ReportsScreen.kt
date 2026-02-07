@@ -6,6 +6,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -122,6 +124,8 @@ fun ReportsScreen(
     dailySummaries: List<DailyChecksheetSummary>,
     loadDailyDetail: (Long, LocalDate) -> DailyChecksheetDetail?,
     loadMonthlyDefectSummary: (YearMonth) -> List<DefectSummary>,
+    loadManualHolidays: () -> Set<LocalDate>,
+    saveManualHolidays: (Set<LocalDate>) -> Unit,
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -146,6 +150,12 @@ fun ReportsScreen(
     var pageIndex by remember { mutableStateOf(0) }
     var detailState by remember { mutableStateOf<HistoryDetailState>(HistoryDetailState.Empty) }
     var monthlyDefects by remember { mutableStateOf(emptyList<DefectSummary>()) }
+    var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
+    var showHistoryInfo by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        manualHolidays = loadManualHolidays()
+    }
 
     LaunchedEffect(lines) {
         if (selectedLineId == null && lines.isNotEmpty()) {
@@ -260,74 +270,122 @@ fun ReportsScreen(
             title = "Laporan Checksheet Harian",
             subtitle = "Ringkasan dokumen harian dan statistik bulanan untuk evaluasi QC.",
         )
-
-        Row(
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            verticalAlignment = Alignment.Top,
+            color = NeutralSurface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+            elevation = 0.dp,
         ) {
-            Column(
-                modifier = Modifier.weight(1.35f),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                verticalAlignment = Alignment.Top,
             ) {
-                MonthlyHistoryCard(
-                    month = month,
-                    todayMonth = todayMonth,
-                    lines = lines,
-                    selectedLineId = selectedLineId,
-                    onLineSelected = { selectedLineId = it },
-                    dates = availableDates,
-                    pageIndex = pageIndex,
-                    onPageChange = { pageIndex = it },
-                    selectedDate = selectedDate,
-                    onDateSelected = {
-                        selectedDate = it
-                        val targetIndex = availableDates.indexOf(it).coerceAtLeast(0)
-                        pageIndex = targetIndex / HISTORY_PAGE_SIZE
-                    },
-                    summaryByDate = summaryByDate,
-                    lineCountsByDate = lineCountsByDate,
-                    lineColors = lineColors,
-                    today = today,
-                    onMonthChange = { target ->
-                        month = if (target.isAfter(todayMonth)) todayMonth else target
-                    },
-                )
-                SectionDivider()
-
-                DailyDocumentSection(
-                    detailState = detailState,
-                    selectedDate = selectedDate,
-                )
+                Column(
+                    modifier = Modifier.weight(1.35f),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    DayPager(
+                        month = month,
+                        dates = availableDates,
+                        pageIndex = pageIndex,
+                        onPageChange = { pageIndex = it },
+                        selectedDate = selectedDate,
+                        onDateSelected = {
+                            selectedDate = it
+                            val targetIndex = availableDates.indexOf(it).coerceAtLeast(0)
+                            pageIndex = targetIndex / HISTORY_PAGE_SIZE
+                        },
+                        summaryByDate = summaryByDate,
+                        lineCountsByDate = lineCountsByDate,
+                        lineColors = lineColors,
+                        today = today,
+                        manualHolidays = manualHolidays,
+                        onToggleHoliday = { date ->
+                            if (!date.isAfter(today)) {
+                                val updated =
+                                    if (manualHolidays.contains(date)) {
+                                        manualHolidays - date
+                                    } else {
+                                        manualHolidays + date
+                                    }
+                                manualHolidays = updated
+                                saveManualHolidays(updated)
+                            }
+                        },
+                    )
+                }
+                Spacer(modifier = Modifier.weight(0.85f))
             }
-
-            Column(
-                modifier = Modifier.weight(0.85f),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        }
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                verticalAlignment = Alignment.Top,
             ) {
-                AnalysisFilterCard(
-                    lines = lines,
-                    selectedLineId = analysisLineId,
-                    onSelected = { analysisLineId = it },
-                )
-                MonthlyInsightCard(
-                    month = month,
-                    totals = monthlyTotals,
-                )
-                SectionDivider()
-                MonthlyParetoCard(
-                    month = month,
-                    defectSummaries = analysisDefects,
-                    accentColor = lineColors[analysisLineId] ?: StatusInfo,
-                    loading = analysisLoading,
-                )
-                MonthlyTrendCard(
-                    month = month,
-                    dailySummaries = dailySummaries.filter { YearMonth.from(it.date) == month },
-                    lineColors = lineColors,
-                    lines = lines,
-                    selectedLineId = analysisLineId,
-                )
+                Column(
+                    modifier = Modifier.weight(1.35f),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    MonthlyHistoryCard(
+                        month = month,
+                        todayMonth = todayMonth,
+                        lines = lines,
+                        selectedLineId = selectedLineId,
+                        onLineSelected = { selectedLineId = it },
+                        selectedDate = selectedDate,
+                        summaryByDate = summaryByDate,
+                        lineColors = lineColors,
+                        today = today,
+                        onMonthChange = { target ->
+                            month = if (target.isAfter(todayMonth)) todayMonth else target
+                        },
+                        showInfo = showHistoryInfo,
+                        onCloseInfo = { showHistoryInfo = false },
+                    )
+                    SectionDivider()
+
+                    DailyDocumentSection(
+                        detailState = detailState,
+                        selectedDate = selectedDate,
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.weight(0.85f),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    AnalysisFilterCard(
+                        lines = lines,
+                        selectedLineId = analysisLineId,
+                        onSelected = { analysisLineId = it },
+                    )
+                    MonthlyInsightCard(
+                        month = month,
+                        totals = monthlyTotals,
+                    )
+                    SectionDivider()
+                    MonthlyParetoCard(
+                        month = month,
+                        defectSummaries = analysisDefects,
+                        accentColor = lineColors[analysisLineId] ?: StatusInfo,
+                        loading = analysisLoading,
+                    )
+                    MonthlyTrendCard(
+                        month = month,
+                        dailySummaries = dailySummaries.filter { YearMonth.from(it.date) == month },
+                        lineColors = lineColors,
+                        lines = lines,
+                        selectedLineId = analysisLineId,
+                    )
+                }
             }
         }
     }
@@ -360,16 +418,13 @@ private fun MonthlyHistoryCard(
     lines: List<Line>,
     selectedLineId: Long?,
     onLineSelected: (Long) -> Unit,
-    dates: List<LocalDate>,
-    pageIndex: Int,
-    onPageChange: (Int) -> Unit,
     selectedDate: LocalDate,
-    onDateSelected: (LocalDate) -> Unit,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
-    lineCountsByDate: Map<LocalDate, Map<Long, Int>>,
     lineColors: Map<Long, androidx.compose.ui.graphics.Color>,
     today: LocalDate,
     onMonthChange: (YearMonth) -> Unit,
+    showInfo: Boolean,
+    onCloseInfo: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -419,7 +474,7 @@ private fun MonthlyHistoryCard(
                 onMonthChange = onMonthChange,
             )
             Text(
-                text = "Gunakan pager atau kalender untuk memeriksa tanggal yang sudah diinput. Klik tanggal untuk melihat dokumen.",
+                text = "Ganti tanggal di bar di atas untuk melihat riwayat. Tanggal masa depan tidak bisa dibuka.",
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
@@ -434,33 +489,21 @@ private fun MonthlyHistoryCard(
                 )
             }
 
-            Divider(color = NeutralBorder, thickness = 1.dp)
-
-            DayPager(
-                month = month,
-                dates = dates,
-                pageIndex = pageIndex,
-                onPageChange = onPageChange,
-                selectedDate = selectedDate,
-                onDateSelected = onDateSelected,
-                summaryByDate = summaryByDate,
-                lineCountsByDate = lineCountsByDate,
-                lineColors = lineColors,
-                today = today,
-            )
-
             HistoryLegend()
             if (lines.isNotEmpty()) {
                 LineLegend(lines = lines, lineColors = lineColors)
             }
 
-            StatusBanner(
-                feedback =
-                    id.co.nierstyd.mutugemba.usecase.UserFeedback(
-                        id.co.nierstyd.mutugemba.usecase.FeedbackType.INFO,
-                        "Data checksheet harian bersifat final. QC hanya dapat melihat riwayat hingga hari ini dan tidak dapat mengubah data sebelumnya.",
-                    ),
-            )
+            if (showInfo) {
+                StatusBanner(
+                    feedback =
+                        id.co.nierstyd.mutugemba.usecase.UserFeedback(
+                            id.co.nierstyd.mutugemba.usecase.FeedbackType.INFO,
+                            "Data checksheet harian bersifat final. QC dapat menandai hari libur secara manual.",
+                        ),
+                    onDismiss = onCloseInfo,
+                )
+            }
         }
     }
 }
@@ -543,6 +586,8 @@ private fun DayPager(
     lineCountsByDate: Map<LocalDate, Map<Long, Int>>,
     lineColors: Map<Long, androidx.compose.ui.graphics.Color>,
     today: LocalDate,
+    manualHolidays: Set<LocalDate>,
+    onToggleHoliday: (LocalDate) -> Unit,
 ) {
     val totalPages = maxOf(1, ceil(dates.size / HISTORY_PAGE_SIZE.toDouble()).toInt())
     val currentPage = pageIndex.coerceIn(0, totalPages - 1)
@@ -567,7 +612,7 @@ private fun DayPager(
             }
         }
     val totalFilled = pageDates.count { summaryByDate[it] != null }
-    val totalWeekend = pageDates.count { it.dayOfWeek.value >= 6 }
+    val totalWeekend = pageDates.count { it.dayOfWeek.value >= 6 || manualHolidays.contains(it) }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -575,12 +620,16 @@ private fun DayPager(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PagerNavButton(
+                modifier = Modifier.widthIn(min = 140.dp),
                 enabled = currentPage > 0,
                 icon = Icons.Filled.ChevronLeft,
                 label = "Sebelumnya",
                 onClick = { onPageChange(currentPage - 1) },
             )
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
                     text = "Halaman ${currentPage + 1} / $totalPages",
                     style = MaterialTheme.typography.caption,
@@ -588,11 +637,12 @@ private fun DayPager(
                 )
                 Text(
                     text = rangeLabel,
-                    style = MaterialTheme.typography.caption,
+                    style = MaterialTheme.typography.body2,
                     color = NeutralTextMuted,
                 )
             }
             PagerNavButton(
+                modifier = Modifier.widthIn(min = 140.dp),
                 enabled = currentPage < totalPages - 1,
                 icon = Icons.Filled.ChevronRight,
                 label = "Berikutnya",
@@ -602,7 +652,7 @@ private fun DayPager(
         }
         Divider(color = NeutralBorder, thickness = 1.dp)
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xs),
             horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
             (0 until HISTORY_PAGE_SIZE).forEach { offset ->
@@ -618,11 +668,13 @@ private fun DayPager(
                                 true
                             }
                     val isWeekend = date.dayOfWeek.value >= 6
+                    val isHoliday = isWeekend || manualHolidays.contains(date)
                     DateButton(
                         date = date,
                         summary = summaryByDate[date],
                         selected = date == selectedDate,
                         isWeekend = isWeekend,
+                        isHoliday = isHoliday,
                         enabled = enabled,
                         onClick = { if (enabled) onDateSelected(date) },
                         modifier = Modifier.weight(1f),
@@ -634,6 +686,7 @@ private fun DayPager(
                 }
             }
         }
+        Divider(color = NeutralBorder, thickness = 1.dp)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -643,13 +696,23 @@ private fun DayPager(
                 text = "Terisi $totalFilled/$totalEnabled",
                 backgroundColor = StatusSuccess.copy(alpha = 0.12f),
                 contentColor = StatusSuccess,
+                modifier = Modifier.widthIn(min = 96.dp),
             )
             AppBadge(
                 text = "Libur $totalWeekend",
                 backgroundColor = StatusWarning.copy(alpha = 0.12f),
                 contentColor = StatusWarning,
+                modifier = Modifier.widthIn(min = 96.dp),
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            val canToggleHoliday = !selectedDate.isAfter(today) && summaryByDate[selectedDate] == null
+            SecondaryButton(
+                text = if (manualHolidays.contains(selectedDate)) "Batalkan Libur" else "Tandai Libur",
+                onClick = { if (canToggleHoliday) onToggleHoliday(selectedDate) },
+                enabled = canToggleHoliday,
             )
         }
+        Divider(color = NeutralBorder, thickness = 1.dp)
     }
 }
 
@@ -660,11 +723,12 @@ private fun PagerNavButton(
     label: String,
     iconOnRight: Boolean = false,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val background = if (enabled) NeutralSurface else NeutralLight
     val content = if (enabled) NeutralText else NeutralTextMuted
     Surface(
-        modifier = Modifier.height(36.dp).clickable(enabled = enabled) { onClick() },
+        modifier = modifier.height(36.dp).clickable(enabled = enabled) { onClick() },
         shape = MaterialTheme.shapes.small,
         color = background,
         elevation = 0.dp,
@@ -678,7 +742,7 @@ private fun PagerNavButton(
             if (!iconOnRight) {
                 Icon(imageVector = icon, contentDescription = label, tint = content, modifier = Modifier.size(16.dp))
             }
-            Text(text = label, style = MaterialTheme.typography.caption, color = content)
+            Text(text = label, style = MaterialTheme.typography.body2, color = content)
             if (iconOnRight) {
                 Icon(imageVector = icon, contentDescription = label, tint = content, modifier = Modifier.size(16.dp))
             }
@@ -693,6 +757,7 @@ private fun DateButton(
     summary: DailyChecksheetSummary?,
     selected: Boolean,
     isWeekend: Boolean,
+    isHoliday: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -709,7 +774,7 @@ private fun DateButton(
     val background =
         when {
             hasInput -> StatusSuccess.copy(alpha = 0.08f)
-            isWeekend -> StatusWarning.copy(alpha = 0.08f)
+            isHoliday -> StatusWarning.copy(alpha = 0.08f)
             else -> NeutralSurface
         }
     val alpha = if (enabled) 1f else 0.45f
@@ -736,11 +801,18 @@ private fun DateButton(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
+                Text(
+                    text = date.dayOfMonth.toString(),
+                    style = MaterialTheme.typography.subtitle1,
+                    color = (if (isHoliday) StatusWarning else NeutralText).copy(alpha = alpha),
+                )
+                if (isHoliday && summary == null) {
                     Text(
-                        text = date.dayOfMonth.toString(),
-                        style = MaterialTheme.typography.subtitle1,
-                        color = (if (isWeekend) StatusWarning else NeutralText).copy(alpha = alpha),
+                        text = "Libur",
+                        style = MaterialTheme.typography.caption,
+                        color = StatusWarning,
                     )
+                }
                     if (summary != null && summary.totalDefect > 0) {
                         Text(
                             text = "NG ${summary.totalDefect}",
@@ -779,29 +851,21 @@ private fun HistoryLegend() {
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = Icons.Filled.CheckCircle,
-            contentDescription = null,
-            tint = StatusSuccess,
-            modifier = Modifier.size(14.dp),
+        LegendPill(
+            icon = Icons.Filled.CheckCircle,
+            color = StatusSuccess,
+            label = "Sudah Input",
         )
-        Text(text = "Sudah Input", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-        Spacer(modifier = Modifier.width(Spacing.sm))
-        Icon(
-            imageVector = Icons.Filled.RadioButtonUnchecked,
-            contentDescription = null,
-            tint = NeutralBorder,
-            modifier = Modifier.size(14.dp),
+        LegendPill(
+            icon = Icons.Filled.RadioButtonUnchecked,
+            color = NeutralBorder,
+            label = "Belum Input",
         )
-        Text(text = "Belum Input", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-        Spacer(modifier = Modifier.width(Spacing.sm))
-        Icon(
-            imageVector = Icons.Filled.RadioButtonUnchecked,
-            contentDescription = null,
-            tint = StatusWarning,
-            modifier = Modifier.size(14.dp),
+        LegendPill(
+            icon = Icons.Filled.RadioButtonUnchecked,
+            color = StatusWarning,
+            label = "Akhir Pekan/Libur",
         )
-        Text(text = "Akhir Pekan/Libur", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
     }
     Text(
         text = "Angka kecil di tanggal menunjukkan jumlah input per line.",
@@ -832,6 +896,38 @@ private fun LineLegend(
                 )
                 Text(text = line.name, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
             }
+        }
+    }
+}
+
+@Composable
+private fun LegendPill(
+    icon: ImageVector,
+    color: androidx.compose.ui.graphics.Color,
+    label: String,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = NeutralLight,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(12.dp),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
         }
     }
 }

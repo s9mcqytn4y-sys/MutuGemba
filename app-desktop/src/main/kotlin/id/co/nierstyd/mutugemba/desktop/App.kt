@@ -43,6 +43,7 @@ import id.co.nierstyd.mutugemba.usecase.GetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.GetInspectionDefaultsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLastVisitedPageUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
+import id.co.nierstyd.mutugemba.usecase.GetManualHolidayDatesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetMonthlyDailyChecksheetSummariesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetMonthlyDefectSummaryUseCase
 import id.co.nierstyd.mutugemba.usecase.GetPartsUseCase
@@ -55,6 +56,7 @@ import id.co.nierstyd.mutugemba.usecase.SetDevDemoModeUseCase
 import id.co.nierstyd.mutugemba.usecase.SetDevDummyDataUseCase
 import id.co.nierstyd.mutugemba.usecase.SetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.SetLastVisitedPageUseCase
+import id.co.nierstyd.mutugemba.usecase.SaveManualHolidayDatesUseCase
 
 @Composable
 fun MutuGembaApp() {
@@ -72,6 +74,8 @@ fun MutuGembaApp() {
     val setDevDemoModeUseCase = remember { SetDevDemoModeUseCase(settingsRepository) }
     val getDevDummyDataUseCase = remember { GetDevDummyDataUseCase(settingsRepository) }
     val setDevDummyDataUseCase = remember { SetDevDummyDataUseCase(settingsRepository) }
+    val getManualHolidayDatesUseCase = remember { GetManualHolidayDatesUseCase(settingsRepository) }
+    val saveManualHolidayDatesUseCase = remember { SaveManualHolidayDatesUseCase(settingsRepository) }
 
     val databaseHandle = remember { DatabaseFactory.createDatabaseHandle(AppDataPaths.databaseFile()) }
     val database = databaseHandle.database
@@ -152,7 +156,7 @@ fun MutuGembaApp() {
             routes = AppRoute.values().toList(),
             currentRoute = currentRoute,
             onRouteSelected = { currentRoute = it },
-            scrollableContent = currentRoute != AppRoute.Inspection,
+            scrollableContent = currentRoute != AppRoute.Inspection && currentRoute != AppRoute.Reports,
             headerContent = {
                 HeaderBar(
                     title = "MutuGemba",
@@ -191,6 +195,8 @@ fun MutuGembaApp() {
                         dailySummaries = dailySummaries,
                         loadDailyDetail = { lineId, date -> getDailyDetailUseCase.execute(lineId, date) },
                         loadMonthlyDefectSummary = { month -> getMonthlyDefectSummaryUseCase.execute(month) },
+                        loadManualHolidays = { getManualHolidayDatesUseCase.execute() },
+                        saveManualHolidays = { saveManualHolidayDatesUseCase.execute(it) },
                     )
                 AppRoute.Settings ->
                     SettingsScreen(

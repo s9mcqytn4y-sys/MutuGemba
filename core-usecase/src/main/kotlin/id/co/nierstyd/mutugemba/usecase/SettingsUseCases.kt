@@ -2,6 +2,8 @@ package id.co.nierstyd.mutugemba.usecase
 
 import id.co.nierstyd.mutugemba.domain.AppSettingsKeys
 import id.co.nierstyd.mutugemba.domain.SettingsRepository
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 
 data class InspectionDefaults(
     val lineId: Long?,
@@ -127,5 +129,33 @@ class SetAllowDuplicateInspectionUseCase(
 ) {
     fun execute(allow: Boolean) {
         settingsRepository.putString(AppSettingsKeys.ALLOW_DUPLICATE_INSPECTION, allow.toString())
+    }
+}
+
+class GetManualHolidayDatesUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(): Set<LocalDate> {
+        val raw = settingsRepository.getString(AppSettingsKeys.MANUAL_HOLIDAY_DATES).orEmpty()
+        if (raw.isBlank()) return emptySet()
+        return raw
+            .split("|")
+            .mapNotNull {
+                try {
+                    LocalDate.parse(it)
+                } catch (_: DateTimeParseException) {
+                    null
+                }
+            }
+            .toSet()
+    }
+}
+
+class SaveManualHolidayDatesUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(dates: Set<LocalDate>) {
+        val value = dates.sorted().joinToString("|") { it.toString() }
+        settingsRepository.putString(AppSettingsKeys.MANUAL_HOLIDAY_DATES, value)
     }
 }

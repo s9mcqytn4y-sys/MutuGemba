@@ -3,10 +3,15 @@
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,6 +28,7 @@ import id.co.nierstyd.mutugemba.usecase.UserFeedback
 fun StatusBanner(
     feedback: UserFeedback,
     modifier: Modifier = Modifier,
+    onDismiss: (() -> Unit)? = null,
 ) {
     val background =
         when (feedback.type) {
@@ -48,11 +54,25 @@ fun StatusBanner(
                 FeedbackType.ERROR -> "Gagal"
                 FeedbackType.SUCCESS -> "Sukses"
             }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colors.onPrimary,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colors.onPrimary,
+            )
+            if (onDismiss != null) {
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Tutup",
+                        tint = MaterialTheme.colors.onPrimary,
+                    )
+                }
+            }
+        }
         Text(
             text = feedback.message,
             style = MaterialTheme.typography.body2,
