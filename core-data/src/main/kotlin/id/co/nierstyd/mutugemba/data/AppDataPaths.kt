@@ -13,4 +13,6 @@ object AppDataPaths {
     fun attachmentsDir(): Path = dataRoot().resolve("attachments")
 
     fun settingsFile(): Path = dataRoot().resolve("settings.properties")
+
+    fun exportsDir(): Path = dataRoot().resolve("exports")
 }

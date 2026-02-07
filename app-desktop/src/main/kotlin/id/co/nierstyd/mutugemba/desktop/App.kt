@@ -25,12 +25,15 @@ import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsMonthlyScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreenDependencies
+import id.co.nierstyd.mutugemba.desktop.ui.screens.buildDemoMonthlyReportDocument
 import id.co.nierstyd.mutugemba.desktop.ui.theme.MutuGembaTheme
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.Line
+import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
+import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -100,6 +103,28 @@ fun MutuGembaApp() {
             container.getMonthlyDefectSummaryUseCase.execute(month)
         }
     }
+    val loadMonthlyEntries: (Long, YearMonth) -> List<ChecksheetEntry> = { lineId, month ->
+        if (useDummyData) {
+            demoPack
+                ?.dailyDetails
+                ?.filterKeys { (storedLineId, date) ->
+                    storedLineId == lineId && YearMonth.from(date) == month
+                }?.values
+                ?.flatMap { it.entries }
+                ?: emptyList()
+        } else {
+            container.getMonthlyEntriesUseCase.execute(lineId, month)
+        }
+    }
+
+    val loadMonthlyReportDocument: (Long, YearMonth) -> MonthlyReportDocument? = { lineId, month ->
+        if (useDummyData) {
+            val pack = demoPack ?: SampleData.buildDemoPack()
+            buildDemoMonthlyReportDocument(pack, lineId, month)
+        } else {
+            container.getMonthlyReportDocumentUseCase.execute(lineId, month)
+        }
+    }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -144,6 +169,7 @@ fun MutuGembaApp() {
                         dailySummaries = dailySummaries,
                         loadDailyDetail = loadDailyDetail,
                         loadMonthlyDefectSummary = loadMonthlyDefectSummary,
+                        loadMonthlyEntries = loadMonthlyEntries,
                         resetData = container.resetDataUseCase,
                         onNavigateToInspection = { currentRoute = AppRoute.Inspection },
                         onRefreshData = refreshData,
@@ -184,7 +210,12 @@ fun MutuGembaApp() {
                         loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
                         saveManualHolidays = { container.saveManualHolidayDatesUseCase.execute(it) },
                     )
-                AppRoute.ReportsMonthly -> ReportsMonthlyScreen()
+                AppRoute.ReportsMonthly ->
+                    ReportsMonthlyScreen(
+                        lines = lines,
+                        loadMonthlyReportDocument = loadMonthlyReportDocument,
+                        loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
+                    )
                 AppRoute.Settings ->
                     SettingsScreen(
                         dependencies =

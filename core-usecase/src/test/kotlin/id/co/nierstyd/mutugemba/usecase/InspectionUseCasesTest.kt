@@ -5,6 +5,9 @@ import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
+import id.co.nierstyd.mutugemba.domain.MonthlyPartDayDefect
+import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
+import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.UserRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -178,4 +181,19 @@ private class FakeInspectionRepository(
     override fun getMonthlyDefectSummary(
         month: java.time.YearMonth,
     ): List<id.co.nierstyd.mutugemba.domain.DefectSummary> = emptyList()
+
+    override fun getMonthlyPartDayDefects(
+        lineId: Long,
+        month: java.time.YearMonth,
+    ): List<MonthlyPartDayDefect> = emptyList()
+
+    override fun getMonthlyPartDefectTotals(
+        lineId: Long,
+        month: java.time.YearMonth,
+    ): List<MonthlyPartDefectTotal> = emptyList()
+
+    override fun getMonthlyParts(
+        lineId: Long,
+        month: java.time.YearMonth,
+    ): List<Part> = emptyList()
 }

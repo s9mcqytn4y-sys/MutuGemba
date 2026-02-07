@@ -65,6 +65,18 @@ data class MonthlyTotalsUi(
     val avgDefectPerDay: Double,
 )
 
+data class TopProblemItemUi(
+    val partNumber: String,
+    val partName: String,
+    val totalDefect: Int,
+)
+
+data class LineComparisonItemUi(
+    val lineName: String,
+    val totalDefect: Int,
+    val ratio: Double,
+)
+
 fun buildLineColors(lines: List<Line>): Map<Long, androidx.compose.ui.graphics.Color> {
     val palette =
         listOf(
@@ -556,6 +568,129 @@ fun MonthlyTrendCard(
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
+        }
+    }
+}
+
+@Composable
+fun TopProblemItemCard(
+    month: YearMonth,
+    lines: List<Line>,
+    selectedLineId: Long?,
+    onSelectedLine: (Long?) -> Unit,
+    item: TopProblemItemUi?,
+    loading: Boolean,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.medium,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(text = AppStrings.Analytics.TopProblemTitle, style = MaterialTheme.typography.subtitle1)
+                    Text(
+                        text = AppStrings.Analytics.TopProblemSubtitle,
+                        style = MaterialTheme.typography.body2,
+                        color = NeutralTextMuted,
+                    )
+                }
+                LineFilterChips(lines = lines, selectedLineId = selectedLineId, onSelectedLine = onSelectedLine)
+            }
+            Text(
+                text = AppStrings.Analytics.monthLabel(DateTimeFormats.formatMonth(month)),
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            if (loading) {
+                SkeletonBlock(width = 220.dp, height = 18.dp)
+                SkeletonBlock(width = 160.dp, height = 10.dp)
+            } else if (item == null) {
+                Text(text = AppStrings.Analytics.NoData, style = MaterialTheme.typography.body2)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(
+                        text = "${item.partNumber} • ${item.partName}",
+                        style = MaterialTheme.typography.subtitle1,
+                        color = NeutralText,
+                    )
+                    Text(
+                        text = "NG ${item.totalDefect}",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LineComparisonCard(
+    items: List<LineComparisonItemUi>,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.medium,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Column {
+                Text(text = AppStrings.Analytics.LineCompareTitle, style = MaterialTheme.typography.subtitle1)
+                Text(
+                    text = AppStrings.Analytics.LineCompareSubtitle,
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
+            }
+            if (items.isEmpty()) {
+                Text(text = AppStrings.Analytics.NoData, style = MaterialTheme.typography.body2)
+            } else {
+                val maxNg = (items.maxOfOrNull { it.totalDefect } ?: 1).coerceAtLeast(1)
+                items.forEach { item ->
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(text = item.lineName, style = MaterialTheme.typography.body2, color = NeutralText)
+                            Text(
+                                text = "${item.totalDefect} • ${NumberFormats.formatPercentNoDecimal(item.ratio)}",
+                                style = MaterialTheme.typography.caption,
+                                color = NeutralTextMuted,
+                            )
+                        }
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .background(NeutralLight, MaterialTheme.shapes.small),
+                        ) {
+                            val ratio = item.totalDefect.toFloat() / maxNg.toFloat()
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth(ratio)
+                                        .height(8.dp)
+                                        .background(BrandBlue, MaterialTheme.shapes.small),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

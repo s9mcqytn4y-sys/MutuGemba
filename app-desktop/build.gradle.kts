@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":core-data"))
     implementation(project(":core-domain"))
     implementation(project(":core-analytics"))
+    implementation(libs.pdfbox)
     runtimeOnly(libs.slf4j.simple)
 
     testImplementation(platform(libs.junit.bom))

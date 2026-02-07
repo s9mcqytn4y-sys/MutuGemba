@@ -41,6 +41,10 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyInsightCa
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyParetoCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyTotalsUi
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyTrendCard
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.TopProblemItemCard
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.TopProblemItemUi
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.LineComparisonCard
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.LineComparisonItemUi
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.buildLineColors
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -58,6 +62,7 @@ import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.Line
+import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
@@ -73,6 +78,7 @@ fun HomeScreen(
     dailySummaries: List<DailyChecksheetSummary>,
     loadDailyDetail: (Long, LocalDate) -> id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail?,
     loadMonthlyDefectSummary: (YearMonth) -> List<DefectSummary>,
+    loadMonthlyEntries: (Long, YearMonth) -> List<ChecksheetEntry>,
     resetData: ResetDataUseCase,
     onNavigateToInspection: () -> Unit,
     onRefreshData: () -> Unit,
@@ -115,6 +121,9 @@ fun HomeScreen(
     var analysisDefects by remember { mutableStateOf<List<DefectSummary>>(emptyList()) }
     var analysisLoading by remember { mutableStateOf(false) }
     var monthlyDefects by remember { mutableStateOf(emptyList<DefectSummary>()) }
+    var topProblemLineId by remember { mutableStateOf<Long?>(null) }
+    var topProblemItem by remember { mutableStateOf<TopProblemItemUi?>(null) }
+    var topProblemLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(month, dailySummaries) {
         monthlyDefects = loadMonthlyDefectSummary(month)
@@ -144,6 +153,32 @@ fun HomeScreen(
         analysisLoading = false
     }
 
+    LaunchedEffect(month, topProblemLineId, lines) {
+        topProblemLoading = true
+        val selectedLineId = topProblemLineId
+        val entries =
+            withContext(Dispatchers.IO) {
+                if (selectedLineId == null) {
+                    lines.flatMap { line -> loadMonthlyEntries(line.id, month) }
+                } else {
+                    loadMonthlyEntries(selectedLineId, month)
+                }
+            }
+        topProblemItem =
+            entries
+                .groupBy { it.partNumber }
+                .map { (_, items) ->
+                    val totalDefect = items.sumOf { it.totalDefect }
+                    val sample = items.first()
+                    TopProblemItemUi(
+                        partNumber = sample.partNumber,
+                        partName = sample.partName,
+                        totalDefect = totalDefect,
+                    )
+                }.maxByOrNull { it.totalDefect }
+        topProblemLoading = false
+    }
+
     val monthlyTotals =
         remember(dailySummaries, month, insightLineId) {
             val summariesForMonth =
@@ -168,6 +203,24 @@ fun HomeScreen(
                 totalParts = totalParts,
                 avgDefectPerDay = avgDefectPerDay,
             )
+        }
+
+    val lineComparison =
+        remember(dailySummaries, month, lines) {
+            lines.map { line ->
+                val summaries =
+                    dailySummaries.filter {
+                        YearMonth.from(it.date) == month && it.lineId == line.id
+                    }
+                val totalDefect = summaries.sumOf { it.totalDefect }
+                val totalCheck = summaries.sumOf { it.totalCheck }
+                val ratio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
+                LineComparisonItemUi(
+                    lineName = line.name,
+                    totalDefect = totalDefect,
+                    ratio = ratio,
+                )
+            }
         }
 
     val listState = rememberLazyListState()
@@ -234,6 +287,15 @@ fun HomeScreen(
                         selectedLineId = insightLineId,
                         onSelectedLine = { insightLineId = it },
                     )
+                    TopProblemItemCard(
+                        month = month,
+                        lines = lines,
+                        selectedLineId = topProblemLineId,
+                        onSelectedLine = { topProblemLineId = it },
+                        item = topProblemItem,
+                        loading = topProblemLoading,
+                    )
+                    LineComparisonCard(items = lineComparison)
                 }
             }
         }

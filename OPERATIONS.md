@@ -11,6 +11,7 @@ Dokumen ini merangkum cara menjalankan aplikasi, lokasi data, dan prosedur pemel
 - Database SQLite: `data/mutugemba.db`
 - Lampiran: `data/attachments/`
 - Preferensi: `data/settings.properties`
+- Ekspor PDF: `data/exports/`
 - Backup: `data/backup/backup-YYYYMMDD-HHmmss/`
 
 Direktori `data/` berada di root project (working directory aplikasi).
@@ -28,6 +29,10 @@ Direktori `data/` berada di root project (working directory aplikasi).
 ## Logging
 - Runtime log ditulis ke stdout melalui `slf4j-simple`.
 - Gunakan terminal/launcher untuk menangkap log saat troubleshooting.
+
+## Ekspor Laporan Bulanan
+- Ekspor/print dilakukan dari layar **Laporan Bulanan** (read-only).
+- File PDF tersimpan di `data/exports/` dengan format nama `MonthlyReport-<LINE>-YYYY-MM.pdf`.
 
 ## Upgrade & Migrasi
 - Skema database dimigrasikan otomatis menggunakan SQLDelight (`core-data`).
