@@ -3,9 +3,12 @@ package id.co.nierstyd.mutugemba.usecase
 import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
+import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
 import java.time.LocalDate
 import java.time.YearMonth
+
+private typealias DailySummaries = List<DailyChecksheetSummary>
 
 class GetDailyChecksheetEntriesUseCase(
     private val repository: InspectionRepository,
@@ -28,8 +31,7 @@ class GetMonthlyChecksheetEntriesUseCase(
 class GetMonthlyDailyChecksheetSummariesUseCase(
     private val repository: InspectionRepository,
 ) {
-    fun execute(month: YearMonth = YearMonth.now()): List<DailyChecksheetSummary> =
-        repository.getDailyChecksheetSummaries(month)
+    fun execute(month: YearMonth = YearMonth.now()): DailySummaries = repository.getDailyChecksheetSummaries(month)
 }
 
 class GetDailyChecksheetDetailUseCase(
@@ -39,4 +41,10 @@ class GetDailyChecksheetDetailUseCase(
         lineId: Long,
         date: LocalDate,
     ): DailyChecksheetDetail? = repository.getDailyChecksheetDetail(lineId, date)
+}
+
+class GetMonthlyDefectSummaryUseCase(
+    private val repository: InspectionRepository,
+) {
+    fun execute(month: YearMonth = YearMonth.now()): List<DefectSummary> = repository.getMonthlyDefectSummary(month)
 }

@@ -12,13 +12,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import id.co.nierstyd.mutugemba.desktop.navigation.AppRoute
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
@@ -31,6 +39,7 @@ fun SidebarMenu(
     currentRoute: AppRoute,
     onRouteSelected: (AppRoute) -> Unit,
 ) {
+    var reportsExpanded by remember { mutableStateOf(true) }
     Surface(
         color = NeutralSurface,
         modifier =
@@ -65,11 +74,27 @@ fun SidebarMenu(
                         .height(1.dp),
             ) {}
             routes.forEach { route ->
-                SidebarItem(
-                    label = route.label,
-                    selected = route == currentRoute,
-                    onClick = { onRouteSelected(route) },
-                )
+                if (route == AppRoute.Reports) {
+                    SidebarSectionHeader(
+                        label = route.label,
+                        selected = route == currentRoute,
+                        expanded = reportsExpanded,
+                        onClick = { reportsExpanded = !reportsExpanded },
+                    )
+                    if (reportsExpanded) {
+                        SidebarSubItem(
+                            label = "Laporan Harian",
+                            selected = currentRoute == AppRoute.Reports,
+                            onClick = { onRouteSelected(route) },
+                        )
+                    }
+                } else {
+                    SidebarItem(
+                        label = route.label,
+                        selected = route == currentRoute,
+                        onClick = { onRouteSelected(route) },
+                    )
+                }
             }
             Spacer(modifier = Modifier.weight(1f))
             Row(
@@ -122,6 +147,85 @@ private fun SidebarItem(
             text = label,
             color = textColor,
             style = MaterialTheme.typography.subtitle1,
+        )
+    }
+}
+
+@Composable
+private fun SidebarSectionHeader(
+    label: String,
+    selected: Boolean,
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    val background = if (selected) MaterialTheme.colors.primary.copy(alpha = 0.08f) else NeutralSurface
+    val textColor = if (selected) MaterialTheme.colors.primary else MaterialTheme.colors.onSurface
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(Sizing.sidebarItemHeight)
+                .background(background, MaterialTheme.shapes.small)
+                .clickable(onClick = onClick)
+                .padding(horizontal = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier =
+                    Modifier
+                        .width(4.dp)
+                        .height(24.dp)
+                        .background(
+                            if (selected) MaterialTheme.colors.primary else NeutralSurface,
+                            MaterialTheme.shapes.small,
+                        ),
+            )
+            Spacer(modifier = Modifier.width(Spacing.sm))
+            Text(
+                text = label,
+                color = textColor,
+                style = MaterialTheme.typography.subtitle1,
+            )
+        }
+        Icon(
+            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            contentDescription = null,
+            tint = textColor,
+        )
+    }
+}
+
+@Composable
+private fun SidebarSubItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val textColor = if (selected) MaterialTheme.colors.primary else MaterialTheme.colors.onSurface.copy(alpha = 0.7f)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(Sizing.sidebarItemHeight - 10.dp)
+                .background(if (selected) MaterialTheme.colors.primary.copy(alpha = 0.06f) else NeutralSurface)
+                .clickable(onClick = onClick)
+                .padding(start = Spacing.lg, end = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(6.dp)
+                    .height(6.dp)
+                    .background(textColor, MaterialTheme.shapes.small),
+        )
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        Text(
+            text = label,
+            color = textColor,
+            style = MaterialTheme.typography.body2,
         )
     }
 }

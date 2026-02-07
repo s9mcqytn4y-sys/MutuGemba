@@ -1,6 +1,8 @@
 ﻿package id.co.nierstyd.mutugemba.desktop.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.OutlinedTextField
@@ -82,13 +84,15 @@ fun CompactNumberField(
     modifier: Modifier = Modifier,
     placeholder: String = "0",
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val displayValue = if (isFocused && value == "0") "" else value
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         OutlinedTextField(
-            value = value,
+            value = displayValue,
             onValueChange = { input -> onValueChange(filterNumberInput(input, false)) },
             placeholder = {
                 if (!isFocused && value.isBlank()) {
@@ -103,7 +107,8 @@ fun CompactNumberField(
                     .background(
                         if (isFocused) NeutralLight else NeutralSurface,
                         androidx.compose.material.MaterialTheme.shapes.small,
-                    ).onFocusChanged { isFocused = it.isFocused },
+                    ),
+            interactionSource = interactionSource,
             colors = defaultTextFieldColors(),
         )
     }

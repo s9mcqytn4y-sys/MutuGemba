@@ -44,6 +44,7 @@ import id.co.nierstyd.mutugemba.usecase.GetInspectionDefaultsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLastVisitedPageUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetMonthlyDailyChecksheetSummariesUseCase
+import id.co.nierstyd.mutugemba.usecase.GetMonthlyDefectSummaryUseCase
 import id.co.nierstyd.mutugemba.usecase.GetPartsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetRecentInspectionsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetShiftsUseCase
@@ -91,6 +92,7 @@ fun MutuGembaApp() {
     val getRecentInspectionsUseCase = remember { GetRecentInspectionsUseCase(inspectionRepository) }
     val getDailySummariesUseCase = remember { GetMonthlyDailyChecksheetSummariesUseCase(inspectionRepository) }
     val getDailyDetailUseCase = remember { GetDailyChecksheetDetailUseCase(inspectionRepository) }
+    val getMonthlyDefectSummaryUseCase = remember { GetMonthlyDefectSummaryUseCase(inspectionRepository) }
     val getLinesUseCase = remember { GetLinesUseCase(masterDataRepository) }
     val getShiftsUseCase = remember { GetShiftsUseCase(masterDataRepository) }
     val getPartsUseCase = remember { GetPartsUseCase(masterDataRepository) }
@@ -169,11 +171,9 @@ fun MutuGembaApp() {
                     HomeScreen(
                         recentRecords = inspectionRecords,
                         lines = lines,
-                        dailySummaries = dailySummaries,
                         resetData = resetDataUseCase,
                         onNavigateToInspection = { currentRoute = AppRoute.Inspection },
                         onRefreshData = refreshData,
-                        loadDailyDetail = { lineId, date -> getDailyDetailUseCase.execute(lineId, date) },
                     )
 
                 AppRoute.Inspection ->
@@ -185,7 +185,13 @@ fun MutuGembaApp() {
                     )
 
                 AppRoute.Abnormal -> AbnormalScreen()
-                AppRoute.Reports -> ReportsScreen()
+                AppRoute.Reports ->
+                    ReportsScreen(
+                        lines = lines,
+                        dailySummaries = dailySummaries,
+                        loadDailyDetail = { lineId, date -> getDailyDetailUseCase.execute(lineId, date) },
+                        loadMonthlyDefectSummary = { month -> getMonthlyDefectSummaryUseCase.execute(month) },
+                    )
                 AppRoute.Settings ->
                     SettingsScreen(
                         dependencies =

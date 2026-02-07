@@ -18,9 +18,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -175,10 +179,10 @@ private fun PartHeader(
         ) {
             PartImage(picturePath = part.picturePath)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = part.name, style = MaterialTheme.typography.subtitle1)
+                Text(text = part.name, style = MaterialTheme.typography.h6)
                 Text(
                     text = "${part.partNumber} • UNIQ ${part.uniqCode}",
-                    style = MaterialTheme.typography.body2,
+                    style = MaterialTheme.typography.body1,
                     color = NeutralTextMuted,
                 )
                 PartStatusBadge(status = status, hasInput = hasInput)
@@ -191,11 +195,22 @@ private fun PartHeader(
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
-                Text(
-                    text = if (expanded) "▲ Sembunyikan" else "▼ Buka",
-                    style = MaterialTheme.typography.caption,
-                    color = MaterialTheme.colors.primary,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (expanded) "Sembunyikan" else "Buka",
+                        style = MaterialTheme.typography.caption,
+                        color = MaterialTheme.colors.primary,
+                    )
+                    Icon(
+                        imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colors.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
     }

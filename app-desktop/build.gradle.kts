@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     kotlin("jvm") version libs.versions.kotlin.get()
     id("org.jetbrains.kotlin.plugin.compose") version libs.versions.kotlin.get()
     id("org.jetbrains.compose") version libs.versions.compose.get()
@@ -6,9 +6,11 @@
 
 dependencies {
     implementation(compose.desktop.currentOs)
+    implementation(compose.materialIconsExtended)
     implementation(project(":core-usecase"))
     implementation(project(":core-data"))
     implementation(project(":core-domain"))
+    implementation(project(":core-analytics"))
     runtimeOnly(libs.slf4j.simple)
 
     testImplementation(platform(libs.junit.bom))

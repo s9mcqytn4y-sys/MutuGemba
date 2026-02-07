@@ -29,4 +29,5 @@ data class DailyChecksheetDetail(
     val totalOk: Int,
     val lastInputAt: String?,
     val entries: List<ChecksheetEntry>,
+    val defectSummaries: List<DefectSummary>,
 )

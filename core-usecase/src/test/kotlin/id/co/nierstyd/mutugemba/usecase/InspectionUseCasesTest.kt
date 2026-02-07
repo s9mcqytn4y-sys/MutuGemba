@@ -174,4 +174,8 @@ private class FakeInspectionRepository(
         lineId: Long,
         date: LocalDate,
     ): id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail? = null
+
+    override fun getMonthlyDefectSummary(
+        month: java.time.YearMonth,
+    ): List<id.co.nierstyd.mutugemba.domain.DefectSummary> = emptyList()
 }

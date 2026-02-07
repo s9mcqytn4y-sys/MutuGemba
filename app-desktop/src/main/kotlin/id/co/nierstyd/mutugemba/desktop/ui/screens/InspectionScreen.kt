@@ -12,11 +12,15 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,7 +38,6 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
-import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
@@ -106,7 +109,7 @@ private fun InspectionScreenContent(
         }
 
         item {
-            ProcessStepsRow()
+            InspectionIntroCard()
         }
 
         item {
@@ -607,7 +610,7 @@ private fun SectionLabel(
 }
 
 @Composable
-private fun ProcessStepsRow() {
+private fun InspectionIntroCard() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralSurface,
@@ -615,38 +618,33 @@ private fun ProcessStepsRow() {
         elevation = 0.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            StepItem(step = "1", label = "Pilih Line")
-            StepDivider()
-            StepItem(step = "2", label = "Isi Checksheet")
-            StepDivider()
-            StepItem(step = "3", label = "Konfirmasi")
+            Text(text = "Panduan Singkat", style = MaterialTheme.typography.subtitle1)
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                IntroStepRow(step = "1", text = "Pilih line produksi yang akan diinput hari ini.")
+                IntroStepRow(step = "2", text = "Isi part yang diproduksi. Part lainnya boleh dibiarkan kosong.")
+                IntroStepRow(step = "3", text = "Konfirmasi dan simpan agar data tercatat sebagai dokumen harian.")
+            }
         }
     }
 }
 
 @Composable
-private fun StepItem(
+private fun IntroStepRow(
     step: String,
-    label: String,
+    text: String,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
         AppBadge(
             text = step,
-            backgroundColor = BrandBlue,
-            contentColor = NeutralSurface,
+            backgroundColor = NeutralLight,
+            contentColor = NeutralText,
         )
-        Text(text = label, style = MaterialTheme.typography.body2, color = NeutralText)
+        Text(text = text, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
     }
-}
-
-@Composable
-private fun StepDivider() {
-    Text(text = ">", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
 }
 
 @Composable
@@ -734,19 +732,51 @@ private fun SummaryStickyBar(summary: SummaryTotals) {
         elevation = 2.dp,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(
-                text = "Ringkasan Checksheet",
-                style = MaterialTheme.typography.subtitle1,
-                color = NeutralText,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Assignment,
+                        contentDescription = null,
+                        tint = MaterialTheme.colors.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Ringkasan Checksheet",
+                            style = MaterialTheme.typography.subtitle1,
+                            color = NeutralText,
+                        )
+                        Text(
+                            text = "Terisi otomatis dari input yang sudah dimasukkan.",
+                            style = MaterialTheme.typography.caption,
+                            color = NeutralTextMuted,
+                        )
+                    }
+                }
+                AppBadge(
+                    text = "Auto",
+                    backgroundColor = NeutralSurface,
+                    contentColor = NeutralTextMuted,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 SummaryStat(title = "Total Periksa", value = summary.totalCheck.toString())
                 SummaryStat(title = "Total NG", value = summary.totalDefect.toString())
                 SummaryStat(title = "Total OK", value = summary.totalOk.toString())
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 SummaryStat(title = "Rasio NG", value = formatPercent(summary.ngRatio))
+                SummaryStat(title = "Part Terisi", value = summary.totalParts.toString())
             }
             val okRatio =
                 if (summary.totalCheck > 0) {
@@ -782,7 +812,7 @@ private fun SummaryRatioBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(10.dp)
+                    .height(8.dp)
                     .background(NeutralBorder, MaterialTheme.shapes.small),
         ) {
             if (leftRatio > 0f) {

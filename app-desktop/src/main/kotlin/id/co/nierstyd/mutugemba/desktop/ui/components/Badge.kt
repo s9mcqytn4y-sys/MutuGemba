@@ -23,13 +23,18 @@ fun AppBadge(
         color = backgroundColor,
         shape = MaterialTheme.shapes.small,
         elevation = 0.dp,
-        modifier = modifier.border(1.dp, NeutralBorder, MaterialTheme.shapes.small),
+        modifier =
+            modifier.border(
+                1.dp,
+                NeutralBorder.copy(alpha = 0.6f),
+                MaterialTheme.shapes.small,
+            ),
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.caption,
+            style = MaterialTheme.typography.caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
             color = contentColor,
-            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = 6.dp),
         )
     }
 }

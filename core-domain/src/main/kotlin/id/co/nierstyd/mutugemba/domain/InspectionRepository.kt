@@ -30,4 +30,6 @@ interface InspectionRepository {
         lineId: Long,
         date: LocalDate,
     ): DailyChecksheetDetail?
+
+    fun getMonthlyDefectSummary(month: YearMonth): List<DefectSummary>
 }
