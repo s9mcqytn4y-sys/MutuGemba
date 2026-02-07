@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>LongMethod:SampleData.kt$SampleData$fun buildDemoPack(today: LocalDate = LocalDate.now()): DemoPack</ID>
+    <ID>ReturnCount:SettingsSessionRepository.kt$SettingsSessionRepository$override fun getActiveSession(): UserSession?</ID>
+    <ID>ReturnCount:SqlDelightInspectionRepository.kt$SqlDelightInspectionRepository$override fun getDailyChecksheetDetail( lineId: Long, date: LocalDate, ): DailyChecksheetDetail?</ID>
+    <ID>TooManyFunctions:SqlDelightInspectionRepository.kt$SqlDelightInspectionRepository : InspectionRepositoryCacheInvalidator</ID>
+  </CurrentIssues>
+</SmellBaseline>

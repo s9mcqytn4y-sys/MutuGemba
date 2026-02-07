@@ -99,7 +99,10 @@ fun HeaderBar(
                         color = NeutralTextMuted,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     badges.forEach { badge ->
                         AppBadge(
                             text = badge.text,

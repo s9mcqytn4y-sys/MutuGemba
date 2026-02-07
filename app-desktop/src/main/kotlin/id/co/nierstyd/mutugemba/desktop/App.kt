@@ -27,12 +27,12 @@ import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.screens.buildDemoMonthlyReportDocument
 import id.co.nierstyd.mutugemba.desktop.ui.theme.MutuGembaTheme
+import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.Line
-import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -213,6 +213,7 @@ fun MutuGembaApp() {
                 AppRoute.ReportsMonthly ->
                     ReportsMonthlyScreen(
                         lines = lines,
+                        dailySummaries = dailySummaries,
                         loadMonthlyReportDocument = loadMonthlyReportDocument,
                         loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
                     )

@@ -16,11 +16,11 @@ import id.co.nierstyd.mutugemba.domain.MonthlyPartDayDefect
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
-import java.time.LocalDate
-import java.time.YearMonth
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
+import java.time.YearMonth
 
 class MonthlyReportUseCasesTest {
     @Test
@@ -157,7 +157,7 @@ class MonthlyReportUseCasesTest {
 
         val document = useCase.execute(line.id, month)
 
-        assertEquals("Multiple PIC", document.header.picName)
+        assertEquals("PIC Lebih dari 1", document.header.picName)
     }
 }
 
@@ -171,23 +171,45 @@ private class MonthlyReportFakeInspectionRepository(
 
     override fun getRecent(limit: Long): List<InspectionRecord> = emptyList()
 
-    override fun hasInspectionOnDate(lineId: Long, partId: Long, date: LocalDate): Boolean = false
+    override fun hasInspectionOnDate(
+        lineId: Long,
+        partId: Long,
+        date: LocalDate,
+    ): Boolean = false
 
-    override fun getChecksheetEntriesForDate(lineId: Long, date: LocalDate): List<ChecksheetEntry> = emptyList()
+    override fun getChecksheetEntriesForDate(
+        lineId: Long,
+        date: LocalDate,
+    ): List<ChecksheetEntry> = emptyList()
 
-    override fun getChecksheetEntriesForMonth(lineId: Long, month: YearMonth): List<ChecksheetEntry> = emptyList()
+    override fun getChecksheetEntriesForMonth(
+        lineId: Long,
+        month: YearMonth,
+    ): List<ChecksheetEntry> = emptyList()
 
     override fun getDailyChecksheetSummaries(month: YearMonth): List<DailyChecksheetSummary> = summaries
 
-    override fun getDailyChecksheetDetail(lineId: Long, date: LocalDate): DailyChecksheetDetail? = null
+    override fun getDailyChecksheetDetail(
+        lineId: Long,
+        date: LocalDate,
+    ): DailyChecksheetDetail? = null
 
     override fun getMonthlyDefectSummary(month: YearMonth): List<DefectSummary> = emptyList()
 
-    override fun getMonthlyPartDayDefects(lineId: Long, month: YearMonth): List<MonthlyPartDayDefect> = monthlyDayDefects
+    override fun getMonthlyPartDayDefects(
+        lineId: Long,
+        month: YearMonth,
+    ): List<MonthlyPartDayDefect> = monthlyDayDefects
 
-    override fun getMonthlyPartDefectTotals(lineId: Long, month: YearMonth): List<MonthlyPartDefectTotal> = monthlyDefectTotals
+    override fun getMonthlyPartDefectTotals(
+        lineId: Long,
+        month: YearMonth,
+    ): List<MonthlyPartDefectTotal> = monthlyDefectTotals
 
-    override fun getMonthlyParts(lineId: Long, month: YearMonth): List<Part> = monthlyParts
+    override fun getMonthlyParts(
+        lineId: Long,
+        month: YearMonth,
+    ): List<Part> = monthlyParts
 }
 
 private class FakeMasterRepository(

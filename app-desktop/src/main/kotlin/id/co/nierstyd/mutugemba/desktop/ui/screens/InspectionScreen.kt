@@ -48,7 +48,6 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
-import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
@@ -585,15 +584,27 @@ private fun HeaderContextCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = AppStrings.Inspection.HeaderDate, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(
+                    text = AppStrings.Inspection.HeaderDate,
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
                 Text(text = dateLabel, style = MaterialTheme.typography.h6)
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = AppStrings.Inspection.HeaderPic, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(
+                    text = AppStrings.Inspection.HeaderPic,
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
                 Text(text = picName, style = MaterialTheme.typography.subtitle1)
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs), horizontalAlignment = Alignment.End) {
-                Text(text = AppStrings.Inspection.HeaderShift, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(
+                    text = AppStrings.Inspection.HeaderShift,
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
                 Text(text = shiftLabel, style = MaterialTheme.typography.subtitle1)
             }
         }
@@ -698,8 +709,14 @@ private fun DuplicateRuleHint(allowDuplicate: Boolean) {
             backgroundColor = color,
             contentColor = NeutralSurface,
         )
+        val hint =
+            if (allowDuplicate) {
+                AppStrings.Inspection.DuplicateHintOn
+            } else {
+                AppStrings.Inspection.DuplicateHintOff
+            }
         Text(
-            text = if (allowDuplicate) AppStrings.Inspection.DuplicateHintOn else AppStrings.Inspection.DuplicateHintOff,
+            text = hint,
             style = MaterialTheme.typography.body2,
             color = NeutralTextMuted,
         )
@@ -734,8 +751,8 @@ private fun SummaryStickyBar(summary: SummaryTotals) {
         elevation = 2.dp,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -772,13 +789,10 @@ private fun SummaryStickyBar(summary: SummaryTotals) {
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
-                SummaryStat(title = AppStrings.Inspection.TotalCheckLabel, value = summary.totalCheck.toString())
-                SummaryStat(title = AppStrings.Inspection.TotalNgLabel, value = summary.totalDefect.toString())
-                SummaryStat(title = AppStrings.Inspection.TotalOkLabel, value = summary.totalOk.toString())
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
-                SummaryStat(title = AppStrings.Inspection.NgRatioLabel, value = NumberFormats.formatPercent(summary.ngRatio))
-                SummaryStat(title = AppStrings.Inspection.PartFilledLabel, value = summary.totalParts.toString())
+                SummaryStatCompact(title = AppStrings.Inspection.TotalCheckLabel, value = summary.totalCheck.toString())
+                SummaryStatCompact(title = AppStrings.Inspection.TotalNgLabel, value = summary.totalDefect.toString())
+                SummaryStatCompact(title = AppStrings.Inspection.TotalOkLabel, value = summary.totalOk.toString())
+                SummaryStatCompact(title = AppStrings.Inspection.PartFilledLabel, value = summary.totalParts.toString())
             }
             val okRatio =
                 if (summary.totalCheck > 0) {
@@ -814,7 +828,7 @@ private fun SummaryRatioBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(8.dp)
+                    .height(6.dp)
                     .background(NeutralBorder, MaterialTheme.shapes.small),
         ) {
             if (leftRatio > 0f) {
@@ -847,13 +861,13 @@ private fun SummaryRatioBar(
 }
 
 @Composable
-private fun RowScope.SummaryStat(
+private fun RowScope.SummaryStatCompact(
     title: String,
     value: String,
 ) {
-    Column(modifier = Modifier.weight(1f)) {
+    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(text = title, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-        Text(text = value, style = MaterialTheme.typography.subtitle1)
+        Text(text = value, style = MaterialTheme.typography.subtitle2, color = NeutralText)
     }
 }
 
@@ -934,8 +948,16 @@ private fun InspectionConfirmDialog(
                         title = AppStrings.Inspection.partSummaryItem(row.partNumber, row.partName),
                         badges =
                             listOf(
-                                BadgeSpec("${AppStrings.Inspection.SummaryRatioOk} ${row.totalOk}", StatusSuccess, NeutralSurface),
-                                BadgeSpec("${AppStrings.Inspection.SummaryRatioNg} ${row.totalDefect}", StatusError, NeutralSurface),
+                                BadgeSpec(
+                                    "${AppStrings.Inspection.SummaryRatioOk} ${row.totalOk}",
+                                    StatusSuccess,
+                                    NeutralSurface,
+                                ),
+                                BadgeSpec(
+                                    "${AppStrings.Inspection.SummaryRatioNg} ${row.totalDefect}",
+                                    StatusError,
+                                    NeutralSurface,
+                                ),
                             ),
                     )
                 }
@@ -1113,4 +1135,3 @@ private fun ChartBar(
         }
     }
 }
-

@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>MatchingDeclarationName:InspectionInputExtensions.kt$InspectionInputDefaults</ID>
+    <ID>TooManyFunctions:InspectionRepository.kt$InspectionRepository</ID>
+  </CurrentIssues>
+</SmellBaseline>

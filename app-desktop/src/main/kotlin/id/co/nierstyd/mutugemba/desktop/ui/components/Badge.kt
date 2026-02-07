@@ -32,7 +32,10 @@ fun AppBadge(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+            style =
+                MaterialTheme.typography.caption.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                ),
             color = contentColor,
             modifier = Modifier.padding(horizontal = Spacing.md, vertical = 6.dp),
         )

@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>ReturnCount:InspectionUseCases.kt$CreateInspectionRecordUseCase$private fun validateInput( input: InspectionInput, defectEntries: List&lt;InspectionDefectEntry&gt;, ): UserFeedback</ID>
+  </CurrentIssues>
+</SmellBaseline>

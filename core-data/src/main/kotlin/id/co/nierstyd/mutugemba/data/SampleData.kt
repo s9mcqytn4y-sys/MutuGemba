@@ -11,7 +11,6 @@ import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.LineCode
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 object SampleData {
     data class DemoPack(

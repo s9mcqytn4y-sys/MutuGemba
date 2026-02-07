@@ -1,6 +1,5 @@
 package id.co.nierstyd.mutugemba.desktop.ui.components.analytics
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,11 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.ui.draw.shadow
-import androidx.compose.material.Icon
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
@@ -26,8 +20,8 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -43,9 +37,9 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
-import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
 import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
@@ -69,12 +63,15 @@ data class TopProblemItemUi(
     val partNumber: String,
     val partName: String,
     val totalDefect: Int,
+    val totalCheck: Int,
+    val ratio: Double,
 )
 
 data class LineComparisonItemUi(
     val lineName: String,
     val totalDefect: Int,
     val ratio: Double,
+    val color: androidx.compose.ui.graphics.Color,
 )
 
 fun buildLineColors(lines: List<Line>): Map<Long, androidx.compose.ui.graphics.Color> {
@@ -134,7 +131,7 @@ private fun AnalyticsToggleChip(
     Surface(
         modifier =
             Modifier
-                .sizeIn(minWidth = 88.dp, minHeight = 32.dp)
+                .sizeIn(minWidth = 72.dp, minHeight = 28.dp)
                 .clickable { onClick() },
         shape = MaterialTheme.shapes.small,
         color = background,
@@ -145,7 +142,7 @@ private fun AnalyticsToggleChip(
             text = label,
             style = MaterialTheme.typography.caption,
             color = contentColor,
-            modifier = Modifier.padding(horizontal = Spacing.md, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp),
         )
     }
 }
@@ -175,7 +172,11 @@ fun MonthlyInsightCard(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column {
                     Text(text = AppStrings.Analytics.InsightTitle, style = MaterialTheme.typography.subtitle1)
                     Text(
@@ -210,7 +211,7 @@ fun MonthlyInsightCard(
                     modifier = Modifier.weight(1f),
                 )
             }
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MonthlyMetricCard(
                     title = AppStrings.Analytics.EmptyDays,
                     value = (totals.daysInMonth - totals.daysWithInput).toString(),
@@ -229,7 +230,7 @@ fun MonthlyInsightCard(
                     modifier = Modifier.weight(1f),
                 )
             }
-Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MonthlyMetricCard(
                     title = AppStrings.Common.NgRatio,
                     value = NumberFormats.formatPercentNoDecimal(totals.ratio),
@@ -341,8 +342,7 @@ fun MonthlyParetoCard(
                 .sortedWith(
                     compareByDescending<Pair<String, Int>> { it.second }
                         .thenBy { it.first },
-                )
-                .take(6)
+                ).take(6)
         }
 
     Surface(
@@ -418,7 +418,7 @@ fun MonthlyParetoCard(
                         }
                     }
                 }
-Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     ParetoPieChart(
                         items = paretoItems,
                         palette = palette,
@@ -432,15 +432,15 @@ Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                             cumulative += count
                             val cumulativeRatio = cumulative.toDouble() / total.toDouble()
                             val ratio = count.toDouble() / total.toDouble()
-            ParetoRow(
-                label = label,
-                value = count,
-                maxValue = maxValue,
-                ratio = ratio,
-                cumulativeRatio = cumulativeRatio,
-                accentColor = palette[index % palette.size],
-            )
-        }
+                            ParetoRow(
+                                label = label,
+                                value = count,
+                                maxValue = maxValue,
+                                ratio = ratio,
+                                cumulativeRatio = cumulativeRatio,
+                                accentColor = palette[index % palette.size],
+                            )
+                        }
                     }
                 }
             }
@@ -481,7 +481,7 @@ private fun ParetoRow(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = label, style = MaterialTheme.typography.body2)
+            Text(text = label, style = MaterialTheme.typography.body2, color = NeutralText)
             Text(
                 text = AppStrings.Analytics.valueWithPercent(value, NumberFormats.formatPercent(ratio)),
                 style = MaterialTheme.typography.caption,
@@ -495,11 +495,11 @@ private fun ParetoRow(
                     .height(8.dp)
                     .background(NeutralLight, MaterialTheme.shapes.small),
         ) {
-            val ratio = value.toFloat() / maxValue.toFloat()
+            val ratioValue = value.toFloat() / maxValue.toFloat()
             Box(
                 modifier =
                     Modifier
-                        .fillMaxWidth(ratio)
+                        .fillMaxWidth(ratioValue)
                         .height(8.dp)
                         .background(accentColor, MaterialTheme.shapes.small),
             )
@@ -527,12 +527,14 @@ fun MonthlyTrendCard(
             val grouped = dailySummaries.groupBy { it.lineId }
             lines.associate { line ->
                 val totalsByDate =
-                    grouped[line.id].orEmpty()
+                    grouped[line.id]
+                        .orEmpty()
                         .groupBy { it.date }
                         .mapValues { (_, items) -> items.sumOf { it.totalDefect } }
-                line.id to (1..daysInMonth).map { day ->
-                    totalsByDate[month.atDay(day)] ?: 0
-                }
+                line.id to
+                    (1..daysInMonth).map { day ->
+                        totalsByDate[month.atDay(day)] ?: 0
+                    }
             }
         }
     Surface(
@@ -546,7 +548,11 @@ fun MonthlyTrendCard(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column {
                     Text(text = AppStrings.Analytics.TrendTitle, style = MaterialTheme.typography.subtitle1)
                     Text(
@@ -619,13 +625,19 @@ fun TopProblemItemCard(
                 Text(text = AppStrings.Analytics.NoData, style = MaterialTheme.typography.body2)
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    val ratioLabel = NumberFormats.formatPercentNoDecimal(item.ratio)
                     Text(
                         text = "${item.partNumber} • ${item.partName}",
                         style = MaterialTheme.typography.subtitle1,
                         color = NeutralText,
                     )
                     Text(
-                        text = "NG ${item.totalDefect}",
+                        text = "NG ${item.totalDefect} - ${AppStrings.Analytics.NgRatio} $ratioLabel",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                    Text(
+                        text = "${AppStrings.Common.TotalCheck}: ${item.totalCheck}",
                         style = MaterialTheme.typography.caption,
                         color = NeutralTextMuted,
                     )
@@ -636,9 +648,7 @@ fun TopProblemItemCard(
 }
 
 @Composable
-fun LineComparisonCard(
-    items: List<LineComparisonItemUi>,
-) {
+fun LineComparisonCard(items: List<LineComparisonItemUi>) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralSurface,
@@ -666,8 +676,9 @@ fun LineComparisonCard(
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(text = item.lineName, style = MaterialTheme.typography.body2, color = NeutralText)
+                            val ratioLabel = NumberFormats.formatPercentNoDecimal(item.ratio)
                             Text(
-                                text = "${item.totalDefect} • ${NumberFormats.formatPercentNoDecimal(item.ratio)}",
+                                text = "NG ${item.totalDefect} - ${AppStrings.Analytics.NgRatio} $ratioLabel",
                                 style = MaterialTheme.typography.caption,
                                 color = NeutralTextMuted,
                             )
@@ -685,7 +696,7 @@ fun LineComparisonCard(
                                     Modifier
                                         .fillMaxWidth(ratio)
                                         .height(8.dp)
-                                        .background(BrandBlue, MaterialTheme.shapes.small),
+                                        .background(item.color, MaterialTheme.shapes.small),
                             )
                         }
                     }
@@ -715,7 +726,10 @@ private fun TrendChart(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             activeLines.forEach { line ->
                 val color = lineColors[line.id] ?: StatusInfo
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(
                         modifier =
                             Modifier
@@ -788,5 +802,3 @@ private fun TrendChart(
         }
     }
 }
-
-

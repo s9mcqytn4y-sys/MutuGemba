@@ -53,6 +53,7 @@ subprojects {
     extensions.configure<DetektExtension> {
         buildUponDefaultConfig = true
         config.setFrom(files("$rootDir/detekt.yml"))
+        baseline = file("$rootDir/detekt-baseline-${project.name}.xml")
     }
 
     tasks.withType<Test>().configureEach {

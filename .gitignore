@@ -15,6 +15,7 @@ out/
 
 # App data
 data/
+data/exports/
 
 # OS
 .DS_Store

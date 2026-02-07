@@ -15,7 +15,8 @@ data class MonthlyReportHeader(
 data class MonthlyReportRow(
     val partId: Long,
     val partNumber: String,
-    val problemItem: String,
+    val uniqCode: String,
+    val problemItems: List<String>,
     val sketchPath: String?,
     val dayValues: List<Int>,
     val defectTotals: List<Int>,

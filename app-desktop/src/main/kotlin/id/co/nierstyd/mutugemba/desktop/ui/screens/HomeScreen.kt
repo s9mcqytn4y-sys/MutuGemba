@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -20,9 +23,6 @@ import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,14 +37,14 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.LineComparisonCard
+import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.LineComparisonItemUi
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyInsightCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyParetoCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyTotalsUi
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyTrendCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.TopProblemItemCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.TopProblemItemUi
-import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.LineComparisonCard
-import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.LineComparisonItemUi
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.buildLineColors
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -58,18 +58,18 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
 import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
+import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.Line
-import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
-import java.time.LocalDate
-import java.time.YearMonth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.YearMonth
 
 @Composable
 fun HomeScreen(
@@ -108,11 +108,22 @@ fun HomeScreen(
     val summariesToday = dailySummaries.filter { it.date == today }
     val totalDefectToday = summariesToday.sumOf { it.totalDefect }
     val totalCheckFromSummary = summariesToday.sumOf { it.totalCheck }
-    val ratioToday = if (totalCheckFromSummary > 0) totalDefectToday.toDouble() / totalCheckFromSummary.toDouble() else 0.0
+    val ratioToday =
+        if (totalCheckFromSummary >
+            0
+        ) {
+            totalDefectToday.toDouble() / totalCheckFromSummary.toDouble()
+        } else {
+            0.0
+        }
     val mostActiveLine =
         recordsToday.groupBy { it.lineName }.maxByOrNull { it.value.size }?.key
     val mostCheckedPart =
-        recordsToday.groupBy { it.partNumber }.maxByOrNull { it.value.size }?.value?.firstOrNull()
+        recordsToday
+            .groupBy { it.partNumber }
+            .maxByOrNull { it.value.size }
+            ?.value
+            ?.firstOrNull()
 
     val lineColors = remember(lines) { buildLineColors(lines) }
     var paretoLineId by remember { mutableStateOf<Long?>(null) }
@@ -169,13 +180,19 @@ fun HomeScreen(
                 .groupBy { it.partNumber }
                 .map { (_, items) ->
                     val totalDefect = items.sumOf { it.totalDefect }
+                    val totalCheck = items.sumOf { it.totalCheck }
+                    val ratio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
                     val sample = items.first()
                     TopProblemItemUi(
                         partNumber = sample.partNumber,
                         partName = sample.partName,
                         totalDefect = totalDefect,
+                        totalCheck = totalCheck,
+                        ratio = ratio,
                     )
-                }.maxByOrNull { it.totalDefect }
+                }.maxWithOrNull(
+                    compareBy<TopProblemItemUi> { it.totalDefect }.thenBy { it.ratio },
+                )
         topProblemLoading = false
     }
 
@@ -219,6 +236,7 @@ fun HomeScreen(
                     lineName = line.name,
                     totalDefect = totalDefect,
                     ratio = ratio,
+                    color = lineColors[line.id] ?: StatusInfo,
                 )
             }
         }
@@ -497,7 +515,11 @@ private fun DailyChecksheetSummaryCard(
                 SummaryStat(title = AppStrings.Common.TotalCheck, value = totalCheck.toString())
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = AppStrings.Home.DailyLineCoverage, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(
+                    text = AppStrings.Home.DailyLineCoverage,
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
                 Row(
                     modifier =
                         Modifier
@@ -557,10 +579,18 @@ private fun QcActivityCard(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 SummaryStat(title = AppStrings.Common.Input, value = totalInput.toString())
-                SummaryStat(title = AppStrings.Home.ActivityMostActive, value = mostActiveLine ?: AppStrings.Common.Placeholder)
+                SummaryStat(
+                    title = AppStrings.Home.ActivityMostActive,
+                    value =
+                        mostActiveLine ?: AppStrings.Common.Placeholder,
+                )
             }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = AppStrings.Home.ActivityMostPart, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(
+                    text = AppStrings.Home.ActivityMostPart,
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
                 Text(
                     text =
                         listOfNotNull(mostCheckedPartNumber, mostCheckedPart)

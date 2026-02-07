@@ -128,7 +128,6 @@ class CreateInspectionRecordUseCase(
             else -> UserFeedback(FeedbackType.INFO, "Validasi OK. Siap disimpan.")
         }
     }
-
 }
 
 class CreateBatchInspectionRecordsUseCase(

@@ -4,14 +4,13 @@ import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
 import id.co.nierstyd.mutugemba.domain.MasterDataRepository
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
+import id.co.nierstyd.mutugemba.domain.MonthlyReportDocumentNumber
 import id.co.nierstyd.mutugemba.domain.MonthlyReportHeader
 import id.co.nierstyd.mutugemba.domain.MonthlyReportRow
 import id.co.nierstyd.mutugemba.domain.MonthlyReportTotals
-import id.co.nierstyd.mutugemba.domain.MonthlyReportDocumentNumber
-import java.time.LocalDate
 import java.time.YearMonth
 
-private const val MULTIPLE_PIC_LABEL = "Multiple PIC"
+private const val MULTIPLE_PIC_LABEL = "PIC Lebih dari 1"
 
 class GetMonthlyReportDocumentUseCase(
     private val inspectionRepository: InspectionRepository,
@@ -62,10 +61,16 @@ class GetMonthlyReportDocumentUseCase(
                     val perDefectTotals =
                         defectTypes.map { defect -> partDefectMap[part.id]?.get(defect.id) ?: 0 }
                     val totalDefect = dayValues.sum()
+                    val problemItems =
+                        defectTypes
+                            .zip(perDefectTotals)
+                            .filter { (_, total) -> total > 0 }
+                            .map { (defect, _) -> defect.name }
                     MonthlyReportRow(
                         partId = part.id,
                         partNumber = part.partNumber,
-                        problemItem = part.name,
+                        uniqCode = part.uniqCode,
+                        problemItems = problemItems,
                         sketchPath = part.picturePath,
                         dayValues = dayValues,
                         defectTotals = perDefectTotals,

@@ -146,8 +146,7 @@ class GetManualHolidayDatesUseCase(
                 } catch (_: DateTimeParseException) {
                     null
                 }
-            }
-            .toSet()
+            }.toSet()
     }
 }
 

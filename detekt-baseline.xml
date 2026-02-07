@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>MaxLineLength:MonthlyReportUseCasesTest.kt$MonthlyReportFakeInspectionRepository$override fun getMonthlyPartDayDefects(lineId: Long, month: YearMonth): List&lt;MonthlyPartDayDefect&gt;</ID>
+    <ID>MaxLineLength:MonthlyReportUseCasesTest.kt$MonthlyReportFakeInspectionRepository$override fun getMonthlyPartDefectTotals(lineId: Long, month: YearMonth): List&lt;MonthlyPartDefectTotal&gt;</ID>
+    <ID>ReturnCount:InspectionUseCases.kt$CreateInspectionRecordUseCase$private fun validateInput( input: InspectionInput, defectEntries: List&lt;InspectionDefectEntry&gt;, ): UserFeedback</ID>
+  </CurrentIssues>
+</SmellBaseline>

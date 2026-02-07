@@ -2,7 +2,6 @@
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.TooltipArea
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,10 +32,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,11 +62,8 @@ import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
-import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.domain.Line
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -102,7 +94,6 @@ private data class DocumentTotals(
     val totalOk: Int,
     val ratio: Double,
 )
-
 
 @Composable
 fun ReportsScreen(
@@ -174,7 +165,6 @@ fun ReportsScreen(
         val detail = loadDailyDetail(lineId, selectedDate)
         detailState = detail?.let { HistoryDetailState.Loaded(it) } ?: HistoryDetailState.Empty
     }
-
 
     val summaryByDate =
         remember(selectedLineId, dailySummaries, month) {
@@ -257,9 +247,7 @@ fun ReportsScreen(
     }
 }
 
-private fun buildAvailableDates(month: YearMonth): List<LocalDate> {
-    return (1..month.lengthOfMonth()).map { month.atDay(it) }
-}
+private fun buildAvailableDates(month: YearMonth): List<LocalDate> = (1..month.lengthOfMonth()).map { month.atDay(it) }
 
 @Composable
 private fun MonthlyHistoryCard(
@@ -679,25 +667,25 @@ private fun DateButton(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                Text(
-                    text = date.dayOfMonth.toString(),
-                    style = MaterialTheme.typography.subtitle1,
-                    color = (if (isHoliday) StatusWarning else NeutralText).copy(alpha = alpha),
-                )
-                if (isHoliday && summary == null) {
                     Text(
-                        text = AppStrings.Reports.HolidayLabel,
-                        style = MaterialTheme.typography.caption,
-                        color = StatusWarning,
+                        text = date.dayOfMonth.toString(),
+                        style = MaterialTheme.typography.subtitle1,
+                        color = (if (isHoliday) StatusWarning else NeutralText).copy(alpha = alpha),
                     )
-                }
-                if (summary != null && summary.totalDefect > 0) {
-                    Text(
-                        text = AppStrings.Reports.ngCountLabel(summary.totalDefect),
-                        style = MaterialTheme.typography.caption,
-                        color = StatusWarning,
-                    )
-                }
+                    if (isHoliday && summary == null) {
+                        Text(
+                            text = AppStrings.Reports.HolidayLabel,
+                            style = MaterialTheme.typography.caption,
+                            color = StatusWarning,
+                        )
+                    }
+                    if (summary != null && summary.totalDefect > 0) {
+                        Text(
+                            text = AppStrings.Reports.ngCountLabel(summary.totalDefect),
+                            style = MaterialTheme.typography.caption,
+                            color = StatusWarning,
+                        )
+                    }
                     if (lineCounts.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                             lineCounts.entries.sortedBy { it.key }.forEach { (lineId, count) ->
@@ -765,7 +753,10 @@ private fun LineLegend(
     ) {
         lines.forEach { line ->
             val color = lineColors[line.id] ?: StatusInfo
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Box(
                     modifier =
                         Modifier
@@ -1041,16 +1032,36 @@ private fun DailyDocumentMiniHeader(detail: DailyChecksheetDetail) {
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(text = AppStrings.Reports.DocumentNumberLabel, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(
+                    text = AppStrings.Reports.DocumentNumberLabel,
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
                 Text(text = detail.docNumber, style = MaterialTheme.typography.body2)
             }
         }
         Divider(color = NeutralBorder, thickness = 1.dp)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            DocumentMetaItem(label = AppStrings.Reports.DocumentMetaDate, value = DateTimeFormats.formatDate(detail.date), modifier = Modifier.weight(1f))
-            DocumentMetaItem(label = AppStrings.Reports.DocumentMetaLine, value = detail.lineName, modifier = Modifier.weight(1f))
-            DocumentMetaItem(label = AppStrings.Reports.DocumentMetaShift, value = detail.shiftName, modifier = Modifier.weight(1f))
-            DocumentMetaItem(label = AppStrings.Reports.DocumentMetaPic, value = detail.picName, modifier = Modifier.weight(1f))
+            DocumentMetaItem(
+                label = AppStrings.Reports.DocumentMetaDate,
+                value = DateTimeFormats.formatDate(detail.date),
+                modifier = Modifier.weight(1f),
+            )
+            DocumentMetaItem(
+                label = AppStrings.Reports.DocumentMetaLine,
+                value = detail.lineName,
+                modifier = Modifier.weight(1f),
+            )
+            DocumentMetaItem(
+                label = AppStrings.Reports.DocumentMetaShift,
+                value = detail.shiftName,
+                modifier = Modifier.weight(1f),
+            )
+            DocumentMetaItem(
+                label = AppStrings.Reports.DocumentMetaPic,
+                value = detail.picName,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -1088,7 +1099,11 @@ private fun DocumentHeader(detail: DailyChecksheetDetail) {
                 )
             }
             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                Text(text = AppStrings.Reports.DocumentNumberLabel, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                Text(
+                    text = AppStrings.Reports.DocumentNumberLabel,
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
                 Text(
                     text = detail.docNumber,
                     style = MaterialTheme.typography.body2,
@@ -1161,7 +1176,10 @@ private fun DocumentTotalsRow(totals: DocumentTotals) {
         DocumentStatCard(title = AppStrings.Reports.DocumentTableTotalCheck, value = totals.totalCheck.toString())
         DocumentStatCard(title = AppStrings.Reports.DocumentTableTotalNg, value = totals.totalDefect.toString())
         DocumentStatCard(title = AppStrings.Reports.DocumentTableTotalOk, value = totals.totalOk.toString())
-        DocumentStatCard(title = AppStrings.Reports.DocumentTableNgRatio, value = NumberFormats.formatPercent(totals.ratio))
+        DocumentStatCard(
+            title = AppStrings.Reports.DocumentTableNgRatio,
+            value = NumberFormats.formatPercent(totals.ratio),
+        )
     }
 }
 
@@ -1360,7 +1378,10 @@ private fun DailyStatsCard(detail: DailyChecksheetDetail) {
                 )
                 StatInline(
                     label = AppStrings.Reports.DocumentTotalsDefect,
-                    value = topDefect?.let { "${it.defectName} (${it.totalQuantity})" } ?: AppStrings.Common.Placeholder,
+                    value =
+                        topDefect?.let {
+                            "${it.defectName} (${it.totalQuantity})"
+                        } ?: AppStrings.Common.Placeholder,
                 )
             }
         }
@@ -1467,7 +1488,11 @@ private fun RowScope.SignatureCell(label: String) {
         ) {
             Text(text = label, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
             Box(modifier = Modifier.height(64.dp).fillMaxWidth().background(NeutralLight))
-            Text(text = AppStrings.Reports.DocumentSignatureName, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            Text(
+                text = AppStrings.Reports.DocumentSignatureName,
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
         }
     }
 }

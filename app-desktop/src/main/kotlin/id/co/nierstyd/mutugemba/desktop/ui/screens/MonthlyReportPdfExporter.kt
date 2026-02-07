@@ -1,19 +1,20 @@
 package id.co.nierstyd.mutugemba.desktop.ui.screens
 
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
 import id.co.nierstyd.mutugemba.domain.MonthlyReportRow
-import java.awt.Color
-import java.nio.file.Files
-import java.nio.file.Path
-import java.time.LocalDate
-import kotlin.math.floor
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.pdmodel.font.PDType1Font
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts
+import java.awt.Color
+import java.nio.file.Files
+import java.nio.file.Path
+import java.time.LocalDate
+import kotlin.math.floor
 
 data class MonthlyReportPrintMeta(
     val companyName: String,
@@ -150,14 +151,15 @@ object MonthlyReportPdfExporter {
 
         cursorY = drawHeader(content, marginLeft, cursorY, contentWidth, meta, document)
         cursorY = drawMeta(content, marginLeft, cursorY, contentWidth, meta, document)
-        cursorY = drawTable(
-            content = content,
-            left = marginLeft,
-            top = cursorY,
-            width = contentWidth,
-            document = document,
-            spec = spec,
-        )
+        cursorY =
+            drawTable(
+                content = content,
+                left = marginLeft,
+                top = cursorY,
+                width = contentWidth,
+                document = document,
+                spec = spec,
+            )
         drawSignature(content, marginLeft, cursorY, contentWidth)
     }
 
@@ -177,9 +179,18 @@ object MonthlyReportPdfExporter {
 
         drawText(content, company, left, top - 18f, fontBold, 11f, width = width * 0.4f)
         drawText(content, dept, left, top - 32f, fontRegular, 9f, width = width * 0.4f)
-        drawText(content, title, left + width * 0.4f, top - 20f, fontBold, 13f, width = width * 0.2f, alignCenter = true)
+        drawText(
+            content,
+            title,
+            left + width * 0.4f,
+            top - 20f,
+            fontBold,
+            13f,
+            width = width * 0.2f,
+            alignCenter = true,
+        )
 
-        val docNoLabel = "No. Dokumen"
+        val docNoLabel = AppStrings.ReportsMonthly.DocumentNoLabel
         val docNo = document.header.documentNumber
         drawText(content, docNoLabel, right - 160f, top - 18f, fontRegular, 8f, width = 160f, alignRight = true)
         drawText(content, docNo, right - 160f, top - 30f, fontBold, 10f, width = 160f, alignRight = true)
@@ -198,17 +209,61 @@ object MonthlyReportPdfExporter {
         val metaHeight = 32f
         val right = left + width
         val monthLabel = document.header.month.toString()
-        drawText(content, "Bulan", left, top - 14f, fontRegular, 8f, width = 80f)
+        drawText(content, AppStrings.ReportsMonthly.DocumentMonthLabel, left, top - 14f, fontRegular, 8f, width = 80f)
         drawText(content, monthLabel, left, top - 26f, fontBold, 9f, width = 80f)
 
-        drawText(content, "Customer", left + 90f, top - 14f, fontRegular, 8f, width = 120f)
+        drawText(
+            content,
+            AppStrings.ReportsMonthly.DocumentCustomerLabel,
+            left + 90f,
+            top - 14f,
+            fontRegular,
+            8f,
+            width = 120f,
+        )
         drawText(content, meta.customerName, left + 90f, top - 26f, fontBold, 9f, width = 120f)
 
-        drawText(content, "PIC", right - 180f, top - 14f, fontRegular, 8f, width = 80f, alignRight = true)
-        drawText(content, document.header.picName, right - 180f, top - 26f, fontBold, 9f, width = 80f, alignRight = true)
+        drawText(
+            content,
+            AppStrings.ReportsMonthly.DocumentPicLabel,
+            right - 180f,
+            top - 14f,
+            fontRegular,
+            8f,
+            width = 80f,
+            alignRight = true,
+        )
+        drawText(
+            content,
+            document.header.picName,
+            right - 180f,
+            top - 26f,
+            fontBold,
+            9f,
+            width = 80f,
+            alignRight = true,
+        )
 
-        drawText(content, "Line", right - 80f, top - 14f, fontRegular, 8f, width = 80f, alignRight = true)
-        drawText(content, document.header.lineName, right - 80f, top - 26f, fontBold, 9f, width = 80f, alignRight = true)
+        drawText(
+            content,
+            AppStrings.ReportsMonthly.DocumentLineLabel,
+            right - 80f,
+            top - 14f,
+            fontRegular,
+            8f,
+            width = 80f,
+            alignRight = true,
+        )
+        drawText(
+            content,
+            document.header.lineName,
+            right - 80f,
+            top - 26f,
+            fontBold,
+            9f,
+            width = 80f,
+            alignRight = true,
+        )
 
         return top - metaHeight
     }
@@ -239,9 +294,42 @@ object MonthlyReportPdfExporter {
         val subtotalBackground = Color(245, 245, 245)
 
         val leftHeaderHeight = headerHeight + subHeaderHeight
-        drawCell(content, left, cursorY, sketchWidth, leftHeaderHeight, "Sketch", headerBackground, fontBold, 7.5f, alignCenter = true)
-        drawCell(content, left + sketchWidth, cursorY, partWidth, leftHeaderHeight, "Part Number", headerBackground, fontBold, 7.5f, alignCenter = true)
-        drawCell(content, left + sketchWidth + partWidth, cursorY, problemWidth, leftHeaderHeight, "Problem Item", headerBackground, fontBold, 7.5f, alignCenter = true)
+        drawCell(
+            content,
+            left,
+            cursorY,
+            sketchWidth,
+            leftHeaderHeight,
+            AppStrings.ReportsMonthly.TableSketch,
+            headerBackground,
+            fontBold,
+            7.5f,
+            alignCenter = true,
+        )
+        drawCell(
+            content,
+            left + sketchWidth,
+            cursorY,
+            partWidth,
+            leftHeaderHeight,
+            AppStrings.ReportsMonthly.TablePartNumber,
+            headerBackground,
+            fontBold,
+            7.5f,
+            alignCenter = true,
+        )
+        drawCell(
+            content,
+            left + sketchWidth + partWidth,
+            cursorY,
+            problemWidth,
+            leftHeaderHeight,
+            AppStrings.ReportsMonthly.TableProblemItem,
+            headerBackground,
+            fontBold,
+            7.5f,
+            alignCenter = true,
+        )
 
         val rightStart = left + sketchWidth + partWidth + problemWidth
         val dayCount = spec.days.size
@@ -256,7 +344,7 @@ object MonthlyReportPdfExporter {
             cursorY,
             dayWidthTotal,
             headerHeight,
-            "Tanggal",
+            AppStrings.ReportsMonthly.TableDates,
             headerBackground,
             fontBold,
             7.5f,
@@ -268,7 +356,7 @@ object MonthlyReportPdfExporter {
             cursorY,
             totalGroupWidth,
             headerHeight,
-            "Total",
+            AppStrings.ReportsMonthly.TableTotals,
             headerBackground,
             fontBold,
             7.5f,
@@ -315,7 +403,7 @@ object MonthlyReportPdfExporter {
             cursorY,
             totalWidth,
             subHeaderHeight,
-            "Total",
+            AppStrings.ReportsMonthly.TableTotalNg,
             headerBackground,
             fontBold,
             7f,
@@ -326,9 +414,41 @@ object MonthlyReportPdfExporter {
 
         spec.rows.forEachIndexed { index, row ->
             val rowBackground = if (index % 2 == 0) Color.WHITE else Color(250, 250, 250)
-            drawCell(content, left, cursorY, sketchWidth, rowHeight, "-", rowBackground, fontRegular, 7.5f, alignCenter = true)
-            drawCell(content, left + sketchWidth, cursorY, partWidth, rowHeight, row.partNumber, rowBackground, fontRegular, 7.5f)
-            drawCell(content, left + sketchWidth + partWidth, cursorY, problemWidth, rowHeight, row.problemItem, rowBackground, fontRegular, 7.5f)
+            drawCell(
+                content,
+                left,
+                cursorY,
+                sketchWidth,
+                rowHeight,
+                "-",
+                rowBackground,
+                fontRegular,
+                7.5f,
+                alignCenter = true,
+            )
+            val partLabel = "${row.partNumber}(${row.uniqCode})"
+            drawCell(
+                content,
+                left + sketchWidth,
+                cursorY,
+                partWidth,
+                rowHeight,
+                partLabel,
+                rowBackground,
+                fontRegular,
+                7.5f,
+            )
+            drawCell(
+                content,
+                left + sketchWidth + partWidth,
+                cursorY,
+                problemWidth,
+                rowHeight,
+                formatProblemItems(row.problemItems),
+                rowBackground,
+                fontRegular,
+                7.5f,
+            )
 
             row.dayValues.take(dayCount).forEachIndexed { i, value ->
                 drawCell(
@@ -373,8 +493,28 @@ object MonthlyReportPdfExporter {
 
             cursorY -= rowHeight
 
-            drawCell(content, left, cursorY, sketchWidth + partWidth, subtotalHeight, "", subtotalBackground, fontRegular, 7f)
-            drawCell(content, left + sketchWidth + partWidth, cursorY, problemWidth, subtotalHeight, "Sub-total", subtotalBackground, fontBold, 7f)
+            drawCell(
+                content,
+                left,
+                cursorY,
+                sketchWidth + partWidth,
+                subtotalHeight,
+                "",
+                subtotalBackground,
+                fontRegular,
+                7f,
+            )
+            drawCell(
+                content,
+                left + sketchWidth + partWidth,
+                cursorY,
+                problemWidth,
+                subtotalHeight,
+                AppStrings.ReportsMonthly.TableSubtotal,
+                subtotalBackground,
+                fontBold,
+                7f,
+            )
             row.dayValues.take(dayCount).forEachIndexed { i, value ->
                 drawCell(
                     content,
@@ -420,7 +560,17 @@ object MonthlyReportPdfExporter {
         }
 
         val totalLabelWidth = sketchWidth + partWidth + problemWidth
-        drawCell(content, left, cursorY, totalLabelWidth, totalHeight, "Grand Total", subtotalBackground, fontBold, 7.5f)
+        drawCell(
+            content,
+            left,
+            cursorY,
+            totalLabelWidth,
+            totalHeight,
+            AppStrings.ReportsMonthly.TableGrandTotal,
+            subtotalBackground,
+            fontBold,
+            7.5f,
+        )
         document.totals.dayTotals.take(dayCount).forEachIndexed { i, value ->
             drawCell(
                 content,
@@ -475,14 +625,28 @@ object MonthlyReportPdfExporter {
         val boxWidth = 110f
         val boxHeight = 46f
         val gap = 16f
-        val labels = listOf("Prepared", "Checked", "Approved")
+        val labels =
+            listOf(
+                AppStrings.Reports.DocumentSignaturePrepared,
+                AppStrings.Reports.DocumentSignatureChecked,
+                AppStrings.Reports.DocumentSignatureApproved,
+            )
         val startX = left + width - (boxWidth * labels.size) - (gap * (labels.size - 1))
         var x = startX
         val y = top - 64f
         labels.forEach { label ->
             drawText(content, label, x, y + boxHeight + 12f, fontRegular, 8f, width = boxWidth, alignCenter = true)
             drawCell(content, x, y + boxHeight, boxWidth, boxHeight, "", Color(245, 245, 245), fontRegular, 7f)
-            drawText(content, "Nama & TTD", x, y - 4f, fontRegular, 7f, width = boxWidth, alignCenter = true)
+            drawText(
+                content,
+                AppStrings.Reports.DocumentSignatureName,
+                x,
+                y - 4f,
+                fontRegular,
+                7f,
+                width = boxWidth,
+                alignCenter = true,
+            )
             x += boxWidth + gap
         }
     }
@@ -592,5 +756,12 @@ object MonthlyReportPdfExporter {
     ): Boolean {
         val weekend = date.dayOfWeek.value >= 6
         return weekend || manualHolidays.contains(date)
+    }
+
+    private fun formatProblemItems(items: List<String>): String {
+        if (items.isEmpty()) return "-"
+        if (items.size <= 2) return items.joinToString(", ")
+        val head = items.take(2).joinToString(", ")
+        return "$head +${items.size - 2}"
     }
 }

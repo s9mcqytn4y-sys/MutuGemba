@@ -34,7 +34,11 @@ fun buildDemoMonthlyReportDocument(
             .groupBy { it.partNumber }
             .mapValues { (_, items) -> items.first() }
 
-    val partIds = parts.keys.sorted().mapIndexed { index, partNumber -> partNumber to (index + 1L) }.toMap()
+    val partIds =
+        parts.keys
+            .sorted()
+            .mapIndexed { index, partNumber -> partNumber to (index + 1L) }
+            .toMap()
     val defectType =
         DefectType(
             id = 1L,
@@ -58,7 +62,8 @@ fun buildDemoMonthlyReportDocument(
                 MonthlyReportRow(
                     partId = partIds[entry.partNumber] ?: 0L,
                     partNumber = entry.partNumber,
-                    problemItem = entry.partName,
+                    uniqCode = entry.uniqCode,
+                    problemItems = if (totalDefect > 0) listOf("NG") else emptyList(),
                     sketchPath = null,
                     dayValues = dayValues,
                     defectTotals = listOf(totalDefect),

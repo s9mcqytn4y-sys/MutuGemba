@@ -183,8 +183,15 @@ private fun PartHeader(
                 PartStatusBadge(status = status, hasInput = hasInput)
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = AppStrings.Inspection.CheckLabel, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-                Text(text = totalCheck.ifBlank { AppStrings.Common.Placeholder }, style = MaterialTheme.typography.subtitle1)
+                Text(
+                    text = AppStrings.Inspection.CheckLabel,
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                Text(
+                    text = totalCheck.ifBlank { AppStrings.Common.Placeholder },
+                    style = MaterialTheme.typography.subtitle1,
+                )
                 Text(
                     text = AppStrings.Inspection.partTotals(totalDefect, totalOk),
                     style = MaterialTheme.typography.caption,
