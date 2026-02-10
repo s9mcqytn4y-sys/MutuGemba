@@ -67,43 +67,43 @@ fun StatusBanner(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = verticalPadding),
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
-        val label =
-            when (feedback.type) {
-                FeedbackType.INFO -> AppStrings.Common.Info
-                FeedbackType.WARNING -> AppStrings.Common.Warning
-                FeedbackType.ERROR -> AppStrings.Common.Error
-                FeedbackType.SUCCESS -> AppStrings.Common.Success
-            }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
-                color = accent,
-            )
-            if (onDismiss != null) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(20.dp)
-                            .clickable { onDismiss() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = AppIcons.Close,
-                        contentDescription = AppStrings.Common.Close,
-                        tint = accent,
-                    )
+            val label =
+                when (feedback.type) {
+                    FeedbackType.INFO -> AppStrings.Common.Info
+                    FeedbackType.WARNING -> AppStrings.Common.Warning
+                    FeedbackType.ERROR -> AppStrings.Common.Error
+                    FeedbackType.SUCCESS -> AppStrings.Common.Success
+                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
+                    color = accent,
+                )
+                if (onDismiss != null) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(20.dp)
+                                .clickable { onDismiss() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = AppIcons.Close,
+                            contentDescription = AppStrings.Common.Close,
+                            tint = accent,
+                        )
+                    }
                 }
             }
-        }
-        Text(
-            text = feedback.message,
-            style = messageStyle,
-            color = MaterialTheme.colors.onSurface,
-        )
+            Text(
+                text = feedback.message,
+                style = messageStyle,
+                color = MaterialTheme.colors.onSurface,
+            )
         }
     }
 }

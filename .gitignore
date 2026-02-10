@@ -2,6 +2,8 @@
 .gradle/
 build/
 **/build/
+bin/
+**/bin/
 
 # IntelliJ IDEA
 .idea/
