@@ -104,6 +104,7 @@ fun SidebarMenu(
                         icon =
                             when (route) {
                                 AppRoute.Home -> AppIcons.Home
+                                AppRoute.PartMapping -> AppIcons.Inventory
                                 AppRoute.Inspection -> AppIcons.Inspection
                                 AppRoute.Abnormal -> AppIcons.Abnormal
                                 AppRoute.Settings -> AppIcons.Settings

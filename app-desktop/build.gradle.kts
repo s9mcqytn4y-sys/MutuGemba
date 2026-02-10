@@ -11,6 +11,8 @@ dependencies {
     implementation(project(":core-data"))
     implementation(project(":core-domain"))
     implementation(project(":core-analytics"))
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.slf4j.api)
     implementation(libs.pdfbox)
     runtimeOnly(libs.slf4j.simple)
 

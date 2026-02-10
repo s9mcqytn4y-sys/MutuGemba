@@ -1,0 +1,55 @@
+topDefectsPerModelPerMonth:
+WITH model_month_defect AS (
+  SELECT
+    m.code AS model_code,
+    qr.period_year,
+    qr.period_month,
+    qdt.defect_type_id,
+    qdt.defect_name,
+    SUM(qo.qty) AS total_qty
+  FROM qa_part_defect_observation qo
+  JOIN qa_report qr ON qr.qa_report_id = qo.qa_report_id
+  JOIN qa_defect_type qdt ON qdt.qa_defect_type_id = qo.qa_defect_type_id
+  JOIN part_model pm ON pm.part_id = qo.part_id
+  JOIN model m ON m.model_id = pm.model_id
+  WHERE qr.period_year = :period_year
+    AND qr.period_month = :period_month
+  GROUP BY m.code, qr.period_year, qr.period_month, qdt.defect_type_id, qdt.defect_name
+)
+SELECT
+  mmd.model_code,
+  mmd.period_year,
+  mmd.period_month,
+  mmd.defect_type_id,
+  mmd.defect_name,
+  mmd.total_qty
+FROM model_month_defect mmd
+WHERE (
+  SELECT COUNT(*)
+  FROM model_month_defect cmp
+  WHERE cmp.model_code = mmd.model_code
+    AND cmp.period_year = mmd.period_year
+    AND cmp.period_month = mmd.period_month
+    AND (
+      cmp.total_qty > mmd.total_qty
+      OR (cmp.total_qty = mmd.total_qty AND cmp.defect_name < mmd.defect_name)
+    )
+) < :top_n
+ORDER BY model_code, period_year DESC, period_month DESC, total_qty DESC;
+
+defectHeatmapByModel:
+SELECT
+  qr.report_date AS report_date,
+  qdt.defect_type_id,
+  qdt.defect_name,
+  SUM(qo.qty) AS total_qty
+FROM qa_part_defect_observation qo
+JOIN qa_report qr ON qr.qa_report_id = qo.qa_report_id
+JOIN qa_defect_type qdt ON qdt.qa_defect_type_id = qo.qa_defect_type_id
+JOIN part_model pm ON pm.part_id = qo.part_id
+JOIN model m ON m.model_id = pm.model_id
+WHERE qr.period_year = :period_year
+  AND qr.period_month = :period_month
+  AND (:model_code IS NULL OR m.code = :model_code)
+GROUP BY qr.report_date, qdt.defect_type_id, qdt.defect_name
+ORDER BY qr.report_date ASC, total_qty DESC;

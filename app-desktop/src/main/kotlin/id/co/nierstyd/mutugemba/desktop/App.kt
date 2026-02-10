@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import id.co.nierstyd.mutugemba.data.SampleData
 import id.co.nierstyd.mutugemba.desktop.di.AppContainer
 import id.co.nierstyd.mutugemba.desktop.navigation.AppRoute
 import id.co.nierstyd.mutugemba.desktop.ui.components.FooterBar
@@ -21,11 +20,12 @@ import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionPolicyUseCases
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.screens.MasterDataUseCaseBundle
+import id.co.nierstyd.mutugemba.desktop.ui.screens.PartMappingScreen
+import id.co.nierstyd.mutugemba.desktop.ui.screens.PartMappingScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsMonthlyScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreenDependencies
-import id.co.nierstyd.mutugemba.desktop.ui.screens.buildDemoMonthlyReportDocument
 import id.co.nierstyd.mutugemba.desktop.ui.theme.MutuGembaTheme
 import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail
@@ -52,33 +52,16 @@ fun MutuGembaApp() {
     }
     var inspectionRecords by remember(container) { mutableStateOf<List<InspectionRecord>>(emptyList()) }
     var lines by remember(container) { mutableStateOf<List<Line>>(emptyList()) }
-    var dailySummaries by remember(container) {
-        mutableStateOf<List<DailyChecksheetSummary>>(emptyList())
-    }
-    var useDummyData by remember(container) {
-        mutableStateOf(container.getDevDummyDataUseCase.execute())
-    }
-    var demoMode by remember(container) {
-        mutableStateOf(container.getDevDemoModeUseCase.execute())
-    }
-    val demoPack =
-        remember(useDummyData) {
-            if (useDummyData) SampleData.buildDemoPack() else null
-        }
+    var dailySummaries by remember(container) { mutableStateOf<List<DailyChecksheetSummary>>(emptyList()) }
 
     suspend fun loadData() {
         val (records, lineItems, summaries) =
             withContext(Dispatchers.IO) {
-                if (useDummyData) {
-                    val pack = demoPack ?: SampleData.buildDemoPack()
-                    Triple(pack.inspectionRecords, pack.lines, pack.dailySummaries)
-                } else {
-                    Triple(
-                        container.getRecentInspectionsUseCase.execute(),
-                        container.getLinesUseCase.execute(),
-                        container.getDailySummariesUseCase.execute(),
-                    )
-                }
+                Triple(
+                    container.getRecentInspectionsUseCase.execute(),
+                    container.getLinesUseCase.execute(),
+                    container.getDailySummariesUseCase.execute(),
+                )
             }
         inspectionRecords = records
         lines = lineItems
@@ -90,40 +73,16 @@ fun MutuGembaApp() {
     }
 
     val loadDailyDetail: (Long, LocalDate) -> DailyChecksheetDetail? = { lineId, date ->
-        if (useDummyData) {
-            demoPack?.dailyDetails?.get(lineId to date)
-        } else {
-            container.getDailyDetailUseCase.execute(lineId, date)
-        }
+        container.getDailyDetailUseCase.execute(lineId, date)
     }
     val loadMonthlyDefectSummary: (YearMonth) -> List<DefectSummary> = { month ->
-        if (useDummyData) {
-            demoPack?.monthlyDefectSummary ?: emptyList()
-        } else {
-            container.getMonthlyDefectSummaryUseCase.execute(month)
-        }
+        container.getMonthlyDefectSummaryUseCase.execute(month)
     }
     val loadMonthlyEntries: (Long, YearMonth) -> List<ChecksheetEntry> = { lineId, month ->
-        if (useDummyData) {
-            demoPack
-                ?.dailyDetails
-                ?.filterKeys { (storedLineId, date) ->
-                    storedLineId == lineId && YearMonth.from(date) == month
-                }?.values
-                ?.flatMap { it.entries }
-                ?: emptyList()
-        } else {
-            container.getMonthlyEntriesUseCase.execute(lineId, month)
-        }
+        container.getMonthlyEntriesUseCase.execute(lineId, month)
     }
-
     val loadMonthlyReportDocument: (Long, YearMonth) -> MonthlyReportDocument? = { lineId, month ->
-        if (useDummyData) {
-            val pack = demoPack ?: SampleData.buildDemoPack()
-            buildDemoMonthlyReportDocument(pack, lineId, month)
-        } else {
-            container.getMonthlyReportDocumentUseCase.execute(lineId, month)
-        }
+        container.getMonthlyReportDocumentUseCase.execute(lineId, month)
     }
 
     LaunchedEffect(Unit) {
@@ -132,7 +91,7 @@ fun MutuGembaApp() {
         }
     }
 
-    LaunchedEffect(container, useDummyData) {
+    LaunchedEffect(container) {
         loadData()
     }
 
@@ -150,8 +109,8 @@ fun MutuGembaApp() {
                 HeaderBar(
                     title = AppStrings.App.Name,
                     subtitle = AppStrings.App.CompanyName,
-                    demoMode = demoMode,
-                    dummyData = useDummyData,
+                    demoMode = false,
+                    dummyData = false,
                 )
             },
             footerContent = {
@@ -173,6 +132,19 @@ fun MutuGembaApp() {
                         resetData = container.resetDataUseCase,
                         onNavigateToInspection = { currentRoute = AppRoute.Inspection },
                         onRefreshData = refreshData,
+                    )
+
+                AppRoute.PartMapping ->
+                    PartMappingScreen(
+                        dependencies =
+                            PartMappingScreenDependencies(
+                                observeParts = container.observePartsUseCase,
+                                getPartDetail = container.getPartDetailUseCase,
+                                getTopDefects = container.getTopDefectsPerModelMonthlyUseCase,
+                                getDefectHeatmap = container.getDefectHeatmapUseCase,
+                                getActiveImageRef = container.getActiveImageRefUseCase,
+                                loadImageBytes = container.loadImageBytesUseCase,
+                            ),
                     )
 
                 AppRoute.Inspection ->
@@ -210,6 +182,7 @@ fun MutuGembaApp() {
                         loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
                         saveManualHolidays = { container.saveManualHolidayDatesUseCase.execute(it) },
                     )
+
                 AppRoute.ReportsMonthly ->
                     ReportsMonthlyScreen(
                         lines = lines,
@@ -217,6 +190,7 @@ fun MutuGembaApp() {
                         loadMonthlyReportDocument = loadMonthlyReportDocument,
                         loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
                     )
+
                 AppRoute.Settings ->
                     SettingsScreen(
                         dependencies =
@@ -227,18 +201,9 @@ fun MutuGembaApp() {
                                 getLines = container.getLinesUseCase,
                                 getDevQcLine = container.getDevQcLineUseCase,
                                 setDevQcLine = container.setDevQcLineUseCase,
-                                getDevDemoMode = container.getDevDemoModeUseCase,
-                                setDevDemoMode = container.setDevDemoModeUseCase,
-                                getDevDummyData = container.getDevDummyDataUseCase,
-                                setDevDummyData = container.setDevDummyDataUseCase,
                                 backupDatabase = container.backupDatabaseUseCase,
                                 restoreDatabase = container.restoreDatabaseUseCase,
                                 onResetCompleted = refreshData,
-                                onDummyDataChanged = { enabled ->
-                                    useDummyData = enabled
-                                    refreshData()
-                                },
-                                onDemoModeChanged = { enabled -> demoMode = enabled },
                                 onRestoreCompleted = {
                                     container.close()
                                     container = AppContainer()

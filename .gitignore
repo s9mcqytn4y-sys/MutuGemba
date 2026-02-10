@@ -18,6 +18,8 @@ out/
 # App data
 data/
 data/exports/
+!core-data/src/test/
+!core-data/src/test/**
 
 # OS
 .DS_Store

@@ -35,15 +35,11 @@ import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.usecase.BackupDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
-import id.co.nierstyd.mutugemba.usecase.GetDevDemoModeUseCase
-import id.co.nierstyd.mutugemba.usecase.GetDevDummyDataUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
 import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
 import id.co.nierstyd.mutugemba.usecase.RestoreDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.SetAllowDuplicateInspectionUseCase
-import id.co.nierstyd.mutugemba.usecase.SetDevDemoModeUseCase
-import id.co.nierstyd.mutugemba.usecase.SetDevDummyDataUseCase
 import id.co.nierstyd.mutugemba.usecase.SetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
 import kotlinx.coroutines.delay
@@ -55,15 +51,9 @@ data class SettingsScreenDependencies(
     val getLines: GetLinesUseCase,
     val getDevQcLine: GetDevQcLineUseCase,
     val setDevQcLine: SetDevQcLineUseCase,
-    val getDevDemoMode: GetDevDemoModeUseCase,
-    val setDevDemoMode: SetDevDemoModeUseCase,
-    val getDevDummyData: GetDevDummyDataUseCase,
-    val setDevDummyData: SetDevDummyDataUseCase,
     val backupDatabase: BackupDatabaseUseCase,
     val restoreDatabase: RestoreDatabaseUseCase,
     val onResetCompleted: () -> Unit,
-    val onDummyDataChanged: (Boolean) -> Unit,
-    val onDemoModeChanged: (Boolean) -> Unit,
     val onRestoreCompleted: () -> Unit,
 )
 
@@ -75,8 +65,6 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
     var lines by remember { mutableStateOf<List<Line>>(emptyList()) }
     var selectedDevLineId by remember { mutableStateOf<Long?>(dependencies.getDevQcLine.execute()) }
-    var demoMode by remember { mutableStateOf(dependencies.getDevDemoMode.execute()) }
-    var dummyData by remember { mutableStateOf(dependencies.getDevDummyData.execute()) }
 
     LaunchedEffect(feedback) {
         if (feedback != null) {
@@ -155,67 +143,6 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                 },
                 enabled = selectedDevLineId != null,
             )
-            Divider(color = NeutralBorder, thickness = 1.dp)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    Text(text = AppStrings.Settings.DemoModeTitle, style = MaterialTheme.typography.body1)
-                    Text(
-                        text = AppStrings.Settings.DemoModeSubtitle,
-                        style = MaterialTheme.typography.body2,
-                        color = NeutralTextMuted,
-                    )
-                }
-                Switch(
-                    checked = demoMode,
-                    onCheckedChange = { checked ->
-                        demoMode = checked
-                        dependencies.setDevDemoMode.execute(checked)
-                        dependencies.onDemoModeChanged(checked)
-                        feedback =
-                            UserFeedback(
-                                FeedbackType.SUCCESS,
-                                if (checked) {
-                                    AppStrings.Feedback.DemoEnabled
-                                } else {
-                                    AppStrings.Feedback.DemoDisabled
-                                },
-                            )
-                    },
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    Text(text = AppStrings.Settings.DummyDataTitle, style = MaterialTheme.typography.body1)
-                    Text(
-                        text = AppStrings.Settings.DummyDataSubtitle,
-                        style = MaterialTheme.typography.body2,
-                        color = NeutralTextMuted,
-                    )
-                }
-                Switch(
-                    checked = dummyData,
-                    onCheckedChange = { checked ->
-                        dummyData = checked
-                        dependencies.setDevDummyData.execute(checked)
-                        dependencies.onDummyDataChanged(checked)
-                        feedback =
-                            UserFeedback(
-                                FeedbackType.SUCCESS,
-                                if (checked) {
-                                    AppStrings.Feedback.DummyEnabled
-                                } else {
-                                    AppStrings.Feedback.DummyDisabled
-                                },
-                            )
-                    },
-                )
-            }
             Divider(color = NeutralBorder, thickness = 1.dp)
             Row(
                 modifier = Modifier.fillMaxWidth(),

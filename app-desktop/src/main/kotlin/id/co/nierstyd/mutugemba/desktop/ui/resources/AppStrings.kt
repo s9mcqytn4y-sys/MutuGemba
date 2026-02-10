@@ -27,6 +27,7 @@ object AppStrings {
 
     object Navigation {
         const val Home = "Beranda"
+        const val PartMapping = "Manajemen Part"
         const val Inspection = "Input Inspeksi"
         const val Abnormal = "Tiket Abnormal"
         const val Reports = "Laporan"
@@ -426,12 +427,30 @@ object AppStrings {
         const val MaintenanceSubtitle = "Reset, backup, dan restore data lokal."
         const val MaintenanceBody =
             "Gunakan tombol di bawah untuk mengosongkan data inspeksi dan mengisi ulang data awal."
-        const val BackupHint = "Backup akan menyimpan database, settings, dan lampiran."
+        const val BackupHint = "Backup akan menyimpan database, settings, lampiran, dan assets image."
         const val RestoreHint = "Restore akan menggunakan backup terbaru (aplikasi perlu dibuka ulang)."
         const val ResetDialogTitle = "Reset Data"
         const val ResetDialogMessage = "Semua data inspeksi akan dihapus dan diisi ulang dengan data awal. Lanjutkan?"
         const val BackupSuccess = "Backup berhasil dibuat."
         const val RestoreSuccess = "Restore selesai. Aplikasi perlu dimuat ulang."
+    }
+
+    object PartMapping {
+        const val Title = "Manajemen Part Produksi"
+        const val Subtitle = "Data part asli dari mapping ZIP + assets PNG terintegrasi (offline)."
+        const val Filters = "Filter Part"
+        const val SearchLabel = "Cari UNIQ / part number / nama"
+        const val LineLabel = "Line"
+        const val ModelLabel = "Model"
+        const val MonthLabel = "Periode QA (YYYY-MM)"
+        const val PartListTitle = "Daftar Part"
+        const val DetailTitle = "Detail Part"
+        const val DashboardTitle = "Dashboard Defect"
+        const val EmptyParts = "Belum ada part. Pastikan ZIP tersedia di folder Downloads."
+        const val EmptyDetail = "Pilih salah satu part untuk melihat detail."
+        const val TopDefects = "Top Defects per Model"
+        const val Heatmap = "Heatmap Tanggal vs Defect"
+        const val ImportBannerOffline = "Offline mode: data dibaca dari SQLite lokal + asset hash store."
     }
 
     object Login {

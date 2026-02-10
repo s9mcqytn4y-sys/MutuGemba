@@ -1,0 +1,97 @@
+listParts:
+SELECT
+  p.part_id,
+  p.uniq_no,
+  p.part_number,
+  p.part_name,
+  pl.code AS line_code,
+  GROUP_CONCAT(DISTINCT m.code) AS model_codes
+FROM part p
+JOIN production_line pl ON pl.production_line_id = p.production_line_id
+LEFT JOIN part_model pm ON pm.part_id = p.part_id
+LEFT JOIN model m ON m.model_id = pm.model_id
+WHERE (:line_code IS NULL OR pl.code = :line_code)
+  AND (
+    :model_code IS NULL OR EXISTS (
+      SELECT 1
+      FROM part_model pmf
+      JOIN model mf ON mf.model_id = pmf.model_id
+      WHERE pmf.part_id = p.part_id
+        AND mf.code = :model_code
+    )
+  )
+  AND (
+    :search IS NULL OR :search = '' OR
+    p.uniq_no LIKE '%' || :search || '%' OR
+    p.part_number LIKE '%' || :search || '%' OR
+    p.part_name LIKE '%' || :search || '%'
+  )
+GROUP BY p.part_id
+ORDER BY p.uniq_no
+LIMIT :limit_value OFFSET :offset_value;
+
+partBaseByUniq:
+SELECT
+  p.part_id,
+  p.uniq_no,
+  p.part_number,
+  p.part_name,
+  pl.code AS line_code
+FROM part p
+JOIN production_line pl ON pl.production_line_id = p.production_line_id
+WHERE p.uniq_no = :uniq_no;
+
+partImageByPartId:
+SELECT
+  image_asset_id,
+  part_id,
+  status,
+  sha256,
+  mime,
+  storage_relpath,
+  size_bytes,
+  width_px,
+  height_px,
+  active
+FROM image_asset
+WHERE part_id = :part_id
+  AND active = 1
+LIMIT 1;
+
+partMaterialsByPartId:
+SELECT
+  pml.part_material_layer_id,
+  pml.layer_order,
+  mat.material_name,
+  pml.weight_g,
+  pml.basis_weight_gsm,
+  pml.unit
+FROM part_material_layer pml
+JOIN material mat ON mat.material_id = pml.material_id
+WHERE pml.part_id = :part_id
+ORDER BY pml.layer_order ASC;
+
+partRequirementsByPartId:
+SELECT
+  m.code AS model_code,
+  pr.qty_kbn
+FROM part_requirement pr
+JOIN model m ON m.model_id = pr.model_id
+WHERE pr.part_id = :part_id
+ORDER BY m.code;
+
+partModelsByPartId:
+SELECT m.code
+FROM part_model pm
+JOIN model m ON m.model_id = pm.model_id
+WHERE pm.part_id = :part_id
+ORDER BY m.code;
+
+partMonthDefectByPartId:
+SELECT COALESCE(SUM(qo.qty), 0) AS total_defect
+FROM qa_part_defect_observation qo
+JOIN qa_report qr ON qr.qa_report_id = qo.qa_report_id
+WHERE qo.part_id = :part_id
+  AND qr.period_year = :period_year
+  AND qr.period_month = :period_month;
+
