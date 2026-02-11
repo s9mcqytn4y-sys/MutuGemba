@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "MutuGemba: Run Desktop",
+      "type": "shell",
+      "command": "./gradlew :app-desktop:run",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "MutuGemba: Compile",
+      "type": "shell",
+      "command": "./gradlew :app-desktop:compileKotlin",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "MutuGemba: Lint",
+      "type": "shell",
+      "command": "./gradlew ktlintCheck detektAll",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "MutuGemba: Test",
+      "type": "shell",
+      "command": "./gradlew test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "MutuGemba: CI Verify",
+      "type": "shell",
+      "command": "./gradlew --no-daemon clean ktlintCheck detektAll test :app-desktop:compileKotlin",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
+

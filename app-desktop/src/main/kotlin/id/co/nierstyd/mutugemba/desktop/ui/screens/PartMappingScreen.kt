@@ -527,11 +527,6 @@ private fun PartCard(
                             backgroundColor = NeutralLight,
                             contentColor = NeutralTextMuted,
                         )
-                        AppBadge(
-                            text = "Defect MTD ${item.totalDefectMonthToDate}",
-                            backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
-                            contentColor = MaterialTheme.colors.primary,
-                        )
                     }
                 }
             }
@@ -566,11 +561,6 @@ private fun PartDetailContent(
                     text = "Models: ${detail.models.joinToString(", ").ifBlank { "-" }}",
                     backgroundColor = NeutralLight,
                     contentColor = NeutralTextMuted,
-                )
-                AppBadge(
-                    text = "Defect MTD: ${detail.totalDefectMonthToDate}",
-                    backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
-                    contentColor = MaterialTheme.colors.primary,
                 )
                 Text("Qty KBN per model", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
                 detail.requirements.ifEmpty { listOf() }.forEach { requirement ->

@@ -7,6 +7,9 @@ import java.nio.file.Paths
 object AppDataPaths {
     private const val APP_DIR_NAME = ".mutugemba"
 
+    @Volatile
+    private var cachedExtractedDir: Path? = null
+
     private fun dataRoot(): Path {
         val userHome = System.getProperty("user.home").orEmpty()
         val base = if (userHome.isBlank()) Paths.get("data") else Paths.get(userHome, APP_DIR_NAME, "data")
@@ -34,10 +37,11 @@ object AppDataPaths {
             .normalize()
 
     fun defaultPartAssetsExtractedDir(): Path {
+        cachedExtractedDir?.let { return it }
         val cwd = Paths.get(System.getProperty("user.dir", ".")).toAbsolutePath().normalize()
         val candidates = mutableListOf<Path>()
         var cursor: Path? = cwd
-        repeat(8) {
+        repeat(12) {
             val base = cursor ?: return@repeat
             candidates.add(
                 base
@@ -46,14 +50,49 @@ object AppDataPaths {
                     .resolve("extracted")
                     .normalize(),
             )
+            candidates.add(
+                base
+                    .resolve("part_assets")
+                    .resolve("extracted")
+                    .normalize(),
+            )
             cursor = base.parent
         }
-        return candidates.firstOrNull { candidate ->
-            Files.exists(candidate.resolve("mappings").resolve("mapping.json"))
-        } ?: cwd
-            .resolve("data")
-            .resolve("part_assets")
-            .resolve("extracted")
-            .normalize()
+        val discovered =
+            candidates.firstOrNull { candidate ->
+                Files.exists(candidate.resolve("mappings").resolve("mapping.json"))
+            } ?: findExtractedBySearch(cwd)
+        val resolved =
+            discovered ?: cwd
+                .resolve("data")
+                .resolve("part_assets")
+                .resolve("extracted")
+                .normalize()
+        cachedExtractedDir = resolved
+        return resolved
+    }
+
+    private fun findExtractedBySearch(cwd: Path): Path? {
+        var cursor: Path? = cwd
+        repeat(12) {
+            val base = cursor ?: return@repeat
+            val dataRoot = base.resolve("data").resolve("part_assets")
+            if (Files.exists(dataRoot)) {
+                Files.walk(dataRoot, 5).use { stream ->
+                    val mappingPath =
+                        stream
+                            .filter { path ->
+                                Files.isRegularFile(path) &&
+                                    path.fileName.toString().equals("mapping.json", ignoreCase = true)
+                            }.findFirst()
+                            .orElse(null)
+                    if (mappingPath != null) {
+                        return mappingPath.parent.parent.normalize()
+                    }
+                }
+            }
+            cursor = base.parent
+        }
+        return null
     }
 }

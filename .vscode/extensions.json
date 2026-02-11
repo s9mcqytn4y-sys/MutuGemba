@@ -1,7 +1,11 @@
-﻿{
+{
   "recommendations": [
     "rnoro.vscode-ktlint-formatter",
     "fwcd.kotlin",
-    "vscjava.vscode-java-pack"
+    "vscjava.vscode-java-pack",
+    "vscode-icons-team.vscode-icons",
+    "eamodio.gitlens",
+    "usernamehw.errorlens"
   ]
 }
+

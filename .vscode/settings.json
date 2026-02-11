@@ -1,10 +1,23 @@
 {
   "editor.formatOnSave": true,
+  "editor.smoothScrolling": true,
+  "editor.minimap.enabled": false,
   "[kotlin]": {
     "editor.defaultFormatter": "rnoro.vscode-ktlint-formatter"
   },
+  "kotlin.debugAdapter.enabled": true,
+  "kotlin.trace.server": "off",
+  "workbench.iconTheme": "vscode-icons",
+  "workbench.colorTheme": "Default Dark Modern",
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
   "files.eol": "\n",
-  "java.configuration.updateBuildConfiguration": "automatic"
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "search.useIgnoreFiles": true,
+  "search.exclude": {
+    "**/.gradle": true,
+    "**/build": true,
+    "**/.idea": true
+  }
 }

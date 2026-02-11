@@ -5,12 +5,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.ConfirmDialog
@@ -242,131 +245,137 @@ fun HomeScreen(
         }
 
     val listState = rememberLazyListState()
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
-        state = listState,
-    ) {
-        item {
-            SectionHeader(
-                title = AppStrings.Home.Title,
-                subtitle = AppStrings.Home.Subtitle,
-            )
-        }
-        item {
-            HeroSummaryCard(
-                dateLabel = DateTimeFormats.formatDate(today),
-                totalToday = totalToday,
-                totalParts = totalPartsToday,
-                activeLines = activeLinesToday,
-                totalCheck = totalCheckToday,
-                totalLines = totalLines,
-                lastInputLabel = lastInputLabel,
-                totalDefect = totalDefectToday,
-                ratioDefect = ratioToday,
-            )
-        }
-        item {
-            DashboardSectionHeader(
-                title = AppStrings.Home.AnalyticsTitle,
-                subtitle = AppStrings.Home.AnalyticsSubtitle,
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Column(modifier = Modifier.weight(1.35f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    MonthlyParetoCard(
-                        month = month,
-                        defectSummaries = analysisDefects,
-                        accentColor = lineColors[paretoLineId] ?: StatusInfo,
-                        loading = analysisLoading,
-                        lines = lines,
-                        selectedLineId = paretoLineId,
-                        onSelectedLine = { paretoLineId = it },
-                    )
-                    MonthlyTrendCard(
-                        month = month,
-                        dailySummaries = dailySummaries.filter { YearMonth.from(it.date) == month },
-                        lineColors = lineColors,
-                        lines = lines,
-                        selectedLineId = trendLineId,
-                        onSelectedLine = { trendLineId = it },
-                    )
-                }
-                Column(modifier = Modifier.weight(0.65f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    MonthlyInsightCard(
-                        month = month,
-                        totals = monthlyTotals,
-                        lines = lines,
-                        selectedLineId = insightLineId,
-                        onSelectedLine = { insightLineId = it },
-                    )
-                    TopProblemItemCard(
-                        month = month,
-                        lines = lines,
-                        selectedLineId = topProblemLineId,
-                        onSelectedLine = { topProblemLineId = it },
-                        item = topProblemItem,
-                        loading = topProblemLoading,
-                    )
-                    LineComparisonCard(items = lineComparison)
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val viewportMaxHeight = if (maxHeight != Dp.Infinity) maxHeight else 900.dp
+        LazyColumn(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = viewportMaxHeight),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            state = listState,
+        ) {
+            item {
+                SectionHeader(
+                    title = AppStrings.Home.Title,
+                    subtitle = AppStrings.Home.Subtitle,
+                )
+            }
+            item {
+                HeroSummaryCard(
+                    dateLabel = DateTimeFormats.formatDate(today),
+                    totalToday = totalToday,
+                    totalParts = totalPartsToday,
+                    activeLines = activeLinesToday,
+                    totalCheck = totalCheckToday,
+                    totalLines = totalLines,
+                    lastInputLabel = lastInputLabel,
+                    totalDefect = totalDefectToday,
+                    ratioDefect = ratioToday,
+                )
+            }
+            item {
+                DashboardSectionHeader(
+                    title = AppStrings.Home.AnalyticsTitle,
+                    subtitle = AppStrings.Home.AnalyticsSubtitle,
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Column(modifier = Modifier.weight(1.35f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        MonthlyParetoCard(
+                            month = month,
+                            defectSummaries = analysisDefects,
+                            accentColor = lineColors[paretoLineId] ?: StatusInfo,
+                            loading = analysisLoading,
+                            lines = lines,
+                            selectedLineId = paretoLineId,
+                            onSelectedLine = { paretoLineId = it },
+                        )
+                        MonthlyTrendCard(
+                            month = month,
+                            dailySummaries = dailySummaries.filter { YearMonth.from(it.date) == month },
+                            lineColors = lineColors,
+                            lines = lines,
+                            selectedLineId = trendLineId,
+                            onSelectedLine = { trendLineId = it },
+                        )
+                    }
+                    Column(modifier = Modifier.weight(0.65f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        MonthlyInsightCard(
+                            month = month,
+                            totals = monthlyTotals,
+                            lines = lines,
+                            selectedLineId = insightLineId,
+                            onSelectedLine = { insightLineId = it },
+                        )
+                        TopProblemItemCard(
+                            month = month,
+                            lines = lines,
+                            selectedLineId = topProblemLineId,
+                            onSelectedLine = { topProblemLineId = it },
+                            item = topProblemItem,
+                            loading = topProblemLoading,
+                        )
+                        LineComparisonCard(items = lineComparison)
+                    }
                 }
             }
-        }
-        item {
-            DashboardSectionHeader(
-                title = AppStrings.Home.OpsTitle,
-                subtitle = AppStrings.Home.OpsSubtitle,
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Column(modifier = Modifier.weight(1.2f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    DailyChecksheetSummaryCard(
-                        totalParts = totalPartsToday,
-                        totalLines = lines.size,
-                        activeLines = activeLinesToday,
-                        totalCheck = totalCheckToday,
-                        lastInputLabel = lastInputLabel,
-                    )
-                    DailyLineStatusCard(
-                        lines = lines,
-                        recordsToday = recordsToday,
-                        expanded = showLineDetail,
-                        onToggleExpanded = { showLineDetail = !showLineDetail },
-                    )
-                }
-                Column(modifier = Modifier.weight(0.8f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    QcActivityCard(
-                        totalInput = totalToday,
-                        mostActiveLine = mostActiveLine,
-                        mostCheckedPart = mostCheckedPart?.partName,
-                        mostCheckedPartNumber = mostCheckedPart?.partNumber,
-                        lastInputLabel = lastInputLabel,
-                    )
-                    ActionCard(
-                        onNavigateToInspection = onNavigateToInspection,
-                        onReset = { showResetDialog = true },
-                    )
-                    feedback?.let { StatusBanner(feedback = it) }
+            item {
+                DashboardSectionHeader(
+                    title = AppStrings.Home.OpsTitle,
+                    subtitle = AppStrings.Home.OpsSubtitle,
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Column(modifier = Modifier.weight(1.2f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        DailyChecksheetSummaryCard(
+                            totalParts = totalPartsToday,
+                            totalLines = lines.size,
+                            activeLines = activeLinesToday,
+                            totalCheck = totalCheckToday,
+                            lastInputLabel = lastInputLabel,
+                        )
+                        DailyLineStatusCard(
+                            lines = lines,
+                            recordsToday = recordsToday,
+                            expanded = showLineDetail,
+                            onToggleExpanded = { showLineDetail = !showLineDetail },
+                        )
+                    }
+                    Column(modifier = Modifier.weight(0.8f), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        QcActivityCard(
+                            totalInput = totalToday,
+                            mostActiveLine = mostActiveLine,
+                            mostCheckedPart = mostCheckedPart?.partName,
+                            mostCheckedPartNumber = mostCheckedPart?.partNumber,
+                            lastInputLabel = lastInputLabel,
+                        )
+                        ActionCard(
+                            onNavigateToInspection = onNavigateToInspection,
+                            onReset = { showResetDialog = true },
+                        )
+                        feedback?.let { StatusBanner(feedback = it) }
+                    }
                 }
             }
-        }
-        item {
-            Text(
-                text = AppStrings.App.StatusOffline,
-                style = MaterialTheme.typography.body2,
-                color = NeutralTextMuted,
-                modifier = Modifier.padding(top = Spacing.sm),
-            )
+            item {
+                Text(
+                    text = AppStrings.App.StatusOffline,
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                    modifier = Modifier.padding(top = Spacing.sm),
+                )
+            }
         }
     }
 

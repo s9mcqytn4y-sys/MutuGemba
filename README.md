@@ -53,3 +53,12 @@ Lint menjalankan ktlint dan detekt.
 ./gradlew :app-desktop:packageDistribution
 ```
 Alias ini menjalankan `packageDistributionForCurrentOS`.
+
+## Verifikasi CI Lokal
+```
+./gradlew --no-daemon clean ktlintCheck detektAll test :app-desktop:compileKotlin
+```
+
+## Catatan UX Data
+- Laporan bulanan menampilkan `Problem Item` dalam item terpisah (tidak digabung) dengan normalisasi nama defect.
+- Laporan harian memiliki navigasi tanggal `Sebelumnya/Berikutnya` juga di bawah dokumen agar proses review lebih cepat.

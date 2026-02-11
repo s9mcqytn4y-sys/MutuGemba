@@ -63,6 +63,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
@@ -1264,7 +1265,12 @@ private fun formatPartNumber(
 
 private fun formatProblemItems(items: List<String>): String {
     if (items.isEmpty()) return AppStrings.Common.Placeholder
-    return items.joinToString(separator = "\n") { "• $it" }
+    return items
+        .flatMap { DefectNameSanitizer.expandProblemItems(it) }
+        .ifEmpty { items.map(DefectNameSanitizer::normalizeDisplay) }
+        .filter { it.isNotBlank() }
+        .distinct()
+        .joinToString(separator = "\n") { "- $it" }
 }
 
 private fun loadSketchBitmap(path: String?): androidx.compose.ui.graphics.ImageBitmap? {

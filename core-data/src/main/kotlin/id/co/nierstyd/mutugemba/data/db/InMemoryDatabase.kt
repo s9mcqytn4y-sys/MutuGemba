@@ -3,6 +3,7 @@ package id.co.nierstyd.mutugemba.data.db
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.data.bootstrap.DefectScreeningDto
 import id.co.nierstyd.mutugemba.data.bootstrap.MappingRootDto
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectSeverity
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
@@ -386,7 +387,8 @@ class InMemoryDatabase(
         }
     }
 
-    private fun cleanDefectName(value: String): String = normalizeName(value)
+    private fun cleanDefectName(value: String): String =
+        DefectNameSanitizer.normalizeDisplay(value).ifBlank { normalizeName(value) }
 }
 
 private data class DefectSpec(

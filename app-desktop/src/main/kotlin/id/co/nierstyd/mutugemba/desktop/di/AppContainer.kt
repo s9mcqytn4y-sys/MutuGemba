@@ -229,7 +229,9 @@ class AppContainer {
                 AppDataPaths.defaultPartAssetsExtractedDir(),
                 AppDataPaths.projectPartAssetsDir().resolve("extracted"),
                 Paths.get("data", "part_assets", "extracted").toAbsolutePath().normalize(),
-            ).distinct()
+            ).distinct().filter { candidate ->
+                Files.exists(candidate.resolve("mappings").resolve("mapping.json"))
+            }
         candidates.forEach { candidate: Path ->
             val imported = partZipBootstrapper.bootstrapFromExtractedDirIfEmpty(candidate)
             if (imported != null) return

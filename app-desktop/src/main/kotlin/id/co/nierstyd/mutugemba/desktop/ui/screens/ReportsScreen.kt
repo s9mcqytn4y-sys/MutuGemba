@@ -241,7 +241,13 @@ fun ReportsScreen(
 
             DailyDocumentSection(
                 detailState = detailState,
+                allDates = availableDates,
                 selectedDate = selectedDate,
+                onDateSelected = {
+                    selectedDate = it
+                    val targetIndex = availableDates.indexOf(it).coerceAtLeast(0)
+                    pageIndex = targetIndex / HISTORY_PAGE_SIZE
+                },
             )
         }
     }
@@ -804,9 +810,19 @@ private fun LegendPill(
 @Composable
 private fun DailyDocumentSection(
     detailState: HistoryDetailState,
+    allDates: List<LocalDate>,
     selectedDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit,
 ) {
     var viewMode by remember { mutableStateOf(DocumentViewMode.PREVIEW) }
+    val selectedIndex = allDates.indexOf(selectedDate)
+    val previousDate = if (selectedIndex > 0) allDates.getOrNull(selectedIndex - 1) else null
+    val nextDate =
+        if (selectedIndex >= 0 && selectedIndex < allDates.lastIndex) {
+            allDates.getOrNull(selectedIndex + 1)
+        } else {
+            null
+        }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -843,8 +859,53 @@ private fun DailyDocumentSection(
                 } else {
                     DailyDocumentCard(detail = detailState.detail)
                 }
+                DailyDocumentBottomNavigator(
+                    previousDate = previousDate,
+                    nextDate = nextDate,
+                    onSelectDate = onDateSelected,
+                )
                 DocumentActionRow()
             }
+        }
+    }
+}
+
+@Composable
+private fun DailyDocumentBottomNavigator(
+    previousDate: LocalDate?,
+    nextDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.medium,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PagerNavButton(
+                enabled = previousDate != null,
+                icon = AppIcons.ChevronLeft,
+                label = AppStrings.Actions.Previous,
+                onClick = { previousDate?.let(onSelectDate) },
+            )
+            Text(
+                text = "Navigasi cepat dokumen",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            PagerNavButton(
+                enabled = nextDate != null,
+                icon = AppIcons.ChevronRight,
+                label = AppStrings.Actions.Next,
+                iconOnRight = true,
+                onClick = { nextDate?.let(onSelectDate) },
+            )
         }
     }
 }

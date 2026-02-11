@@ -1,5 +1,6 @@
 package id.co.nierstyd.mutugemba.usecase
 
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
 import id.co.nierstyd.mutugemba.domain.MasterDataRepository
@@ -61,11 +62,7 @@ class GetMonthlyReportDocumentUseCase(
                     val perDefectTotals =
                         defectTypes.map { defect -> partDefectMap[part.id]?.get(defect.id) ?: 0 }
                     val totalDefect = dayValues.sum()
-                    val problemItems =
-                        defectTypes
-                            .zip(perDefectTotals)
-                            .filter { (_, total) -> total > 0 }
-                            .map { (defect, _) -> defect.name }
+                    val problemItems = buildProblemItems(defectTypes, perDefectTotals)
                     MonthlyReportRow(
                         partId = part.id,
                         partNumber = part.partNumber,
@@ -136,5 +133,30 @@ class GetMonthlyReportDocumentUseCase(
             distinct.size == 1 -> distinct.first()
             else -> MULTIPLE_PIC_LABEL
         }
+    }
+
+    private fun buildProblemItems(
+        defectTypes: List<DefectType>,
+        perDefectTotals: List<Int>,
+    ): List<String> {
+        val weighted = linkedMapOf<String, Int>()
+        defectTypes
+            .zip(perDefectTotals)
+            .filter { (_, total) -> total > 0 }
+            .forEach { (defect, total) ->
+                val names =
+                    DefectNameSanitizer
+                        .expandProblemItems(defect.name)
+                        .ifEmpty { listOf(DefectNameSanitizer.normalizeDisplay(defect.name)) }
+                        .filter { it.isNotBlank() }
+                names.forEach { name ->
+                    weighted[name] = (weighted[name] ?: 0) + total
+                }
+            }
+        return weighted.entries
+            .sortedWith(
+                compareByDescending<Map.Entry<String, Int>> { entry -> entry.value }
+                    .thenBy { entry -> entry.key },
+            ).map { entry -> entry.key }
     }
 }

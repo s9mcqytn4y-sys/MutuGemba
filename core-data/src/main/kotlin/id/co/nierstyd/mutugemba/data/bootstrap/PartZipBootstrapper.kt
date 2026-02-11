@@ -1,6 +1,7 @@
 package id.co.nierstyd.mutugemba.data.bootstrap
 
 import id.co.nierstyd.mutugemba.data.local.db.SqliteDatabase
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.model.AssetKey
 import id.co.nierstyd.mutugemba.domain.repository.AssetStore
 import kotlinx.coroutines.runBlocking
@@ -36,6 +37,9 @@ class PartZipBootstrapper(
         extractedRoot: Path,
         force: Boolean,
     ): BootstrapSummary? {
+        if (!force && !isPartTableEmpty()) {
+            return null
+        }
         val mappingPath = extractedRoot.resolve("mappings").resolve("mapping.json")
         if (!Files.exists(mappingPath)) {
             logger.debug("Extracted mapping not found at {}", mappingPath)
@@ -68,10 +72,6 @@ class PartZipBootstrapper(
         force: Boolean,
         readImageBytes: (String) -> ByteArray?,
     ): BootstrapSummary? {
-        if (!force && !isPartTableEmpty()) {
-            return null
-        }
-
         logger.info("Bootstrapping part data from {}", sourceLabel)
         val mapping = json.decodeFromString(MappingRootDto.serializer(), mappingBytes.decodeToString())
         val summary =
@@ -719,7 +719,8 @@ class PartZipBootstrapper(
             defectName: String,
             line: String,
         ): Long {
-            val norm = normalizeName(defectName)
+            val cleanName = DefectNameSanitizer.normalizeDisplay(defectName)
+            val norm = normalizeName(cleanName.ifBlank { defectName })
             return defectIdByNorm.getOrPut(norm) {
                 connection
                     .prepareStatement(
@@ -734,7 +735,7 @@ class PartZipBootstrapper(
                           END
                         """.trimIndent(),
                     ).use { statement ->
-                        statement.setString(1, defectName.trim())
+                        statement.setString(1, cleanName.ifBlank { defectName.trim() })
                         statement.setString(2, norm)
                         statement.setString(3, normalizeLine(line))
                         statement.executeUpdate()

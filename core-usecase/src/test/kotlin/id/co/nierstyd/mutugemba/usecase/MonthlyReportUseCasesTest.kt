@@ -159,6 +159,48 @@ class MonthlyReportUseCasesTest {
 
         assertEquals("PIC Lebih dari 1", document.header.picName)
     }
+
+    @Test
+    fun `split and normalize problem items in monthly rows`() {
+        val month = YearMonth.of(2026, 2)
+        val line = Line(id = 1L, code = LineCode.PRESS, name = "Press")
+        val parts =
+            listOf(
+                Part(
+                    id = 1L,
+                    partNumber = "PN-2001",
+                    model = "M1",
+                    name = "Part X",
+                    uniqCode = "UX",
+                    material = "Material",
+                    picturePath = null,
+                    lineCode = line.code,
+                ),
+            )
+        val defectTypes =
+            listOf(
+                DefectType(1L, "D1", "(CB9) OVERCUTTING J", "Surface", DefectSeverity.NORMAL),
+                DefectType(2L, "D2", "SPUNBOUND TERLIPAT, SPUNBOND HARDEN", "Surface", DefectSeverity.NORMAL),
+            )
+        val defectTotals =
+            listOf(
+                MonthlyPartDefectTotal(1L, 1L, 7),
+                MonthlyPartDefectTotal(1L, 2L, 4),
+            )
+
+        val inspectionRepository =
+            MonthlyReportFakeInspectionRepository(
+                monthlyParts = parts,
+                monthlyDayDefects = emptyList(),
+                monthlyDefectTotals = defectTotals,
+                summaries = emptyList(),
+            )
+        val masterRepository = FakeMasterRepository(lines = listOf(line), defectTypes = defectTypes)
+        val document = GetMonthlyReportDocumentUseCase(inspectionRepository, masterRepository).execute(line.id, month)
+
+        val problemItems = document.rows.single().problemItems
+        assertEquals(listOf("OVERCUTTING", "SPUNBOND HARDEN", "SPUNBOUND TERLIPAT"), problemItems)
+    }
 }
 
 private class MonthlyReportFakeInspectionRepository(

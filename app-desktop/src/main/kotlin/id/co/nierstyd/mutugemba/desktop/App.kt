@@ -5,11 +5,15 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
@@ -21,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.di.AppContainer
 import id.co.nierstyd.mutugemba.desktop.navigation.AppRoute
@@ -127,7 +132,7 @@ fun MutuGembaApp() {
             routes = AppRoute.values().toList(),
             currentRoute = currentRoute,
             onRouteSelected = { currentRoute = it },
-            scrollableContent = currentRoute != AppRoute.Inspection && currentRoute != AppRoute.Home,
+            scrollableContent = false,
             headerContent = {
                 HeaderBar(
                     title = AppStrings.App.Name,
@@ -198,49 +203,75 @@ fun MutuGembaApp() {
                             onRecordsSaved = { refreshData() },
                         )
 
-                    AppRoute.Abnormal -> AbnormalScreen()
+                    AppRoute.Abnormal ->
+                        ScrollableRouteContainer {
+                            AbnormalScreen()
+                        }
 
                     AppRoute.Reports ->
-                        ReportsScreen(
-                            lines = lines,
-                            dailySummaries = dailySummaries,
-                            loadDailyDetail = loadDailyDetail,
-                            loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
-                            saveManualHolidays = { container.saveManualHolidayDatesUseCase.execute(it) },
-                        )
+                        ScrollableRouteContainer {
+                            ReportsScreen(
+                                lines = lines,
+                                dailySummaries = dailySummaries,
+                                loadDailyDetail = loadDailyDetail,
+                                loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
+                                saveManualHolidays = { container.saveManualHolidayDatesUseCase.execute(it) },
+                            )
+                        }
 
                     AppRoute.ReportsMonthly ->
-                        ReportsMonthlyScreen(
-                            lines = lines,
-                            dailySummaries = dailySummaries,
-                            loadMonthlyReportDocument = loadMonthlyReportDocument,
-                            loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
-                        )
+                        ScrollableRouteContainer {
+                            ReportsMonthlyScreen(
+                                lines = lines,
+                                dailySummaries = dailySummaries,
+                                loadMonthlyReportDocument = loadMonthlyReportDocument,
+                                loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
+                            )
+                        }
 
                     AppRoute.Settings ->
-                        SettingsScreen(
-                            dependencies =
-                                SettingsScreenDependencies(
-                                    getAllowDuplicateInspection = container.getAllowDuplicateInspectionUseCase,
-                                    setAllowDuplicateInspection = container.setAllowDuplicateInspectionUseCase,
-                                    resetData = container.resetDataUseCase,
-                                    getLines = container.getLinesUseCase,
-                                    getDevQcLine = container.getDevQcLineUseCase,
-                                    setDevQcLine = container.setDevQcLineUseCase,
-                                    backupDatabase = container.backupDatabaseUseCase,
-                                    restoreDatabase = container.restoreDatabaseUseCase,
-                                    runLoadSimulation = { container.generateHighVolumeSimulation() },
-                                    clearCaches = { container.clearAppCaches() },
-                                    onResetCompleted = refreshData,
-                                    onRestoreCompleted = {
-                                        bootLoading = true
-                                        container.close()
-                                        container = AppContainer()
-                                    },
-                                ),
-                        )
+                        ScrollableRouteContainer {
+                            SettingsScreen(
+                                dependencies =
+                                    SettingsScreenDependencies(
+                                        getAllowDuplicateInspection = container.getAllowDuplicateInspectionUseCase,
+                                        setAllowDuplicateInspection = container.setAllowDuplicateInspectionUseCase,
+                                        resetData = container.resetDataUseCase,
+                                        getLines = container.getLinesUseCase,
+                                        getDevQcLine = container.getDevQcLineUseCase,
+                                        setDevQcLine = container.setDevQcLineUseCase,
+                                        backupDatabase = container.backupDatabaseUseCase,
+                                        restoreDatabase = container.restoreDatabaseUseCase,
+                                        runLoadSimulation = { container.generateHighVolumeSimulation() },
+                                        clearCaches = { container.clearAppCaches() },
+                                        onResetCompleted = refreshData,
+                                        onRestoreCompleted = {
+                                            bootLoading = true
+                                            container.close()
+                                            container = AppContainer()
+                                        },
+                                    ),
+                            )
+                        }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ScrollableRouteContainer(content: @Composable () -> Unit) {
+    val scrollState = rememberScrollState()
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val viewportMaxHeight = if (maxHeight != Dp.Infinity) maxHeight else 1000.dp
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = viewportMaxHeight)
+                    .verticalScroll(scrollState),
+        ) {
+            content()
         }
     }
 }
