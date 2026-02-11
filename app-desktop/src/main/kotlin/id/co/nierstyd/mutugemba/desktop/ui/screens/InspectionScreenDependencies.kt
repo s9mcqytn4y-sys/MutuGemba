@@ -9,6 +9,7 @@ import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetPartsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetShiftsUseCase
 import id.co.nierstyd.mutugemba.usecase.SaveInspectionDefaultsUseCase
+import id.co.nierstyd.mutugemba.usecase.UpsertDefectTypeUseCase
 
 data class InspectionDefaultsUseCases(
     val getDefaults: GetInspectionDefaultsUseCase,
@@ -24,6 +25,7 @@ data class MasterDataUseCaseBundle(
     val getShifts: GetShiftsUseCase,
     val getParts: GetPartsUseCase,
     val getDefectTypes: GetDefectTypesUseCase,
+    val upsertDefectType: UpsertDefectTypeUseCase,
 )
 
 data class InspectionScreenDependencies(

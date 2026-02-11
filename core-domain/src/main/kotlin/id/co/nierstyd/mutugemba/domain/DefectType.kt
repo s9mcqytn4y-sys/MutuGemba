@@ -6,4 +6,5 @@ data class DefectType(
     val name: String,
     val category: String,
     val severity: DefectSeverity,
+    val lineCode: LineCode? = null,
 )

@@ -168,6 +168,7 @@ fun MutuGembaApp() {
                                         getShifts = container.getShiftsUseCase,
                                         getParts = container.getPartsUseCase,
                                         getDefectTypes = container.getDefectTypesUseCase,
+                                        upsertDefectType = container.upsertDefectTypeUseCase,
                                     ),
                             ),
                         onRecordsSaved = { refreshData() },

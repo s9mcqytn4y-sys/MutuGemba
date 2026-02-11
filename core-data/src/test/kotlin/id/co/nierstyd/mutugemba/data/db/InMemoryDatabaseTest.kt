@@ -1,5 +1,6 @@
 package id.co.nierstyd.mutugemba.data.db
 
+import id.co.nierstyd.mutugemba.domain.LineCode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -27,5 +28,16 @@ class InMemoryDatabaseTest {
             )
         }
     }
-}
 
+    @Test
+    fun upsertDefectType_preventsDuplicateAndKeepsLineScope() {
+        val db = InMemoryDatabase(Files.createTempFile("mutugemba-test", ".db"))
+
+        val first = db.upsertDefectType("Kerutan Kritis", LineCode.PRESS)
+        val second = db.upsertDefectType("KERUTAN KRITIS", LineCode.PRESS)
+
+        assertEquals(first.id, second.id)
+        assertEquals(LineCode.PRESS, first.lineCode)
+        assertTrue(db.defectTypes.any { it.id == first.id && it.category == "CUSTOM" })
+    }
+}

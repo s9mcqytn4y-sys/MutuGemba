@@ -1,4 +1,4 @@
-package id.co.nierstyd.mutugemba.desktop.ui.screens
+﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -127,19 +127,32 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                 .flatMapLatest { filter -> dependencies.observeParts.execute(filter) }
         }
     val parts by partsFlow.collectAsState(initial = emptyList())
+    val catalogFlow =
+        remember(dependencies, selectedMonth) {
+            dependencies.observeParts.execute(
+                PartFilter(
+                    lineCode = null,
+                    modelCode = null,
+                    search = null,
+                    year = selectedMonth.year,
+                    month = selectedMonth.monthValue,
+                ),
+            )
+        }
+    val catalogParts by catalogFlow.collectAsState(initial = emptyList())
     val lineOptions =
-        remember(parts) {
+        remember(catalogParts) {
             listOf(DropdownOption(-1, "Semua")) +
-                parts
+                catalogParts
                     .map { it.lineCode }
                     .distinct()
                     .sorted()
                     .map { DropdownOption(it.hashCode().toLong(), it) }
         }
     val modelOptions =
-        remember(parts) {
+        remember(catalogParts) {
             listOf(DropdownOption(-1, "Semua")) +
-                parts
+                catalogParts
                     .flatMap { it.modelCodes }
                     .distinct()
                     .sorted()
@@ -172,9 +185,8 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
 
     val thumbnailMap = remember { mutableStateMapOf<String, ImageBitmap?>() }
     LaunchedEffect(parts) {
-        val target = parts.take(24)
         withContext(Dispatchers.IO) {
-            target.forEach { part ->
+            parts.forEach { part ->
                 if (thumbnailMap.containsKey(part.uniqNo)) return@forEach
                 val ref = dependencies.getActiveImageRef.execute(part.uniqNo)
                 val bytes = ref?.let { dependencies.loadImageBytes.execute(it) }
@@ -561,9 +573,9 @@ private fun PartDetailContent(
             detail.materialDefectRisks.take(8).forEach { risk ->
                 Text(
                     text =
-                        "${risk.defectName} • ${risk.sourceLine.uppercase()} • score ${"%.2f".format(
+                        "${risk.defectName} | ${risk.sourceLine.uppercase()} | score ${"%.2f".format(
                             risk.riskScore,
-                        )} • ${risk.affectedParts} part",
+                        )} | ${risk.affectedParts} part",
                     style = MaterialTheme.typography.caption,
                 )
             }

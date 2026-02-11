@@ -35,7 +35,6 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.CompactNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
-import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
@@ -68,7 +67,7 @@ internal fun PartChecksheetCard(
     onTotalCheckChanged: (String) -> Unit,
     onDefectSlotChanged: (Long, InspectionTimeSlot, String) -> Unit,
 ) {
-    val borderColor = if (expanded) BrandBlue else NeutralBorder
+    val borderColor = if (expanded) MaterialTheme.colors.primary else NeutralBorder
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralSurface,
@@ -175,12 +174,7 @@ private fun PartHeader(
         ) {
             PartImage(picturePath = part.picturePath)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = part.name, style = MaterialTheme.typography.h6)
-                AppBadge(
-                    text = "UNIQ ${part.uniqCode}",
-                    backgroundColor = BrandBlue.copy(alpha = 0.12f),
-                    contentColor = BrandBlue,
-                )
+                Text(text = "(${part.uniqCode}) ${part.name}", style = MaterialTheme.typography.h6)
                 Text(
                     text = "Part Number ${part.partNumber}",
                     style = MaterialTheme.typography.body2,
@@ -193,7 +187,11 @@ private fun PartHeader(
                 )
                 PartStatusBadge(status = status, hasInput = hasInput)
             }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Column(
+                modifier = Modifier.width(140.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
                 Text(
                     text = AppStrings.Inspection.CheckLabel,
                     style = MaterialTheme.typography.caption,
@@ -281,7 +279,7 @@ private fun PartStatChip(
 private fun PartImage(picturePath: String?) {
     val bitmap = rememberImageBitmap(picturePath)
     Surface(
-        modifier = Modifier.size(96.dp),
+        modifier = Modifier.width(128.dp).height(104.dp),
         color = NeutralLight,
         shape = MaterialTheme.shapes.small,
         border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
@@ -294,7 +292,8 @@ private fun PartImage(picturePath: String?) {
                 androidx.compose.foundation.Image(
                     bitmap = bitmap,
                     contentDescription = AppStrings.Inspection.PartImageDescription,
-                    modifier = Modifier.size(88.dp),
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.xs),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                 )
             }
         }

@@ -8,4 +8,9 @@ interface MasterDataRepository {
     fun getParts(): List<Part>
 
     fun getDefectTypes(): List<DefectType>
+
+    fun upsertDefectType(
+        name: String,
+        lineCode: LineCode,
+    ): DefectType
 }

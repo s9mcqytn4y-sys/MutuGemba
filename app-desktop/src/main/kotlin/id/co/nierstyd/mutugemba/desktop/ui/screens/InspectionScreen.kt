@@ -1,6 +1,5 @@
 package id.co.nierstyd.mutugemba.desktop.ui.screens
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,8 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
-import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
-import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
+import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
@@ -64,7 +63,6 @@ import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InspectionScreen(
     dependencies: InspectionScreenDependencies,
@@ -82,7 +80,6 @@ fun InspectionScreen(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun InspectionScreenContent(
     state: InspectionFormState,
@@ -147,11 +144,26 @@ private fun InspectionScreenContent(
 
         item {
             InspectionSelectorCard(
-                lineOptions = state.lineOptions,
-                selectedLineOption = state.selectedLineOption,
-                onLineSelected = state::onLineSelected,
+                lineName = state.selectedLineName,
+                lineCode = state.selectedLineCodeName,
                 lineHint = state.lineHint,
                 allowDuplicate = state.isDuplicateAllowed(),
+            )
+        }
+
+        item {
+            InspectionSearchCard(
+                value = state.partSearch,
+                onValueChange = state::onPartSearchChanged,
+            )
+        }
+
+        item {
+            CustomDefectInputCard(
+                value = state.customDefectInput,
+                onValueChange = state::onCustomDefectInputChanged,
+                onAdd = state::addCustomDefectType,
+                currentLine = state.selectedLineName,
             )
         }
 
@@ -162,7 +174,7 @@ private fun InspectionScreenContent(
             )
         }
 
-        stickyHeader {
+        item {
             SummaryStickyBar(
                 summary = state.summaryTotals,
             )
@@ -233,6 +245,10 @@ private class InspectionFormState(
     var defectTypes by mutableStateOf(emptyList<DefectType>())
         private set
     private var selectedLineId by mutableStateOf<Long?>(defaults.lineId)
+    var partSearch by mutableStateOf("")
+        private set
+    var customDefectInput by mutableStateOf("")
+        private set
 
     var feedback by mutableStateOf<UserFeedback?>(null)
         private set
@@ -244,9 +260,6 @@ private class InspectionFormState(
     private val expandedPartIds = mutableStateMapOf<Long, Boolean>()
 
     val today = java.time.LocalDate.now()
-
-    val lineOptions: List<DropdownOption>
-        get() = lines.map { DropdownOption(it.id, it.name) }
 
     val lineHint: String
         get() {
@@ -263,8 +276,11 @@ private class InspectionFormState(
 
     val picName: String = InspectionInputDefaults.DEFAULT_PIC_NAME
 
-    val selectedLineOption: DropdownOption?
-        get() = selectedLine?.let { DropdownOption(it.id, it.name) }
+    val selectedLineName: String
+        get() = selectedLine?.name ?: AppStrings.Common.Placeholder
+
+    val selectedLineCodeName: String
+        get() = selectedLine?.code?.label ?: AppStrings.Common.Placeholder
 
     val shiftLabel: String
         get() = selectedShift?.let { "${it.code} • ${it.name}" } ?: AppStrings.Inspection.DefaultShiftLabel
@@ -325,17 +341,25 @@ private class InspectionFormState(
         ensureInputs()
     }
 
-    fun onLineSelected(option: DropdownOption) {
-        selectedLineId = option.id
-        ensureInputs()
-    }
-
     fun partsForLine(): List<Part> {
         val line = selectedLine
         return if (line == null) {
             emptyList()
         } else {
-            parts.filter { it.lineCode == line.code }
+            parts
+                .filter { it.lineCode == line.code }
+                .filter { part ->
+                    val keyword = partSearch.trim()
+                    if (keyword.isBlank()) {
+                        true
+                    } else {
+                        val k = keyword.lowercase()
+                        part.uniqCode.lowercase().contains(k) ||
+                            part.partNumber.lowercase().contains(k) ||
+                            part.name.lowercase().contains(k) ||
+                            part.material.lowercase().contains(k)
+                    }
+                }
         }
     }
 
@@ -343,12 +367,21 @@ private class InspectionFormState(
 
     fun defectTypesForPart(partId: Long): List<DefectType> {
         val part = parts.firstOrNull { it.id == partId } ?: return defectTypes
-        if (part.recommendedDefectCodes.isEmpty()) return defectTypes
         val mapped =
             part.recommendedDefectCodes
                 .mapNotNull { code -> defectTypes.firstOrNull { it.code == code } }
                 .distinctBy { it.id }
-        return if (mapped.isNotEmpty()) mapped else defectTypes
+        val customForLine =
+            defectTypes
+                .filter { it.category == "CUSTOM" }
+                .filter { it.lineCode == null || it.lineCode == part.lineCode }
+                .sortedBy { it.name }
+        if (mapped.isNotEmpty()) {
+            return (mapped + customForLine).distinctBy { it.id }
+        }
+        return defectTypes
+            .filter { it.lineCode == null || it.lineCode == part.lineCode }
+            .sortedBy { it.name }
     }
 
     fun totalDefectQuantity(partId: Long): Int = defectTypesForPart(partId).sumOf { defectRowTotal(partId, it.id) }
@@ -391,6 +424,33 @@ private class InspectionFormState(
         value: String,
     ) {
         defectSlotInputs[PartDefectSlotKey(partId, defectId, slot)] = sanitizeCountInput(value)
+    }
+
+    fun onPartSearchChanged(value: String) {
+        partSearch = value
+    }
+
+    fun onCustomDefectInputChanged(value: String) {
+        customDefectInput = value.take(80)
+    }
+
+    fun addCustomDefectType() {
+        val line =
+            selectedLine
+                ?: run {
+                    feedback = UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.ErrorLineRequired)
+                    return
+                }
+        val normalized = customDefectInput.trim()
+        if (normalized.isBlank()) {
+            feedback = UserFeedback(FeedbackType.WARNING, AppStrings.Inspection.CustomDefectEmpty)
+            return
+        }
+        dependencies.masterData.upsertDefectType.execute(normalized, line.code)
+        defectTypes = dependencies.masterData.getDefectTypes.execute()
+        ensureInputs()
+        customDefectInput = ""
+        feedback = UserFeedback(FeedbackType.SUCCESS, AppStrings.Inspection.customDefectAdded(normalized))
     }
 
     fun isExpanded(partId: Long): Boolean = expandedPartIds[partId] ?: false
@@ -541,7 +601,7 @@ private class InspectionFormState(
     }
 
     private fun syncSelections() {
-        selectedLineId = resolveSelection(selectedLineId, defaults.lineId, lines.map { it.id })
+        selectedLineId = resolveSelection(defaults.qcLineId, defaults.lineId, lines.map { it.id })
     }
 
     private fun ensureInputs() {
@@ -674,9 +734,8 @@ private fun IntroStepRow(
 
 @Composable
 private fun InspectionSelectorCard(
-    lineOptions: List<DropdownOption>,
-    selectedLineOption: DropdownOption?,
-    onLineSelected: (DropdownOption) -> Unit,
+    lineName: String,
+    lineCode: String,
     lineHint: String,
     allowDuplicate: Boolean,
 ) {
@@ -691,12 +750,21 @@ private fun InspectionSelectorCard(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            AppDropdown(
-                label = AppStrings.Inspection.LineTitle,
-                options = lineOptions,
-                selectedOption = selectedLineOption,
-                onSelected = onLineSelected,
-                helperText = lineHint,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppBadge(
+                    text = "QC LINE AKTIF",
+                    backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
+                    contentColor = MaterialTheme.colors.primary,
+                )
+                Text("$lineName ($lineCode)", style = MaterialTheme.typography.subtitle1, color = NeutralText)
+            }
+            Text(
+                text = lineHint,
+                style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
             )
             androidx.compose.material.Divider(color = NeutralBorder, thickness = 1.dp)
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -712,6 +780,90 @@ private fun sanitizeCountInput(raw: String): String {
     val digits = raw.filter { it.isDigit() }.take(5)
     if (digits.isBlank()) return ""
     return digits.trimStart('0').ifBlank { "0" }
+}
+
+@Composable
+private fun InspectionSearchCard(
+    value: String,
+    onValueChange: (String) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.medium,
+        elevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            AppTextField(
+                spec =
+                    FieldSpec(
+                        label = AppStrings.Inspection.SearchPartLabel,
+                        placeholder = AppStrings.Inspection.SearchPartPlaceholder,
+                        helperText = AppStrings.Inspection.SearchPartHint,
+                    ),
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CustomDefectInputCard(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onAdd: () -> Unit,
+    currentLine: String,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.medium,
+        elevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Text(
+                text = AppStrings.Inspection.CustomDefectTitle,
+                style = MaterialTheme.typography.subtitle2,
+                color = NeutralText,
+            )
+            Text(
+                text = AppStrings.Inspection.customDefectHint(currentLine),
+                style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppTextField(
+                    spec =
+                        FieldSpec(
+                            label = AppStrings.Inspection.CustomDefectLabel,
+                            placeholder = AppStrings.Inspection.CustomDefectPlaceholder,
+                        ),
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+                PrimaryButton(
+                    text = AppStrings.Inspection.CustomDefectAddButton,
+                    onClick = onAdd,
+                    enabled = value.isNotBlank(),
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -810,7 +962,6 @@ private fun SummaryStickyBar(summary: SummaryTotals) {
                 SummaryStatCompact(title = AppStrings.Inspection.TotalCheckLabel, value = summary.totalCheck.toString())
                 SummaryStatCompact(title = AppStrings.Inspection.TotalNgLabel, value = summary.totalDefect.toString())
                 SummaryStatCompact(title = AppStrings.Inspection.TotalOkLabel, value = summary.totalOk.toString())
-                SummaryStatCompact(title = AppStrings.Inspection.PartFilledLabel, value = summary.totalParts.toString())
             }
             val okRatio =
                 if (summary.totalCheck > 0) {

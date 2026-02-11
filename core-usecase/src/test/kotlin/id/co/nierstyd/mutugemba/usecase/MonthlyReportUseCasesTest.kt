@@ -223,4 +223,16 @@ private class FakeMasterRepository(
     override fun getParts(): List<Part> = emptyList()
 
     override fun getDefectTypes(): List<DefectType> = defectTypes
+
+    override fun upsertDefectType(
+        name: String,
+        lineCode: LineCode,
+    ): DefectType =
+        DefectType(
+            id = 999L,
+            code = name.uppercase(),
+            name = name,
+            category = "CUSTOM",
+            severity = DefectSeverity.NORMAL,
+        )
 }

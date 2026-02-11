@@ -39,6 +39,7 @@ import id.co.nierstyd.mutugemba.usecase.SaveManualHolidayDatesUseCase
 import id.co.nierstyd.mutugemba.usecase.SetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.SetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.SetLastVisitedPageUseCase
+import id.co.nierstyd.mutugemba.usecase.UpsertDefectTypeUseCase
 import id.co.nierstyd.mutugemba.usecase.asset.GetActiveImageRefUseCase
 import id.co.nierstyd.mutugemba.usecase.asset.LoadImageBytesUseCase
 import id.co.nierstyd.mutugemba.usecase.part.GetPartDetailUseCase
@@ -98,6 +99,7 @@ class AppContainer {
     val getShiftsUseCase = GetShiftsUseCase(masterDataRepository)
     val getPartsUseCase = GetPartsUseCase(masterDataRepository)
     val getDefectTypesUseCase = GetDefectTypesUseCase(masterDataRepository)
+    val upsertDefectTypeUseCase = UpsertDefectTypeUseCase(masterDataRepository)
     val resetDataUseCase =
         ResetDataUseCase(
             dataResetter,

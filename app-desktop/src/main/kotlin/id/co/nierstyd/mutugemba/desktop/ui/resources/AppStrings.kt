@@ -197,7 +197,7 @@ object AppStrings {
         const val MasterDataHint = "Part, material, dan item defect divalidasi dari data real (mapping + Daily NG)."
         const val LineHintDefault = "Part akan muncul otomatis sesuai line."
 
-        fun lineHintQc(lineName: String): String = "Line QC otomatis: $lineName (bisa diubah)."
+        fun lineHintQc(lineName: String): String = "Line QC otomatis: $lineName (dikunci dari Pengaturan)."
 
         fun totalCheckHelper(valid: Boolean): String =
             if (valid) {
@@ -235,6 +235,21 @@ object AppStrings {
         fun partRequired(): String = "Isi minimal satu part sebelum disimpan."
 
         fun lineRequired(): String = "Pilih line produksi terlebih dahulu."
+
+        const val SearchPartLabel = "Cari Part"
+        const val SearchPartPlaceholder = "Cari UNIQ / part number / nama / material"
+        const val SearchPartHint =
+            "Pencarian pintar: cocokkan kata kunci pada UNIQ, nama part, nomor part, dan material."
+
+        const val CustomDefectTitle = "Tambah Jenis NG"
+        const val CustomDefectLabel = "Jenis NG Tambahan"
+        const val CustomDefectPlaceholder = "Contoh: DIMENSI TIDAK SIMETRIS"
+        const val CustomDefectAddButton = "Tambah"
+        const val CustomDefectEmpty = "Isi nama Jenis NG terlebih dahulu."
+
+        fun customDefectHint(lineName: String): String = "Jenis NG baru akan diterapkan untuk line $lineName."
+
+        fun customDefectAdded(name: String): String = "Jenis NG '$name' berhasil ditambahkan."
 
         fun failedPartLine(
             partNumber: String,
