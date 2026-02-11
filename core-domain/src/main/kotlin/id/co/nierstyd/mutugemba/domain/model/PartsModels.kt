@@ -43,6 +43,13 @@ data class PartRequirement(
     val qtyKbn: Int,
 )
 
+data class PartMaterialDefectRisk(
+    val defectName: String,
+    val sourceLine: String,
+    val riskScore: Double,
+    val affectedParts: Int,
+)
+
 data class PartDetail(
     val partId: Long,
     val uniqNo: String,
@@ -52,6 +59,7 @@ data class PartDetail(
     val models: List<String>,
     val image: PartImage?,
     val materials: List<PartMaterialLayer>,
+    val materialDefectRisks: List<PartMaterialDefectRisk>,
     val requirements: List<PartRequirement>,
     val totalDefectMonthToDate: Int,
 )

@@ -17,6 +17,9 @@ DROP TABLE IF EXISTS part_model;
 DROP TABLE IF EXISTS model;
 DROP TABLE IF EXISTS part;
 DROP TABLE IF EXISTS production_line;
+DROP TABLE IF EXISTS material_item_defect_risk;
+DROP TABLE IF EXISTS part_item_defect_stat;
+DROP TABLE IF EXISTS item_defect;
 
 DROP TABLE IF EXISTS inspection_defect_slot;
 DROP TABLE IF EXISTS inspection_defect;
@@ -274,5 +277,47 @@ CREATE INDEX idx_qa_obs_report_part ON qa_part_defect_observation(qa_report_id, 
 CREATE INDEX idx_qa_obs_report_defect ON qa_part_defect_observation(qa_report_id, qa_defect_type_id);
 CREATE INDEX idx_qa_obs_part ON qa_part_defect_observation(part_id);
 
-PRAGMA user_version = 10;
+CREATE TABLE item_defect (
+  item_defect_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  defect_name TEXT NOT NULL,
+  defect_name_norm TEXT NOT NULL UNIQUE,
+  source_line TEXT NOT NULL CHECK (source_line IN ('press', 'sewing', 'mixed')),
+  source_json TEXT
+);
+
+CREATE INDEX idx_item_defect_line ON item_defect(source_line);
+
+CREATE TABLE part_item_defect_stat (
+  part_id INTEGER NOT NULL,
+  item_defect_id INTEGER NOT NULL,
+  source_line TEXT NOT NULL CHECK (source_line IN ('press', 'sewing', 'mixed')),
+  occurrence_qty INTEGER NOT NULL DEFAULT 0 CHECK (occurrence_qty >= 0),
+  affected_days INTEGER NOT NULL DEFAULT 0 CHECK (affected_days >= 0),
+  last_seen_date TEXT,
+  PRIMARY KEY (part_id, item_defect_id, source_line),
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (item_defect_id) REFERENCES item_defect(item_defect_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_part_item_defect_item ON part_item_defect_stat(item_defect_id);
+CREATE INDEX idx_part_item_defect_line ON part_item_defect_stat(source_line);
+
+CREATE TABLE material_item_defect_risk (
+  material_item_defect_risk_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  material_id INTEGER NOT NULL,
+  item_defect_id INTEGER NOT NULL,
+  source_line TEXT NOT NULL CHECK (source_line IN ('press', 'sewing', 'mixed')),
+  risk_score REAL NOT NULL CHECK (risk_score >= 0),
+  affected_parts INTEGER NOT NULL DEFAULT 0 CHECK (affected_parts >= 0),
+  sample_size INTEGER NOT NULL DEFAULT 0 CHECK (sample_size >= 0),
+  UNIQUE (material_id, item_defect_id, source_line),
+  FOREIGN KEY (material_id) REFERENCES material(material_id) ON DELETE CASCADE,
+  FOREIGN KEY (item_defect_id) REFERENCES item_defect(item_defect_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_material_defect_risk_item ON material_item_defect_risk(item_defect_id);
+CREATE INDEX idx_material_defect_risk_material ON material_item_defect_risk(material_id);
+CREATE INDEX idx_material_defect_risk_line ON material_item_defect_risk(source_line);
+
+PRAGMA user_version = 11;
 PRAGMA foreign_keys = ON;

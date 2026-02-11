@@ -42,6 +42,6 @@ class SqliteDatabaseMigrationTest {
             }
 
         assertTrue(hasPartTable)
-        assertEquals(10, userVersion)
+        assertEquals(11, userVersion)
     }
 }

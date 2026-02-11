@@ -45,6 +45,8 @@ import id.co.nierstyd.mutugemba.usecase.part.GetPartDetailUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ObservePartsUseCase
 import id.co.nierstyd.mutugemba.usecase.qa.GetDefectHeatmapUseCase
 import id.co.nierstyd.mutugemba.usecase.qa.GetTopDefectsPerModelMonthlyUseCase
+import java.nio.file.Path
+import java.nio.file.Paths
 import id.co.nierstyd.mutugemba.data.local.db.DatabaseFactory as MappingDatabaseFactory
 
 class AppContainer {
@@ -112,11 +114,23 @@ class AppContainer {
     val loadImageBytesUseCase = LoadImageBytesUseCase(assetRepository)
 
     init {
-        partZipBootstrapper.bootstrapFromExtractedDirIfEmpty(AppDataPaths.defaultPartAssetsExtractedDir())
-            ?: partZipBootstrapper.bootstrapFromZipIfEmpty(AppDataPaths.defaultPartAssetsZip())
+        bootstrapPartDomainFromExtracted()
     }
 
     fun close() {
         databaseHandle.driver.close()
+    }
+
+    private fun bootstrapPartDomainFromExtracted() {
+        val candidates =
+            listOf(
+                AppDataPaths.defaultPartAssetsExtractedDir(),
+                AppDataPaths.projectPartAssetsDir().resolve("extracted"),
+                Paths.get("data", "part_assets", "extracted").toAbsolutePath().normalize(),
+            ).distinct()
+        candidates.forEach { candidate: Path ->
+            val imported = partZipBootstrapper.bootstrapFromExtractedDirIfEmpty(candidate)
+            if (imported != null) return
+        }
     }
 }

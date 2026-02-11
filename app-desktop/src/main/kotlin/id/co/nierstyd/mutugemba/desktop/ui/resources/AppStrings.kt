@@ -1,4 +1,4 @@
-@file:Suppress("ConstPropertyName")
+﻿@file:Suppress("ConstPropertyName")
 
 package id.co.nierstyd.mutugemba.desktop.ui.resources
 
@@ -68,7 +68,7 @@ object AppStrings {
         fun dateRange(
             start: Int,
             end: Int,
-        ): String = "Tanggal $start–$end"
+        ): String = "Tanggal $start-$end"
 
         fun monthlyTitle(month: YearMonth): String = "Bulan $month"
     }
@@ -126,7 +126,7 @@ object AppStrings {
         const val LineStatusNotInput = "Belum Input"
         const val LineStatusDone = "Sudah Input"
 
-        fun summaryDateLabel(dateLabel: String): String = "Tanggal $dateLabel • Data terakumulasi sepanjang shift."
+        fun summaryDateLabel(dateLabel: String): String = "Tanggal $dateLabel - Data terakumulasi sepanjang shift."
 
         fun lineStatusSubtitle(date: String): String = "Ringkasan checksheet per line ($date)."
 
@@ -153,9 +153,9 @@ object AppStrings {
         const val Title = "Input Inspeksi Harian"
         const val Subtitle = "Masukkan data checksheet harian secara cepat dan terstruktur."
         const val IntroTitle = "Panduan Singkat"
-        const val IntroStep1 = "Pilih line produksi yang akan diinput hari ini."
-        const val IntroStep2 = "Isi part yang diproduksi. Part lainnya boleh dibiarkan kosong."
-        const val IntroStep3 = "Konfirmasi dan simpan agar data tercatat sebagai dokumen harian."
+        const val IntroStep1 = "Pilih line produksi dan tanggal kerja aktual."
+        const val IntroStep2 = "Isi hanya part yang benar-benar diproduksi, wajib isi total check."
+        const val IntroStep3 = "Verifikasi ringkasan OK/NG lalu simpan final."
         const val ContextTitle = "Konteks Inspeksi"
         const val ContextSubtitle = "Pastikan tanggal dan shift sesuai kondisi produksi hari ini."
         const val ContextBanner =
@@ -194,7 +194,7 @@ object AppStrings {
         const val DuplicateHintOn = "Aturan input ulang hari yang sama tidak aktif."
         const val DuplicateHintOff = "Aturan input ulang hari yang sama aktif."
         const val MasterDataHintTitle = "INFO"
-        const val MasterDataHint = "Part dan jenis NG diambil dari master data. Hubungi admin bila ada perubahan."
+        const val MasterDataHint = "Part, material, dan item defect divalidasi dari data real (mapping + Daily NG)."
         const val LineHintDefault = "Part akan muncul otomatis sesuai line."
 
         fun lineHintQc(lineName: String): String = "Line QC otomatis: $lineName (bisa diubah)."
@@ -209,21 +209,21 @@ object AppStrings {
         fun partHeaderLabel(
             partNumber: String,
             uniqCode: String,
-        ): String = "$partNumber • UNIQ $uniqCode"
+        ): String = "$partNumber - UNIQ $uniqCode"
 
         fun partStatus(label: String): String = label
 
         fun partTotals(
             totalNg: Int,
             totalOk: Int,
-        ): String = "NG $totalNg • OK $totalOk"
+        ): String = "NG $totalNg - OK $totalOk"
 
         fun toggleDetail(expanded: Boolean): String = if (expanded) "Sembunyikan" else "Buka"
 
         fun partSummaryItem(
             partNumber: String,
             partName: String,
-        ): String = "$partNumber • $partName"
+        ): String = "$partNumber - $partName"
 
         fun summaryRatioTitle(
             left: String,
@@ -240,7 +240,7 @@ object AppStrings {
             partNumber: String,
             partName: String,
             reason: String,
-        ): String = "• $partNumber $partName — $reason"
+        ): String = "- $partNumber $partName : $reason"
 
         fun partialSaveFailed(details: String): String = "Sebagian data gagal disimpan:\n$details"
 
@@ -317,12 +317,12 @@ object AppStrings {
         const val DailyDocumentSubtitle = "Tampilan dokumen untuk tanggal yang dipilih."
         const val MonthRangeLabel = "Tanggal"
 
-        fun historyMonthLabel(label: String): String = "Bulan $label • Riwayat bersifat read-only."
+        fun historyMonthLabel(label: String): String = "Bulan $label - Riwayat bersifat read-only."
 
         fun monthlyRangeLabel(
             start: Int,
             end: Int,
-        ): String = "Tanggal $start–$end"
+        ): String = "Tanggal $start-$end"
 
         fun pageLabel(
             current: Int,
@@ -348,7 +348,7 @@ object AppStrings {
         fun ngCheckTooltip(
             totalDefect: Int,
             totalCheck: Int,
-        ): String = "NG $totalDefect • Periksa $totalCheck"
+        ): String = "NG $totalDefect - Periksa $totalCheck"
 
         fun ngCountLabel(totalDefect: Int): String = "NG $totalDefect"
 
@@ -437,7 +437,7 @@ object AppStrings {
 
     object PartMapping {
         const val Title = "Manajemen Part Produksi"
-        const val Subtitle = "Data part asli dari mapping ZIP + assets PNG terintegrasi (offline)."
+        const val Subtitle = "Data part asli tervalidasi dari mapping + screening Daily NG Press/Sewing."
         const val Filters = "Filter Part"
         const val SearchLabel = "Cari UNIQ / part number / nama"
         const val LineLabel = "Line"
@@ -446,7 +446,7 @@ object AppStrings {
         const val PartListTitle = "Daftar Part"
         const val DetailTitle = "Detail Part"
         const val DashboardTitle = "Dashboard Defect"
-        const val EmptyParts = "Belum ada part. Pastikan ZIP tersedia di folder Downloads."
+        const val EmptyParts = "Belum ada part. Pastikan data tersedia di data/part_assets/extracted."
         const val EmptyDetail = "Pilih salah satu part untuk melihat detail."
         const val TopDefects = "Top Defects per Model"
         const val Heatmap = "Heatmap Tanggal vs Defect"

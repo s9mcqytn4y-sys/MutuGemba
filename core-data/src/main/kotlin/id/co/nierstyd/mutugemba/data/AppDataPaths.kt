@@ -33,17 +33,27 @@ object AppDataPaths {
             .toAbsolutePath()
             .normalize()
 
-    fun defaultPartAssetsExtractedDir(): Path = projectPartAssetsDir().resolve("extracted")
-
-    fun defaultPartAssetsZip(): Path =
-        projectPartAssetsDir().resolve("Part_Assets_Export.zip").let { projectZip ->
-            if (Files.exists(projectZip)) {
-                projectZip
-            } else {
-                Paths
-                    .get(System.getProperty("user.home", "."), "Downloads", "Part_Assets_Export.zip")
-                    .toAbsolutePath()
-                    .normalize()
-            }
+    fun defaultPartAssetsExtractedDir(): Path {
+        val cwd = Paths.get(System.getProperty("user.dir", ".")).toAbsolutePath().normalize()
+        val candidates = mutableListOf<Path>()
+        var cursor: Path? = cwd
+        repeat(8) {
+            val base = cursor ?: return@repeat
+            candidates.add(
+                base
+                    .resolve("data")
+                    .resolve("part_assets")
+                    .resolve("extracted")
+                    .normalize(),
+            )
+            cursor = base.parent
         }
+        return candidates.firstOrNull { candidate ->
+            Files.exists(candidate.resolve("mappings").resolve("mapping.json"))
+        } ?: cwd
+            .resolve("data")
+            .resolve("part_assets")
+            .resolve("extracted")
+            .normalize()
+    }
 }

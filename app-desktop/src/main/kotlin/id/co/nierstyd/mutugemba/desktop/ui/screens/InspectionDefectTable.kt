@@ -48,6 +48,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionTimeSlot
 import id.co.nierstyd.mutugemba.domain.Part
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -175,9 +176,19 @@ private fun PartHeader(
             PartImage(picturePath = part.picturePath)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(text = part.name, style = MaterialTheme.typography.h6)
+                AppBadge(
+                    text = "UNIQ ${part.uniqCode}",
+                    backgroundColor = BrandBlue.copy(alpha = 0.12f),
+                    contentColor = BrandBlue,
+                )
                 Text(
-                    text = AppStrings.Inspection.partHeaderLabel(part.partNumber, part.uniqCode),
-                    style = MaterialTheme.typography.body1,
+                    text = "Part Number ${part.partNumber}",
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
+                Text(
+                    text = "Material ${part.material}",
+                    style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
                 PartStatusBadge(status = status, hasInput = hasInput)
@@ -297,14 +308,28 @@ private fun rememberImageBitmap(path: String?): ImageBitmap? =
             if (path.isNullOrBlank()) {
                 null
             } else {
-                val normalized = Paths.get(path)
+                val normalized =
+                    if (Paths.get(path).isAbsolute) {
+                        Paths.get(path)
+                    } else {
+                        Paths.get(System.getProperty("user.dir", "."), path).normalize()
+                    }
                 if (Files.exists(normalized)) {
                     val bytes = Files.readAllBytes(normalized)
                     org.jetbrains.skia.Image
                         .makeFromEncoded(bytes)
                         .toComposeImageBitmap()
                 } else {
-                    null
+                    // Fallback for legacy relative path in extracted assets.
+                    val legacy = File(System.getProperty("user.dir", "."), path).toPath().normalize()
+                    if (Files.exists(legacy)) {
+                        val bytes = Files.readAllBytes(legacy)
+                        org.jetbrains.skia.Image
+                            .makeFromEncoded(bytes)
+                            .toComposeImageBitmap()
+                    } else {
+                        null
+                    }
                 }
             }
         } catch (ex: Exception) {
@@ -349,7 +374,7 @@ private fun DefectTableGrid(
             Column(modifier = Modifier.fillMaxWidth()) {
                 defectTypes.forEach { defect ->
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        TableCell(text = defect.name, weight = 1.4f)
+                        TableCell(text = normalizeDefectName(defect.name), weight = 1.4f)
                         timeSlots.forEach { slot ->
                             TableInputCell(
                                 value = slotValue(defect.id, slot),
@@ -371,6 +396,13 @@ private fun DefectTableGrid(
             TableFooterCell(text = totalNg.toString(), weight = 0.7f, alignCenter = true)
         }
     }
+}
+
+private fun normalizeDefectName(raw: String): String {
+    val compact = raw.trim().replace("\\s+".toRegex(), " ")
+    return compact
+        .replace("^\\([^)]+\\)\\s*".toRegex(), "")
+        .replace("\\s+[A-Z]$".toRegex(), "")
 }
 
 @Composable

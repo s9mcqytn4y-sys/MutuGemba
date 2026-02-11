@@ -30,7 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
-import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
@@ -176,7 +176,7 @@ private fun InspectionScreenContent(
             items(items = parts, key = { it.id }) { part ->
                 PartChecksheetCard(
                     part = part,
-                    defectTypes = state.defectTypes,
+                    defectTypes = state.defectTypesForPart(part.id),
                     timeSlots = state.timeSlots,
                     totalCheckInput = state.totalCheckInput(part.id),
                     totalDefect = state.totalDefectQuantity(part.id),
@@ -341,7 +341,17 @@ private class InspectionFormState(
 
     fun totalCheckInput(partId: Long): String = totalCheckInputs[partId] ?: ""
 
-    fun totalDefectQuantity(partId: Long): Int = defectTypes.sumOf { defectRowTotal(partId, it.id) }
+    fun defectTypesForPart(partId: Long): List<DefectType> {
+        val part = parts.firstOrNull { it.id == partId } ?: return defectTypes
+        if (part.recommendedDefectCodes.isEmpty()) return defectTypes
+        val mapped =
+            part.recommendedDefectCodes
+                .mapNotNull { code -> defectTypes.firstOrNull { it.code == code } }
+                .distinctBy { it.id }
+        return if (mapped.isNotEmpty()) mapped else defectTypes
+    }
+
+    fun totalDefectQuantity(partId: Long): Int = defectTypesForPart(partId).sumOf { defectRowTotal(partId, it.id) }
 
     fun totalOk(partId: Long): Int {
         val totalCheck = totalCheckInputs[partId]?.toIntOrNull() ?: 0
@@ -371,7 +381,7 @@ private class InspectionFormState(
         partId: Long,
         value: String,
     ) {
-        totalCheckInputs[partId] = value
+        totalCheckInputs[partId] = sanitizeCountInput(value)
     }
 
     fun onDefectSlotChanged(
@@ -380,7 +390,7 @@ private class InspectionFormState(
         slot: InspectionTimeSlot,
         value: String,
     ) {
-        defectSlotInputs[PartDefectSlotKey(partId, defectId, slot)] = value
+        defectSlotInputs[PartDefectSlotKey(partId, defectId, slot)] = sanitizeCountInput(value)
     }
 
     fun isExpanded(partId: Long): Boolean = expandedPartIds[partId] ?: false
@@ -490,7 +500,7 @@ private class InspectionFormState(
     }
 
     private fun buildDefectEntries(partId: Long): List<InspectionDefectEntry> =
-        defectTypes.mapNotNull { defect ->
+        defectTypesForPart(partId).mapNotNull { defect ->
             val slots =
                 timeSlots.mapNotNull { slot ->
                     val quantity = slotQuantity(partId, defect.id, slot)
@@ -542,16 +552,18 @@ private class InspectionFormState(
         validPartIds.forEach { partId ->
             totalCheckInputs.putIfAbsent(partId, "")
             expandedPartIds.putIfAbsent(partId, false)
+            val activeDefectIds = defectTypesForPart(partId).map { it.id }.toSet()
+            defectSlotInputs.keys
+                .filter { it.partId == partId && it.defectTypeId !in activeDefectIds }
+                .forEach { defectSlotInputs.remove(it) }
+            activeDefectIds.forEach { defectId ->
+                timeSlots.forEach { slot ->
+                    defectSlotInputs.putIfAbsent(PartDefectSlotKey(partId, defectId, slot), "")
+                }
+            }
         }
         if (expandedPartIds.values.none { it } && validPartIds.isNotEmpty()) {
             expandedPartIds[validPartIds.first()] = true
-        }
-        defectTypes.forEach { defect ->
-            validPartIds.forEach { partId ->
-                timeSlots.forEach { slot ->
-                    defectSlotInputs.putIfAbsent(PartDefectSlotKey(partId, defect.id, slot), "")
-                }
-            }
         }
     }
 
@@ -679,10 +691,10 @@ private fun InspectionSelectorCard(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            AppRadioGroup(
+            AppDropdown(
                 label = AppStrings.Inspection.LineTitle,
                 options = lineOptions,
-                selectedId = selectedLineOption?.id,
+                selectedOption = selectedLineOption,
                 onSelected = onLineSelected,
                 helperText = lineHint,
             )
@@ -694,6 +706,12 @@ private fun InspectionSelectorCard(
             }
         }
     }
+}
+
+private fun sanitizeCountInput(raw: String): String {
+    val digits = raw.filter { it.isDigit() }.take(5)
+    if (digits.isBlank()) return ""
+    return digits.trimStart('0').ifBlank { "0" }
 }
 
 @Composable

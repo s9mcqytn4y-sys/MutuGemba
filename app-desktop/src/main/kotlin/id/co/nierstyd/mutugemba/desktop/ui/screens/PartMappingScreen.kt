@@ -44,6 +44,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
+import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -125,6 +127,24 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                 .flatMapLatest { filter -> dependencies.observeParts.execute(filter) }
         }
     val parts by partsFlow.collectAsState(initial = emptyList())
+    val lineOptions =
+        remember(parts) {
+            listOf(DropdownOption(-1, "Semua")) +
+                parts
+                    .map { it.lineCode }
+                    .distinct()
+                    .sorted()
+                    .map { DropdownOption(it.hashCode().toLong(), it) }
+        }
+    val modelOptions =
+        remember(parts) {
+            listOf(DropdownOption(-1, "Semua")) +
+                parts
+                    .flatMap { it.modelCodes }
+                    .distinct()
+                    .sorted()
+                    .map { DropdownOption(it.hashCode().toLong(), it) }
+        }
 
     var selectedUniqNo by rememberSaveable { mutableStateOf<String?>(null) }
     var partDetail by remember { mutableStateOf<PartDetail?>(null) }
@@ -236,25 +256,33 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 OutlinedTextField(
-                    value = lineCode,
-                    onValueChange = { lineCode = it },
-                    label = { Text(AppStrings.PartMapping.LineLabel) },
-                    modifier = Modifier.weight(0.18f),
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = modelCode,
-                    onValueChange = { modelCode = it },
-                    label = { Text(AppStrings.PartMapping.ModelLabel) },
-                    modifier = Modifier.weight(0.18f),
-                    singleLine = true,
-                )
-                OutlinedTextField(
                     value = monthInput,
                     onValueChange = { monthInput = it },
                     label = { Text(AppStrings.PartMapping.MonthLabel) },
-                    modifier = Modifier.weight(0.2f),
+                    modifier = Modifier.weight(0.18f),
                     singleLine = true,
+                )
+                AppDropdown(
+                    label = AppStrings.PartMapping.LineLabel,
+                    options = lineOptions,
+                    selectedOption =
+                        lineOptions.firstOrNull {
+                            it.label.equals(lineCode, ignoreCase = true) ||
+                                (lineCode.isBlank() && it.id == -1L)
+                        },
+                    onSelected = { lineCode = if (it.id == -1L) "" else it.label },
+                    modifier = Modifier.weight(0.18f),
+                )
+                AppDropdown(
+                    label = AppStrings.PartMapping.ModelLabel,
+                    options = modelOptions,
+                    selectedOption =
+                        modelOptions.firstOrNull {
+                            it.label.equals(modelCode, ignoreCase = true) ||
+                                (modelCode.isBlank() && it.id == -1L)
+                        },
+                    onSelected = { modelCode = if (it.id == -1L) "" else it.label },
+                    modifier = Modifier.weight(0.2f),
                 )
                 OutlinedTextField(
                     value = search,
@@ -520,6 +548,22 @@ private fun PartDetailContent(
                         "gsm=${material.basisWeightGsm ?: "-"} | ${material.unit ?: "-"}"
                 Text(
                     text = materialLine,
+                    style = MaterialTheme.typography.caption,
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(Spacing.xs))
+        Text("Defect Risk x Material", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
+        if (detail.materialDefectRisks.isEmpty()) {
+            Text("-", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+        } else {
+            detail.materialDefectRisks.take(8).forEach { risk ->
+                Text(
+                    text =
+                        "${risk.defectName} • ${risk.sourceLine.uppercase()} • score ${"%.2f".format(
+                            risk.riskScore,
+                        )} • ${risk.affectedParts} part",
                     style = MaterialTheme.typography.caption,
                 )
             }

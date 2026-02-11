@@ -9,4 +9,5 @@ data class Part(
     val material: String,
     val picturePath: String?,
     val lineCode: LineCode,
+    val recommendedDefectCodes: List<String> = emptyList(),
 )
