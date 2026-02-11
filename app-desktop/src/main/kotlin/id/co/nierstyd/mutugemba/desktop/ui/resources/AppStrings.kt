@@ -8,7 +8,9 @@ import java.time.YearMonth
 object AppStrings {
     object App {
         const val Name = "MutuGemba"
-        const val WindowTitle = "MutuGemba - QC TPS"
+        const val WindowTitle = "MutuGemba - QC TPS v1.2.0"
+        const val IdentityTagline = "Platform QC TPS Offline"
+        const val BuildVersion = "v1.2.0"
         const val HeaderBadge = "QC TPS Harian"
         const val CompanyName = "PT. Primaraya Graha Nusantara"
         const val DepartmentName = "Quality Assurance Dept."
@@ -95,7 +97,7 @@ object AppStrings {
         const val PreviousMonth = "Bulan Sebelumnya"
         const val NextMonth = "Bulan Berikutnya"
         const val UseManualSelection = "Gunakan Pilihan Manual"
-        const val PopulatePartAssets = "Populate Data Part"
+        const val RunLoadSimulation = "Simulasi Beban Data"
         const val ClearCache = "Bersihkan Cache"
     }
 
@@ -447,7 +449,9 @@ object AppStrings {
         const val BackupHint = "Backup akan menyimpan database, settings, lampiran, dan assets image."
         const val RestoreHint = "Restore akan menggunakan backup terbaru (aplikasi perlu dibuka ulang)."
         const val DevToolsHint =
-            "Dev tools: populate ulang part dari data/part_assets/extracted dan bersihkan cache runtime."
+            "Dev tools: simulasi beban data untuk uji performa dan bersihkan cache runtime."
+        const val LoadSimulationBusy = "Menjalankan simulasi beban data..."
+        const val CacheBusy = "Membersihkan cache aplikasi..."
         const val ResetDialogTitle = "Reset Data"
         const val ResetDialogMessage = "Semua data inspeksi akan dihapus dan diisi ulang dengan data awal. Lanjutkan?"
         const val BackupSuccess = "Backup berhasil dibuat."
@@ -543,8 +547,10 @@ object AppStrings {
         const val DemoDisabled = "Mode demo dimatikan."
         const val DuplicateAllowed = "Input ulang hari yang sama diizinkan."
         const val DuplicateBlocked = "Input ulang hari yang sama diblokir."
-        const val PopulateSuccess = "Populate part assets berhasil dari folder extracted."
-        const val PopulateFailed = "Populate part assets gagal. Periksa folder extracted."
+
+        fun simulationInserted(inserted: Int): String = "Simulasi selesai. $inserted record inspeksi ditambahkan."
+
+        const val SimulationFailed = "Simulasi gagal dijalankan."
         const val CacheCleared = "Cache runtime berhasil dibersihkan."
         const val CacheClearFailed = "Gagal membersihkan cache runtime."
 

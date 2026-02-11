@@ -12,6 +12,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,12 +33,14 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +53,7 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
@@ -56,6 +61,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
+import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -82,8 +88,13 @@ import id.co.nierstyd.mutugemba.domain.Shift
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.InspectionDefaults
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.awt.KeyEventDispatcher
+import java.awt.KeyboardFocusManager
+import java.awt.event.KeyEvent
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -131,7 +142,43 @@ private fun InspectionScreenContent(
         focusRequester.requestFocus()
     }
 
-    Box(
+    val focusFirstResult by rememberUpdatedState(
+        newValue = {
+            searchResults.firstOrNull()?.let { part ->
+                showSearchModal = false
+                searchQuery = part.uniqCode
+                state.focusPart(part.id)
+                val targetIndex = parts.indexOfFirst { it.id == part.id }
+                if (targetIndex >= 0) {
+                    scope.launch {
+                        listState.animateScrollToItem((partItemStartIndex + targetIndex).coerceAtLeast(0))
+                    }
+                }
+            }
+        },
+    )
+    val openSearch by rememberUpdatedState(newValue = { showSearchModal = true })
+
+    DisposableEffect(Unit) {
+        val manager = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+        val dispatcher =
+            KeyEventDispatcher { event ->
+                if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
+                if (event.isControlDown && event.keyCode == KeyEvent.VK_K) {
+                    openSearch()
+                    return@KeyEventDispatcher true
+                }
+                if (showSearchModal && event.keyCode == KeyEvent.VK_ENTER) {
+                    focusFirstResult()
+                    return@KeyEventDispatcher true
+                }
+                false
+            }
+        manager.addKeyEventDispatcher(dispatcher)
+        onDispose { manager.removeKeyEventDispatcher(dispatcher) }
+    }
+
+    BoxWithConstraints(
         modifier =
             Modifier
                 .fillMaxHeight()
@@ -143,26 +190,20 @@ private fun InspectionScreenContent(
                         showSearchModal = true
                         true
                     } else if (event.type == KeyEventType.KeyDown && showSearchModal && event.key == Key.Enter) {
-                        searchResults.firstOrNull()?.let { part ->
-                            showSearchModal = false
-                            searchQuery = part.uniqCode
-                            state.focusPart(part.id)
-                            val targetIndex = parts.indexOfFirst { it.id == part.id }
-                            if (targetIndex >= 0) {
-                                scope.launch {
-                                    listState.animateScrollToItem((partItemStartIndex + targetIndex).coerceAtLeast(0))
-                                }
-                            }
-                        }
+                        focusFirstResult()
                         true
                     } else {
                         false
                     }
                 },
     ) {
+        val viewportMaxHeight = if (maxHeight != Dp.Infinity) maxHeight else 900.dp
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = viewportMaxHeight),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             item {
@@ -218,15 +259,6 @@ private fun InspectionScreenContent(
             }
 
             item {
-                CustomDefectInputCard(
-                    value = state.customDefectInput,
-                    onValueChange = state::onCustomDefectInputChanged,
-                    onAdd = state::addCustomDefectType,
-                    currentLine = state.selectedLineName,
-                )
-            }
-
-            item {
                 SectionLabel(
                     title = AppStrings.Inspection.PartTitle,
                     subtitle = AppStrings.Inspection.PartSubtitle,
@@ -235,7 +267,11 @@ private fun InspectionScreenContent(
 
             if (parts.isEmpty()) {
                 item {
-                    EmptyPartState()
+                    if (state.isMasterLoading) {
+                        InspectionLoadingState()
+                    } else {
+                        EmptyPartState()
+                    }
                 }
             } else {
                 items(items = parts, key = { it.id }) { part ->
@@ -252,6 +288,10 @@ private fun InspectionScreenContent(
                         status = state.partStatus(part.id),
                         onToggleExpanded = { state.toggleExpanded(part.id) },
                         onTotalCheckChanged = { state.onTotalCheckChanged(part.id, it) },
+                        customDefectInput = state.customDefectInput,
+                        onCustomDefectInputChanged = state::onCustomDefectInputChanged,
+                        onAddCustomDefect = state::addCustomDefectType,
+                        currentLine = state.selectedLineName,
                         onDefectSlotChanged = { defectId, slot, value ->
                             state.onDefectSlotChanged(part.id, defectId, slot, value)
                         },
@@ -326,6 +366,8 @@ private class InspectionFormState(
         private set
     private var selectedLineId by mutableStateOf<Long?>(defaults.lineId)
     var customDefectInput by mutableStateOf("")
+        private set
+    var isMasterLoading by mutableStateOf(false)
         private set
 
     var feedback by mutableStateOf<UserFeedback?>(null)
@@ -410,13 +452,24 @@ private class InspectionFormState(
     private val hasInvalidTotals: Boolean
         get() = partsForLine().any { isTotalCheckInvalid(it.id) }
 
-    fun loadMasterData() {
-        lines = dependencies.masterData.getLines.execute()
-        shifts = dependencies.masterData.getShifts.execute()
-        parts = dependencies.masterData.getParts.execute()
-        defectTypes = dependencies.masterData.getDefectTypes.execute()
+    suspend fun loadMasterData() {
+        isMasterLoading = true
+        val loaded =
+            withContext(Dispatchers.Default) {
+                MasterSnapshot(
+                    lines = dependencies.masterData.getLines.execute(),
+                    shifts = dependencies.masterData.getShifts.execute(),
+                    parts = dependencies.masterData.getParts.execute(),
+                    defectTypes = dependencies.masterData.getDefectTypes.execute(),
+                )
+            }
+        lines = loaded.lines
+        shifts = loaded.shifts
+        parts = loaded.parts
+        defectTypes = loaded.defectTypes
         syncSelections()
         ensureInputs()
+        isMasterLoading = false
     }
 
     fun partsForLine(): List<Part> {
@@ -718,6 +771,13 @@ private class InspectionFormState(
     }
 }
 
+private data class MasterSnapshot(
+    val lines: List<Line>,
+    val shifts: List<Shift>,
+    val parts: List<Part>,
+    val defectTypes: List<DefectType>,
+)
+
 @Composable
 private fun HeaderContextCard(
     dateLabel: String,
@@ -986,7 +1046,17 @@ private fun InspectionSearchModal(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(text = AppStrings.Inspection.SearchPartLabel, style = MaterialTheme.typography.subtitle1)
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = AppStrings.Inspection.SearchPartLabel,
+                                style = MaterialTheme.typography.subtitle1,
+                            )
+                            Text(
+                                text = "Cari cepat berdasarkan UNIQ, part number, nama, atau material.",
+                                style = MaterialTheme.typography.caption,
+                                color = NeutralTextMuted,
+                            )
+                        }
                         AppBadge(
                             text = "Ctrl+K",
                             backgroundColor = NeutralLight,
@@ -1011,6 +1081,11 @@ private fun InspectionSearchModal(
                             color = NeutralTextMuted,
                         )
                     } else {
+                        Text(
+                            text = "Hasil (${results.size}) - klik item atau tekan Enter untuk item teratas.",
+                            style = MaterialTheme.typography.caption,
+                            color = NeutralTextMuted,
+                        )
                         Column(
                             modifier = Modifier.fillMaxWidth().height(240.dp),
                             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
@@ -1062,59 +1137,6 @@ private fun SearchResultRow(
                     text = it,
                     style = MaterialTheme.typography.caption,
                     color = StatusInfo,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CustomDefectInputCard(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onAdd: () -> Unit,
-    currentLine: String,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = NeutralSurface,
-        shape = MaterialTheme.shapes.medium,
-        elevation = 0.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            Text(
-                text = AppStrings.Inspection.CustomDefectTitle,
-                style = MaterialTheme.typography.subtitle2,
-                color = NeutralText,
-            )
-            Text(
-                text = AppStrings.Inspection.customDefectHint(currentLine),
-                style = MaterialTheme.typography.body2,
-                color = NeutralTextMuted,
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AppTextField(
-                    spec =
-                        FieldSpec(
-                            label = AppStrings.Inspection.CustomDefectLabel,
-                            placeholder = AppStrings.Inspection.CustomDefectPlaceholder,
-                        ),
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-                PrimaryButton(
-                    text = AppStrings.Inspection.CustomDefectAddButton,
-                    onClick = onAdd,
-                    enabled = value.isNotBlank(),
                 )
             }
         }
@@ -1315,6 +1337,26 @@ private fun EmptyPartState() {
                 style = MaterialTheme.typography.body2,
                 color = NeutralTextMuted,
             )
+        }
+    }
+}
+
+@Composable
+private fun InspectionLoadingState() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.medium,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            SkeletonBlock(width = 240.dp, height = 14.dp, color = NeutralLight)
+            SkeletonBlock(width = 320.dp, height = 14.dp, color = NeutralLight)
+            SkeletonBlock(width = 280.dp, height = 14.dp, color = NeutralLight)
         }
     }
 }

@@ -47,6 +47,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
+import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
@@ -126,7 +127,8 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                 .debounce(250)
                 .flatMapLatest { filter -> dependencies.observeParts.execute(filter) }
         }
-    val parts by partsFlow.collectAsState(initial = emptyList())
+    val partsState by partsFlow.collectAsState(initial = null)
+    val parts = partsState ?: emptyList()
     val catalogFlow =
         remember(dependencies, selectedMonth) {
             dependencies.observeParts.execute(
@@ -184,14 +186,31 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     }
 
     val thumbnailMap = remember { mutableStateMapOf<String, ImageBitmap?>() }
+    var thumbnailLoading by remember { mutableStateOf(false) }
     LaunchedEffect(parts) {
-        withContext(Dispatchers.IO) {
-            parts.forEach { part ->
-                if (thumbnailMap.containsKey(part.uniqNo)) return@forEach
-                val ref = dependencies.getActiveImageRef.execute(part.uniqNo)
-                val bytes = ref?.let { dependencies.loadImageBytes.execute(it) }
-                thumbnailMap[part.uniqNo] = decodeImageBitmap(bytes)
+        val missing = parts.filterNot { thumbnailMap.containsKey(it.uniqNo) }
+        if (missing.isEmpty()) return@LaunchedEffect
+        thumbnailLoading = true
+        val loaded =
+            withContext(Dispatchers.IO) {
+                missing.associate { part ->
+                    val ref = dependencies.getActiveImageRef.execute(part.uniqNo)
+                    val bytes = ref?.let { dependencies.loadImageBytes.execute(it) }
+                    part.uniqNo to decodeImageBitmap(bytes)
+                }
             }
+        thumbnailMap.putAll(loaded)
+        thumbnailLoading = false
+    }
+
+    LaunchedEffect(parts.size) {
+        // Clear stale thumbnails gradually to avoid unbounded cache growth across long sessions.
+        if (thumbnailMap.size > 260) {
+            val active = parts.map { it.uniqNo }.toSet()
+            thumbnailMap.keys
+                .filter { it !in active }
+                .take(80)
+                .forEach { thumbnailMap.remove(it) }
         }
     }
 
@@ -325,7 +344,13 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         text = "${AppStrings.PartMapping.PartListTitle} (${parts.size})",
                         style = MaterialTheme.typography.subtitle1,
                     )
-                    if (parts.isEmpty()) {
+                    if (partsState == null) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            repeat(6) {
+                                SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
+                            }
+                        }
+                    } else if (parts.isEmpty()) {
                         Text(
                             text = AppStrings.PartMapping.EmptyParts,
                             style = MaterialTheme.typography.body2,
@@ -337,6 +362,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                                 PartCard(
                                     item = item,
                                     thumbnail = thumbnailMap[item.uniqNo],
+                                    thumbnailLoading = thumbnailLoading && !thumbnailMap.containsKey(item.uniqNo),
                                     selected = item.uniqNo == selectedUniqNo,
                                     onClick = { selectedUniqNo = item.uniqNo },
                                 )
@@ -439,6 +465,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
 private fun PartCard(
     item: PartListItem,
     thumbnail: ImageBitmap?,
+    thumbnailLoading: Boolean,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -480,6 +507,8 @@ private fun PartCard(
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit,
                         )
+                    } else if (thumbnailLoading) {
+                        SkeletonBlock(width = 54.dp, height = 54.dp, color = NeutralBorder)
                     } else {
                         Text("PNG", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
                     }

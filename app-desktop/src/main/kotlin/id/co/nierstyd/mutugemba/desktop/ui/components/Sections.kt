@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
+import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Sizing
@@ -70,6 +71,13 @@ fun HeaderBar(
                     ),
                 )
             }
+            add(
+                HeaderBadgeSpec(
+                    text = AppStrings.App.BuildVersion,
+                    backgroundColor = NeutralLight,
+                    contentColor = NeutralTextMuted,
+                ),
+            )
         }
     Surface(
         color = NeutralSurface,

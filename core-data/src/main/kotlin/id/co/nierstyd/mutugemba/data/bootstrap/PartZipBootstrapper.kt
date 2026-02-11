@@ -38,7 +38,7 @@ class PartZipBootstrapper(
     ): BootstrapSummary? {
         val mappingPath = extractedRoot.resolve("mappings").resolve("mapping.json")
         if (!Files.exists(mappingPath)) {
-            logger.info("Extracted mapping not found at {}", mappingPath)
+            logger.debug("Extracted mapping not found at {}", mappingPath)
             return null
         }
         val screeningPath = extractedRoot.resolve("reports").resolve("defect_screening.json")

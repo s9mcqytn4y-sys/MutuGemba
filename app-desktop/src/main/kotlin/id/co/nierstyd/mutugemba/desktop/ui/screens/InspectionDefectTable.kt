@@ -1,5 +1,8 @@
 package id.co.nierstyd.mutugemba.desktop.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -50,7 +54,9 @@ import id.co.nierstyd.mutugemba.domain.InspectionTimeSlot
 import id.co.nierstyd.mutugemba.domain.Part
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.io.path.name
 
 @Composable
 internal fun PartChecksheetCard(
@@ -66,6 +72,10 @@ internal fun PartChecksheetCard(
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     onTotalCheckChanged: (String) -> Unit,
+    customDefectInput: String,
+    onCustomDefectInputChanged: (String) -> Unit,
+    onAddCustomDefect: () -> Unit,
+    currentLine: String,
     onDefectSlotChanged: (Long, InspectionTimeSlot, String) -> Unit,
 ) {
     val borderColor = if (expanded) MaterialTheme.colors.primary else NeutralBorder
@@ -87,7 +97,11 @@ internal fun PartChecksheetCard(
                 onToggleExpanded = onToggleExpanded,
             )
 
-            if (expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(Spacing.md),
                     verticalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -124,6 +138,12 @@ internal fun PartChecksheetCard(
                         values = defectSlotValues,
                         partId = part.id,
                         onValueChange = onDefectSlotChanged,
+                    )
+                    InlineCustomDefectRow(
+                        value = customDefectInput,
+                        onValueChange = onCustomDefectInputChanged,
+                        onAdd = onAddCustomDefect,
+                        currentLine = currentLine,
                     )
                 }
             }
@@ -171,9 +191,13 @@ private fun PartHeader(
                     .weight(1f)
                     .padding(Spacing.md),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
-            PartImage(picturePath = part.picturePath)
+            PartImage(
+                picturePath = part.picturePath,
+                uniqCode = part.uniqCode,
+                partNumber = part.partNumber,
+            )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 Text(text = "(${part.uniqCode}) ${part.name}", style = MaterialTheme.typography.h6)
                 Text(
@@ -188,39 +212,57 @@ private fun PartHeader(
                 )
                 PartStatusBadge(status = status, hasInput = hasInput)
             }
-            Column(
-                modifier = Modifier.width(140.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            Surface(
+                modifier = Modifier.width(228.dp),
+                color = NeutralLight,
+                border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+                shape = MaterialTheme.shapes.small,
+                elevation = 0.dp,
             ) {
-                Text(
-                    text = AppStrings.Inspection.CheckLabel,
-                    style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
-                )
-                Text(
-                    text = totalCheck.ifBlank { AppStrings.Common.Placeholder },
-                    style = MaterialTheme.typography.subtitle1,
-                )
-                Text(
-                    text = AppStrings.Inspection.partTotals(totalDefect, totalOk),
-                    style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
                     Text(
-                        text = AppStrings.Inspection.toggleDetail(expanded),
+                        text = AppStrings.Inspection.CheckLabel,
                         style = MaterialTheme.typography.caption,
-                        color = MaterialTheme.colors.primary,
+                        color = NeutralTextMuted,
                     )
-                    Icon(
-                        imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
-                        contentDescription = null,
-                        tint = MaterialTheme.colors.primary,
-                        modifier = Modifier.size(16.dp),
+                    Text(
+                        text = totalCheck.ifBlank { AppStrings.Common.Placeholder },
+                        style = MaterialTheme.typography.subtitle1,
+                    )
+                    Text(
+                        text = AppStrings.Inspection.partTotals(totalDefect, totalOk),
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AppBadge(
+                            text = if (expanded) "Collapse" else "Expand",
+                            backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
+                            contentColor = MaterialTheme.colors.primary,
+                        )
+                        Text(
+                            text = AppStrings.Inspection.toggleDetail(expanded),
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.primary,
+                        )
+                        Icon(
+                            imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colors.primary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    Text(
+                        text = "Klik kartu untuk buka/tutup detail",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
                     )
                 }
             }
@@ -277,10 +319,14 @@ private fun PartStatChip(
 }
 
 @Composable
-private fun PartImage(picturePath: String?) {
-    val bitmap = rememberImageBitmap(picturePath)
+private fun PartImage(
+    picturePath: String?,
+    uniqCode: String,
+    partNumber: String,
+) {
+    val bitmap = rememberImageBitmap(path = picturePath, uniqCode = uniqCode, partNumber = partNumber)
     Surface(
-        modifier = Modifier.width(128.dp).height(104.dp),
+        modifier = Modifier.width(136.dp).height(112.dp),
         color = NeutralLight,
         shape = MaterialTheme.shapes.small,
         border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
@@ -293,10 +339,51 @@ private fun PartImage(picturePath: String?) {
                 androidx.compose.foundation.Image(
                     bitmap = bitmap,
                     contentDescription = AppStrings.Inspection.PartImageDescription,
-                    modifier = Modifier.fillMaxWidth().padding(Spacing.xs),
+                    modifier = Modifier.fillMaxHeight().fillMaxWidth().padding(Spacing.xs),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun InlineCustomDefectRow(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onAdd: () -> Unit,
+    currentLine: String,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralLight,
+        shape = MaterialTheme.shapes.small,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Tambah Jenis NG ($currentLine)",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                placeholder = { Text(AppStrings.Inspection.CustomDefectPlaceholder) },
+                modifier = Modifier.weight(1f),
+            )
+            AppBadge(
+                text = AppStrings.Inspection.CustomDefectAddButton,
+                backgroundColor = MaterialTheme.colors.primary,
+                contentColor = NeutralSurface,
+                modifier = Modifier.clickable(onClick = onAdd),
+            )
         }
     }
 }
@@ -332,6 +419,62 @@ private fun rememberImageBitmap(path: String?): ImageBitmap? =
             null
         }
     }
+
+@Composable
+private fun rememberImageBitmap(
+    path: String?,
+    uniqCode: String,
+    partNumber: String,
+): ImageBitmap? =
+    remember(path, uniqCode, partNumber) {
+        try {
+            val normalizedInput = path?.replace('\\', '/')
+            val direct = normalizedInput?.let { Paths.get(it) }
+            val extractedRoot = AppDataPaths.defaultPartAssetsExtractedDir()
+            val imageSearchRoot = extractedRoot.resolve("assets").resolve("images")
+            val extractedFallback = findExtractedImageCandidate(imageSearchRoot, uniqCode, partNumber)
+            val candidates =
+                listOfNotNull(
+                    direct?.takeIf { it.isAbsolute },
+                    normalizedInput?.let { AppDataPaths.dataDir().resolve(it) },
+                    normalizedInput?.let { AppDataPaths.assetsStoreDir().resolve(it) },
+                    normalizedInput?.let { extractedRoot.resolve(it) },
+                    extractedFallback,
+                ).distinct()
+
+            val existing =
+                candidates.firstOrNull { candidate ->
+                    Files.exists(candidate) && Files.isRegularFile(candidate)
+                } ?: return@remember null
+            val bytes = Files.readAllBytes(existing)
+            org.jetbrains.skia.Image
+                .makeFromEncoded(bytes)
+                .toComposeImageBitmap()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+private fun findExtractedImageCandidate(
+    imageSearchRoot: Path,
+    uniqCode: String,
+    partNumber: String,
+): Path? {
+    if (!Files.exists(imageSearchRoot)) return null
+    val uniqToken = "(${uniqCode.trim()})".uppercase()
+    val partToken = partNumber.trim().uppercase()
+    Files.walk(imageSearchRoot, 3).use { stream ->
+        val matched =
+            stream
+                .filter { Files.isRegularFile(it) && it.name.lowercase().endsWith(".png") }
+                .filter {
+                    val name = it.name.uppercase()
+                    name.contains(uniqToken) || (partToken.isNotBlank() && name.contains(partToken))
+                }.findFirst()
+                .orElse(null)
+        return matched
+    }
+}
 
 @Composable
 private fun DefectTableGrid(

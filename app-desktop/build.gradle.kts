@@ -23,6 +23,16 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "id.co.nierstyd.mutugemba.desktop.MainKt"
+        nativeDistributions {
+            packageName = "MutuGemba"
+            packageVersion = "1.2.0"
+            description = "MutuGemba - Platform QC TPS Offline"
+            vendor = "PT. Primaraya Graha Nusantara"
+            windows {
+                menuGroup = "MutuGemba"
+                shortcut = true
+            }
+        }
     }
 }
 

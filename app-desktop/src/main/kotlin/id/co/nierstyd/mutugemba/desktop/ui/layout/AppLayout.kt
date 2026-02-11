@@ -79,7 +79,12 @@ fun AppLayout(
                     modifier = scrollModifier,
                     contentAlignment = Alignment.TopCenter,
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth().widthIn(max = Sizing.contentMaxWidth)) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .widthIn(max = Sizing.contentMaxWidth),
+                    ) {
                         content()
                     }
                 }

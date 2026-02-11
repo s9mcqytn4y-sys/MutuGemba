@@ -77,12 +77,30 @@ fun StatusBanner(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
-                    color = accent,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector =
+                            when (feedback.type) {
+                                FeedbackType.INFO -> AppIcons.Assignment
+                                FeedbackType.WARNING -> AppIcons.Abnormal
+                                FeedbackType.ERROR -> AppIcons.ErrorOutline
+                                FeedbackType.SUCCESS -> AppIcons.CheckCircle
+                            },
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
+                        color = accent,
+                    )
+                }
                 if (onDismiss != null) {
                     Box(
                         modifier =
