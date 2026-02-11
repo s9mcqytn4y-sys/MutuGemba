@@ -46,8 +46,10 @@ import id.co.nierstyd.mutugemba.usecase.part.GetPartDetailUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ObservePartsUseCase
 import id.co.nierstyd.mutugemba.usecase.qa.GetDefectHeatmapUseCase
 import id.co.nierstyd.mutugemba.usecase.qa.GetTopDefectsPerModelMonthlyUseCase
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.Comparator
 import id.co.nierstyd.mutugemba.data.local.db.DatabaseFactory as MappingDatabaseFactory
 
 class AppContainer {
@@ -122,6 +124,36 @@ class AppContainer {
     fun close() {
         databaseHandle.driver.close()
     }
+
+    fun repopulatePartAssetsFromExtracted(): Boolean {
+        val candidates =
+            listOf(
+                AppDataPaths.defaultPartAssetsExtractedDir(),
+                AppDataPaths.projectPartAssetsDir().resolve("extracted"),
+                Paths.get("data", "part_assets", "extracted").toAbsolutePath().normalize(),
+            ).distinct()
+        candidates.forEach { candidate ->
+            val imported = partZipBootstrapper.bootstrapFromExtractedDir(candidate, force = true)
+            if (imported != null) return true
+        }
+        return false
+    }
+
+    fun clearAppCaches(): Boolean =
+        runCatching {
+            listOf(AppDataPaths.importLogsDir(), AppDataPaths.exportsDir()).forEach { path ->
+                if (Files.exists(path)) {
+                    Files.walk(path).use { stream ->
+                        stream.sorted(Comparator.reverseOrder()).forEach { entry ->
+                            if (entry != path) Files.deleteIfExists(entry)
+                        }
+                    }
+                } else {
+                    Files.createDirectories(path)
+                }
+            }
+            true
+        }.getOrDefault(false)
 
     private fun bootstrapPartDomainFromExtracted() {
         val candidates =

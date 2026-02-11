@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.InsertChart
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -47,4 +48,5 @@ object AppIcons {
     val ExpandLess: ImageVector = Icons.Filled.ExpandLess
     val ExpandMore: ImageVector = Icons.Filled.ExpandMore
     val Close: ImageVector = Icons.Filled.Close
+    val Search: ImageVector = Icons.Filled.Search
 }

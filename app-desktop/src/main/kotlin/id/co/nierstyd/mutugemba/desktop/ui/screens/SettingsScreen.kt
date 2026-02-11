@@ -53,6 +53,8 @@ data class SettingsScreenDependencies(
     val setDevQcLine: SetDevQcLineUseCase,
     val backupDatabase: BackupDatabaseUseCase,
     val restoreDatabase: RestoreDatabaseUseCase,
+    val repopulatePartAssets: () -> Boolean,
+    val clearCaches: () -> Boolean,
     val onResetCompleted: () -> Unit,
     val onRestoreCompleted: () -> Unit,
 )
@@ -215,6 +217,39 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                 SecondaryButton(
                     text = AppStrings.Actions.Restore,
                     onClick = { showRestoreDialog = true },
+                )
+            }
+            Divider(color = NeutralBorder, thickness = 1.dp)
+            Text(
+                text = AppStrings.Settings.DevToolsHint,
+                style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                SecondaryButton(
+                    text = AppStrings.Actions.PopulatePartAssets,
+                    onClick = {
+                        val ok = dependencies.repopulatePartAssets()
+                        feedback =
+                            if (ok) {
+                                dependencies.onResetCompleted()
+                                UserFeedback(FeedbackType.SUCCESS, AppStrings.Feedback.PopulateSuccess)
+                            } else {
+                                UserFeedback(FeedbackType.ERROR, AppStrings.Feedback.PopulateFailed)
+                            }
+                    },
+                )
+                SecondaryButton(
+                    text = AppStrings.Actions.ClearCache,
+                    onClick = {
+                        val ok = dependencies.clearCaches()
+                        feedback =
+                            if (ok) {
+                                UserFeedback(FeedbackType.SUCCESS, AppStrings.Feedback.CacheCleared)
+                            } else {
+                                UserFeedback(FeedbackType.ERROR, AppStrings.Feedback.CacheClearFailed)
+                            }
+                    },
                 )
             }
         }

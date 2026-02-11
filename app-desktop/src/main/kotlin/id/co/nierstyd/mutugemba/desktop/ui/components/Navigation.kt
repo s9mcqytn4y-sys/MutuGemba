@@ -74,47 +74,54 @@ fun SidebarMenu(
                         .background(NeutralBorder)
                         .height(1.dp),
             ) {}
-            routes.forEach { route ->
-                if (route == AppRoute.Reports) {
-                    val reportSelected = currentRoute == AppRoute.Reports || currentRoute == AppRoute.ReportsMonthly
-                    SidebarSectionHeader(
-                        label = route.label,
-                        icon = AppIcons.Reports,
-                        selected = reportSelected,
-                        expanded = reportsExpanded,
-                        onClick = { reportsExpanded = !reportsExpanded },
-                    )
-                    if (reportsExpanded) {
-                        SidebarSubItem(
-                            label = AppStrings.Navigation.ReportsDaily,
-                            icon = AppIcons.ReportsDaily,
-                            selected = currentRoute == AppRoute.Reports,
-                            onClick = { onRouteSelected(AppRoute.Reports) },
-                        )
-                        SidebarSubItem(
-                            label = AppStrings.Navigation.ReportsMonthly,
-                            icon = AppIcons.ReportsMonthly,
-                            selected = currentRoute == AppRoute.ReportsMonthly,
-                            onClick = { onRouteSelected(AppRoute.ReportsMonthly) },
-                        )
-                    }
-                } else if (route != AppRoute.ReportsMonthly) {
-                    SidebarItem(
-                        label = route.label,
-                        icon =
-                            when (route) {
-                                AppRoute.Home -> AppIcons.Home
-                                AppRoute.PartMapping -> AppIcons.Inventory
-                                AppRoute.Inspection -> AppIcons.Inspection
-                                AppRoute.Abnormal -> AppIcons.Abnormal
-                                AppRoute.Settings -> AppIcons.Settings
-                                else -> AppIcons.Reports
-                            },
-                        selected = route == currentRoute,
-                        onClick = { onRouteSelected(route) },
-                    )
-                }
+            Text(text = "Operasional", style = MaterialTheme.typography.caption, color = MaterialTheme.colors.primary)
+            listOf(AppRoute.Home, AppRoute.PartMapping, AppRoute.Inspection, AppRoute.Abnormal).forEach { route ->
+                SidebarItem(
+                    label = route.label,
+                    icon =
+                        when (route) {
+                            AppRoute.Home -> AppIcons.Home
+                            AppRoute.PartMapping -> AppIcons.Inventory
+                            AppRoute.Inspection -> AppIcons.Inspection
+                            AppRoute.Abnormal -> AppIcons.Abnormal
+                            else -> AppIcons.Reports
+                        },
+                    selected = route == currentRoute,
+                    onClick = { onRouteSelected(route) },
+                )
             }
+
+            Text(text = "Laporan", style = MaterialTheme.typography.caption, color = MaterialTheme.colors.primary)
+            val reportSelected = currentRoute == AppRoute.Reports || currentRoute == AppRoute.ReportsMonthly
+            SidebarSectionHeader(
+                label = AppStrings.Navigation.Reports,
+                icon = AppIcons.Reports,
+                selected = reportSelected,
+                expanded = reportsExpanded,
+                onClick = { reportsExpanded = !reportsExpanded },
+            )
+            if (reportsExpanded) {
+                SidebarSubItem(
+                    label = AppStrings.Navigation.ReportsDaily,
+                    icon = AppIcons.ReportsDaily,
+                    selected = currentRoute == AppRoute.Reports,
+                    onClick = { onRouteSelected(AppRoute.Reports) },
+                )
+                SidebarSubItem(
+                    label = AppStrings.Navigation.ReportsMonthly,
+                    icon = AppIcons.ReportsMonthly,
+                    selected = currentRoute == AppRoute.ReportsMonthly,
+                    onClick = { onRouteSelected(AppRoute.ReportsMonthly) },
+                )
+            }
+
+            Text(text = "Sistem", style = MaterialTheme.typography.caption, color = MaterialTheme.colors.primary)
+            SidebarItem(
+                label = AppRoute.Settings.label,
+                icon = AppIcons.Settings,
+                selected = currentRoute == AppRoute.Settings,
+                onClick = { onRouteSelected(AppRoute.Settings) },
+            )
             Spacer(modifier = Modifier.weight(1f))
             Row(
                 modifier =

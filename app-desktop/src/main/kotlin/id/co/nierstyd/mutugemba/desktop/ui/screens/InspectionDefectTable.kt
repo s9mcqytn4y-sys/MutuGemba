@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
+import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.CompactNumberField
@@ -307,28 +308,24 @@ private fun rememberImageBitmap(path: String?): ImageBitmap? =
             if (path.isNullOrBlank()) {
                 null
             } else {
-                val normalized =
-                    if (Paths.get(path).isAbsolute) {
-                        Paths.get(path)
-                    } else {
-                        Paths.get(System.getProperty("user.dir", "."), path).normalize()
-                    }
-                if (Files.exists(normalized)) {
-                    val bytes = Files.readAllBytes(normalized)
+                val normalized = path.replace('\\', '/')
+                val direct = Paths.get(path)
+                val candidates =
+                    listOf(
+                        if (direct.isAbsolute) direct else null,
+                        AppDataPaths.dataDir().resolve(normalized),
+                        AppDataPaths.attachmentsDir().resolve(normalized),
+                        Paths.get(System.getProperty("user.dir", "."), normalized).normalize(),
+                        File(System.getProperty("user.dir", "."), normalized).toPath().normalize(),
+                    ).filterNotNull().distinct()
+                val existing = candidates.firstOrNull { Files.exists(it) }
+                if (existing != null) {
+                    val bytes = Files.readAllBytes(existing)
                     org.jetbrains.skia.Image
                         .makeFromEncoded(bytes)
                         .toComposeImageBitmap()
                 } else {
-                    // Fallback for legacy relative path in extracted assets.
-                    val legacy = File(System.getProperty("user.dir", "."), path).toPath().normalize()
-                    if (Files.exists(legacy)) {
-                        val bytes = Files.readAllBytes(legacy)
-                        org.jetbrains.skia.Image
-                            .makeFromEncoded(bytes)
-                            .toComposeImageBitmap()
-                    } else {
-                        null
-                    }
+                    null
                 }
             }
         } catch (ex: Exception) {

@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
+import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
@@ -122,6 +124,7 @@ fun ReportsMonthlyScreen(
     var state by remember { mutableStateOf<MonthlyReportUiState>(MonthlyReportUiState.Loading) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val summaryByDate =
         remember(dailySummaries, month, selectedLineId) {
@@ -223,6 +226,17 @@ fun ReportsMonthlyScreen(
                 }
             },
         )
+        AppTextField(
+            spec =
+                FieldSpec(
+                    label = "Cari Part / Jenis NG",
+                    placeholder = "Cari part number, UNIQ, atau item defect",
+                    helperText = "Filter reaktif untuk membantu audit bulanan lebih cepat.",
+                ),
+            value = searchQuery,
+            onValueChange = { searchQuery = it.take(80) },
+            singleLine = true,
+        )
 
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             StatusBanner(
@@ -252,6 +266,7 @@ fun ReportsMonthlyScreen(
                     document = snapshot.document,
                     manualHolidays = manualHolidays,
                     summaryByDate = summaryByDate,
+                    searchQuery = searchQuery,
                 )
         }
     }
@@ -483,6 +498,7 @@ private fun MonthlyReportDocumentCard(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
+    searchQuery: String,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -513,6 +529,7 @@ private fun MonthlyReportDocumentCard(
                         document = document,
                         manualHolidays = manualHolidays,
                         summaryByDate = summaryByDate,
+                        searchQuery = searchQuery,
                     )
                     MonthlyReportLegend()
                     MonthlyReportSignature()
@@ -613,8 +630,20 @@ private fun MonthlyReportTable(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
+    searchQuery: String,
 ) {
-    if (document.rows.isEmpty()) {
+    val filteredRows =
+        document.rows.filter { row ->
+            val keyword = searchQuery.trim().lowercase()
+            if (keyword.isBlank()) {
+                true
+            } else {
+                row.partNumber.lowercase().contains(keyword) ||
+                    row.uniqCode.lowercase().contains(keyword) ||
+                    row.problemItems.any { it.lowercase().contains(keyword) }
+            }
+        }
+    if (filteredRows.isEmpty()) {
         MonthlyReportEmpty()
         return
     }
@@ -630,6 +659,11 @@ private fun MonthlyReportTable(
                 DayCellStyle.from(hasInput = hasInput, isHoliday = isHoliday)
             }
         }
+    val filteredDayTotals =
+        days.mapIndexed { index, _ ->
+            filteredRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
+        }
+    val filteredGrandTotal = filteredRows.sumOf { it.totalDefect }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
@@ -689,29 +723,30 @@ private fun MonthlyReportTable(
             }
         }
 
-        document.rows.forEachIndexed { index, row ->
+        filteredRows.forEachIndexed { index, row ->
             val rowBackground = if (index % 2 == 0) NeutralSurface else NeutralLight
+            val dynamicBodyHeight = BodyRowHeight + 14.dp * (row.problemItems.size.coerceAtLeast(1) - 1)
             Row(modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
                     SketchCell(
                         sketchPath = row.sketchPath,
                         width = SketchColumnWidth,
-                        height = BodyRowHeight,
+                        height = dynamicBodyHeight,
                         backgroundColor = rowBackground,
                     )
                     TableBodyCell(
                         text = formatPartNumber(row.partNumber, row.uniqCode),
                         width = PartNumberColumnWidth,
-                        height = BodyRowHeight,
+                        height = dynamicBodyHeight,
                         backgroundColor = rowBackground,
                         maxLines = 2,
                     )
                     TableBodyCell(
                         text = formatProblemItems(row.problemItems),
                         width = ProblemItemColumnWidth,
-                        height = BodyRowHeight,
+                        height = dynamicBodyHeight,
                         backgroundColor = rowBackground,
-                        maxLines = 3,
+                        maxLines = 12,
                     )
                 }
                 Row(modifier = Modifier.horizontalScroll(scrollState)) {
@@ -720,7 +755,7 @@ private fun MonthlyReportTable(
                         TableBodyCell(
                             text = value.toString(),
                             width = DayColumnWidth,
-                            height = BodyRowHeight,
+                            height = dynamicBodyHeight,
                             backgroundColor = style.bodyBackground,
                             alignCenter = true,
                             textColor = style.bodyTextColor,
@@ -729,7 +764,7 @@ private fun MonthlyReportTable(
                     TableBodyCell(
                         text = row.totalDefect.toString(),
                         width = TotalColumnWidth,
-                        height = BodyRowHeight,
+                        height = dynamicBodyHeight,
                         backgroundColor = rowBackground,
                         alignCenter = true,
                     )
@@ -784,7 +819,7 @@ private fun MonthlyReportTable(
                 )
             }
             Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                document.totals.dayTotals.forEachIndexed { index, value ->
+                filteredDayTotals.forEachIndexed { index, value ->
                     val style = dayStyles.getValue(days[index])
                     TableFooterCell(
                         text = value.toString(),
@@ -796,7 +831,7 @@ private fun MonthlyReportTable(
                     )
                 }
                 TableFooterCell(
-                    text = document.totals.totalDefect.toString(),
+                    text = filteredGrandTotal.toString(),
                     width = TotalColumnWidth,
                     height = TotalRowHeight,
                     alignCenter = true,
@@ -1229,7 +1264,7 @@ private fun formatPartNumber(
 
 private fun formatProblemItems(items: List<String>): String {
     if (items.isEmpty()) return AppStrings.Common.Placeholder
-    return items.joinToString(", ")
+    return items.joinToString(separator = "\n") { "• $it" }
 }
 
 private fun loadSketchBitmap(path: String?): androidx.compose.ui.graphics.ImageBitmap? {

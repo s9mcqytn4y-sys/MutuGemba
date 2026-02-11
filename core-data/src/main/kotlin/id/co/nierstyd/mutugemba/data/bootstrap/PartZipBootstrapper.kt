@@ -29,7 +29,13 @@ class PartZipBootstrapper(
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val logger: Logger = LoggerFactory.getLogger(PartZipBootstrapper::class.java),
 ) {
-    fun bootstrapFromExtractedDirIfEmpty(extractedRoot: Path): BootstrapSummary? {
+    fun bootstrapFromExtractedDirIfEmpty(extractedRoot: Path): BootstrapSummary? =
+        bootstrapFromExtractedDir(extractedRoot, force = false)
+
+    fun bootstrapFromExtractedDir(
+        extractedRoot: Path,
+        force: Boolean,
+    ): BootstrapSummary? {
         val mappingPath = extractedRoot.resolve("mappings").resolve("mapping.json")
         if (!Files.exists(mappingPath)) {
             logger.info("Extracted mapping not found at {}", mappingPath)
@@ -43,6 +49,7 @@ class PartZipBootstrapper(
             sourceLabel = "folder:$extractedRoot",
             mappingBytes = mappingBytes,
             screeningBytes = screeningBytes,
+            force = force,
             readImageBytes = { relPath ->
                 val candidate = extractedRoot.resolve(relPath.replace('/', java.io.File.separatorChar))
                 if (Files.exists(candidate)) {
@@ -58,9 +65,10 @@ class PartZipBootstrapper(
         sourceLabel: String,
         mappingBytes: ByteArray,
         screeningBytes: ByteArray? = null,
+        force: Boolean,
         readImageBytes: (String) -> ByteArray?,
     ): BootstrapSummary? {
-        if (!isPartTableEmpty()) {
+        if (!force && !isPartTableEmpty()) {
             return null
         }
 

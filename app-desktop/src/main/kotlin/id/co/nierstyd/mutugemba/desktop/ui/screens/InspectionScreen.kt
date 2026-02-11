@@ -1,8 +1,17 @@
 package id.co.nierstyd.mutugemba.desktop.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -12,8 +21,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
@@ -24,9 +36,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
@@ -44,6 +66,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
@@ -60,6 +83,7 @@ import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.InspectionDefaults
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -87,6 +111,14 @@ private fun InspectionScreenContent(
 ) {
     val parts = state.partsForLine()
     val feedback = state.feedback
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
+    var showSearchModal by remember { mutableStateOf(false) }
+    var showSummaryPanel by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val searchResults = state.searchCandidates(searchQuery).take(8)
+    val partItemStartIndex = 9
 
     LaunchedEffect(feedback) {
         if (feedback != null) {
@@ -95,129 +127,177 @@ private fun InspectionScreenContent(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Box(
+        modifier =
+            Modifier
+                .fillMaxHeight()
+                .fillMaxWidth()
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.isCtrlPressed && event.key == Key.K) {
+                        showSearchModal = true
+                        true
+                    } else if (event.type == KeyEventType.KeyDown && showSearchModal && event.key == Key.Enter) {
+                        searchResults.firstOrNull()?.let { part ->
+                            showSearchModal = false
+                            searchQuery = part.uniqCode
+                            state.focusPart(part.id)
+                            val targetIndex = parts.indexOfFirst { it.id == part.id }
+                            if (targetIndex >= 0) {
+                                scope.launch {
+                                    listState.animateScrollToItem((partItemStartIndex + targetIndex).coerceAtLeast(0))
+                                }
+                            }
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                },
     ) {
-        item {
-            SectionHeader(
-                title = AppStrings.Inspection.Title,
-                subtitle = AppStrings.Inspection.Subtitle,
-            )
-        }
-
-        item {
-            InspectionIntroCard()
-        }
-
-        item {
-            SectionLabel(
-                title = AppStrings.Inspection.ContextTitle,
-                subtitle = AppStrings.Inspection.ContextSubtitle,
-            )
-        }
-
-        item {
-            HeaderContextCard(
-                dateLabel = DateTimeFormats.formatDate(state.today),
-                shiftLabel = state.shiftLabel,
-                picName = state.picName,
-            )
-        }
-
-        item {
-            StatusBanner(
-                feedback =
-                    UserFeedback(
-                        FeedbackType.INFO,
-                        AppStrings.Inspection.ContextBanner,
-                    ),
-            )
-        }
-
-        item {
-            SectionLabel(
-                title = AppStrings.Inspection.LineTitle,
-                subtitle = AppStrings.Inspection.LineSubtitle,
-            )
-        }
-
-        item {
-            InspectionSelectorCard(
-                lineName = state.selectedLineName,
-                lineCode = state.selectedLineCodeName,
-                lineHint = state.lineHint,
-                allowDuplicate = state.isDuplicateAllowed(),
-            )
-        }
-
-        item {
-            InspectionSearchCard(
-                value = state.partSearch,
-                onValueChange = state::onPartSearchChanged,
-            )
-        }
-
-        item {
-            CustomDefectInputCard(
-                value = state.customDefectInput,
-                onValueChange = state::onCustomDefectInputChanged,
-                onAdd = state::addCustomDefectType,
-                currentLine = state.selectedLineName,
-            )
-        }
-
-        item {
-            SectionLabel(
-                title = AppStrings.Inspection.PartTitle,
-                subtitle = AppStrings.Inspection.PartSubtitle,
-            )
-        }
-
-        item {
-            SummaryStickyBar(
-                summary = state.summaryTotals,
-            )
-        }
-
-        if (parts.isEmpty()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
             item {
-                EmptyPartState()
+                SectionHeader(
+                    title = AppStrings.Inspection.Title,
+                    subtitle = AppStrings.Inspection.Subtitle,
+                )
             }
-        } else {
-            items(items = parts, key = { it.id }) { part ->
-                PartChecksheetCard(
-                    part = part,
-                    defectTypes = state.defectTypesForPart(part.id),
-                    timeSlots = state.timeSlots,
-                    totalCheckInput = state.totalCheckInput(part.id),
-                    totalDefect = state.totalDefectQuantity(part.id),
-                    totalOk = state.totalOk(part.id),
-                    totalCheckInvalid = state.isTotalCheckInvalid(part.id),
-                    defectSlotValues = state.defectSlotInputs,
-                    expanded = state.isExpanded(part.id),
-                    status = state.partStatus(part.id),
-                    onToggleExpanded = { state.toggleExpanded(part.id) },
-                    onTotalCheckChanged = { state.onTotalCheckChanged(part.id, it) },
-                    onDefectSlotChanged = { defectId, slot, value ->
-                        state.onDefectSlotChanged(part.id, defectId, slot, value)
-                    },
+
+            item {
+                InspectionIntroCard()
+            }
+
+            item {
+                SectionLabel(
+                    title = AppStrings.Inspection.ContextTitle,
+                    subtitle = AppStrings.Inspection.ContextSubtitle,
+                )
+            }
+
+            item {
+                HeaderContextCard(
+                    dateLabel = DateTimeFormats.formatDate(state.today),
+                    shiftLabel = state.shiftLabel,
+                    picName = state.picName,
+                )
+            }
+
+            item {
+                StatusBanner(
+                    feedback =
+                        UserFeedback(
+                            FeedbackType.INFO,
+                            AppStrings.Inspection.ContextBanner,
+                        ),
+                )
+            }
+
+            item {
+                SectionLabel(
+                    title = AppStrings.Inspection.LineTitle,
+                    subtitle = AppStrings.Inspection.LineSubtitle,
+                )
+            }
+
+            item {
+                InspectionSelectorCard(
+                    lineName = state.selectedLineName,
+                    lineCode = state.selectedLineCodeName,
+                    lineHint = state.lineHint,
+                    allowDuplicate = state.isDuplicateAllowed(),
+                )
+            }
+
+            item {
+                CustomDefectInputCard(
+                    value = state.customDefectInput,
+                    onValueChange = state::onCustomDefectInputChanged,
+                    onAdd = state::addCustomDefectType,
+                    currentLine = state.selectedLineName,
+                )
+            }
+
+            item {
+                SectionLabel(
+                    title = AppStrings.Inspection.PartTitle,
+                    subtitle = AppStrings.Inspection.PartSubtitle,
+                )
+            }
+
+            if (parts.isEmpty()) {
+                item {
+                    EmptyPartState()
+                }
+            } else {
+                items(items = parts, key = { it.id }) { part ->
+                    PartChecksheetCard(
+                        part = part,
+                        defectTypes = state.defectTypesForPart(part.id),
+                        timeSlots = state.timeSlots,
+                        totalCheckInput = state.totalCheckInput(part.id),
+                        totalDefect = state.totalDefectQuantity(part.id),
+                        totalOk = state.totalOk(part.id),
+                        totalCheckInvalid = state.isTotalCheckInvalid(part.id),
+                        defectSlotValues = state.defectSlotInputs,
+                        expanded = state.isExpanded(part.id),
+                        status = state.partStatus(part.id),
+                        onToggleExpanded = { state.toggleExpanded(part.id) },
+                        onTotalCheckChanged = { state.onTotalCheckChanged(part.id, it) },
+                        onDefectSlotChanged = { defectId, slot, value ->
+                            state.onDefectSlotChanged(part.id, defectId, slot, value)
+                        },
+                    )
+                }
+            }
+
+            item {
+                state.feedback?.let { StatusBanner(feedback = it) }
+            }
+
+            item {
+                InspectionActionsBar(
+                    canSave = state.canSave,
+                    onSaveRequest = { state.onSaveRequested() },
+                    onClearAll = { state.clearAllInputs() },
                 )
             }
         }
 
-        item {
-            state.feedback?.let { StatusBanner(feedback = it) }
-        }
-
-        item {
-            InspectionActionsBar(
-                canSave = state.canSave,
-                onSaveRequest = { state.onSaveRequested() },
-                onClearAll = { state.clearAllInputs() },
-            )
-        }
+        InspectionFloatingActions(
+            showSummaryPanel = showSummaryPanel,
+            summary = state.summaryTotals,
+            onToggleSummary = { showSummaryPanel = !showSummaryPanel },
+            onOpenSearch = { showSearchModal = true },
+        )
     }
+
+    InspectionSearchModal(
+        open = showSearchModal,
+        query = searchQuery,
+        results = searchResults,
+        onQueryChange = { searchQuery = it },
+        onClose = { showSearchModal = false },
+        onPickPart = { part ->
+            showSearchModal = false
+            searchQuery = part.uniqCode
+            state.focusPart(part.id)
+            val targetIndex = parts.indexOfFirst { it.id == part.id }
+            if (targetIndex >= 0) {
+                scope.launch {
+                    listState.animateScrollToItem((partItemStartIndex + targetIndex).coerceAtLeast(0))
+                }
+            }
+        },
+    )
 
     InspectionConfirmDialog(
         open = state.showConfirmDialog,
@@ -245,8 +325,6 @@ private class InspectionFormState(
     var defectTypes by mutableStateOf(emptyList<DefectType>())
         private set
     private var selectedLineId by mutableStateOf<Long?>(defaults.lineId)
-    var partSearch by mutableStateOf("")
-        private set
     var customDefectInput by mutableStateOf("")
         private set
 
@@ -346,21 +424,23 @@ private class InspectionFormState(
         return if (line == null) {
             emptyList()
         } else {
-            parts
-                .filter { it.lineCode == line.code }
-                .filter { part ->
-                    val keyword = partSearch.trim()
-                    if (keyword.isBlank()) {
-                        true
-                    } else {
-                        val k = keyword.lowercase()
-                        part.uniqCode.lowercase().contains(k) ||
-                            part.partNumber.lowercase().contains(k) ||
-                            part.name.lowercase().contains(k) ||
-                            part.material.lowercase().contains(k)
-                    }
-                }
+            parts.filter { it.lineCode == line.code }
         }
+    }
+
+    fun searchCandidates(rawQuery: String): List<Part> {
+        val keyword = rawQuery.trim().lowercase()
+        val lineParts = partsForLine()
+        if (keyword.isBlank()) {
+            return lineParts.sortedBy { it.uniqCode }
+        }
+        return lineParts
+            .filter { part ->
+                part.uniqCode.lowercase().contains(keyword) ||
+                    part.partNumber.lowercase().contains(keyword) ||
+                    part.name.lowercase().contains(keyword) ||
+                    part.material.lowercase().contains(keyword)
+            }.sortedBy { it.uniqCode }
     }
 
     fun totalCheckInput(partId: Long): String = totalCheckInputs[partId] ?: ""
@@ -426,12 +506,13 @@ private class InspectionFormState(
         defectSlotInputs[PartDefectSlotKey(partId, defectId, slot)] = sanitizeCountInput(value)
     }
 
-    fun onPartSearchChanged(value: String) {
-        partSearch = value
-    }
-
     fun onCustomDefectInputChanged(value: String) {
         customDefectInput = value.take(80)
+    }
+
+    fun focusPart(partId: Long) {
+        expandedPartIds.keys.toList().forEach { expandedPartIds[it] = false }
+        expandedPartIds[partId] = true
     }
 
     fun addCustomDefectType() {
@@ -783,32 +864,206 @@ private fun sanitizeCountInput(raw: String): String {
 }
 
 @Composable
-private fun InspectionSearchCard(
-    value: String,
-    onValueChange: (String) -> Unit,
+private fun BoxScope.InspectionFloatingActions(
+    showSummaryPanel: Boolean,
+    summary: SummaryTotals,
+    onToggleSummary: () -> Unit,
+    onOpenSearch: () -> Unit,
 ) {
+    Column(
+        modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = Spacing.lg, end = Spacing.lg),
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        AnimatedVisibility(
+            visible = showSummaryPanel,
+            enter = fadeIn(animationSpec = tween(180)) + scaleIn(initialScale = 0.95f, animationSpec = tween(180)),
+            exit = fadeOut(animationSpec = tween(160)) + scaleOut(targetScale = 0.95f, animationSpec = tween(160)),
+        ) {
+            SummaryCompactPanel(summary = summary)
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            FloatingActionButton(
+                onClick = onToggleSummary,
+                backgroundColor = MaterialTheme.colors.primary,
+                contentColor = NeutralSurface,
+            ) {
+                Icon(imageVector = AppIcons.Assignment, contentDescription = AppStrings.Inspection.SummaryTitle)
+            }
+            FloatingActionButton(
+                onClick = onOpenSearch,
+                backgroundColor = MaterialTheme.colors.primary,
+                contentColor = NeutralSurface,
+            ) {
+                Icon(imageVector = AppIcons.Search, contentDescription = AppStrings.Inspection.SearchPartLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryCompactPanel(summary: SummaryTotals) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.width(340.dp),
         color = NeutralSurface,
         shape = MaterialTheme.shapes.medium,
-        elevation = 0.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 8.dp,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            AppTextField(
-                spec =
-                    FieldSpec(
-                        label = AppStrings.Inspection.SearchPartLabel,
-                        placeholder = AppStrings.Inspection.SearchPartPlaceholder,
-                        helperText = AppStrings.Inspection.SearchPartHint,
-                    ),
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = true,
+            Text(text = AppStrings.Inspection.SummaryTitle, style = MaterialTheme.typography.subtitle1)
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
+                SummaryStatCompact(title = AppStrings.Inspection.TotalCheckLabel, value = summary.totalCheck.toString())
+                SummaryStatCompact(title = AppStrings.Inspection.TotalNgLabel, value = summary.totalDefect.toString())
+                SummaryStatCompact(title = AppStrings.Inspection.TotalOkLabel, value = summary.totalOk.toString())
+            }
+            val okRatio =
+                if (summary.totalCheck > 0) {
+                    summary.totalOk.toFloat() / summary.totalCheck.toFloat()
+                } else {
+                    0f
+                }
+            val ngRatio =
+                if (summary.totalCheck > 0) {
+                    summary.totalDefect.toFloat() / summary.totalCheck.toFloat()
+                } else {
+                    0f
+                }
+            SummaryRatioBar(
+                leftLabel = AppStrings.Inspection.SummaryRatioOk,
+                rightLabel = AppStrings.Inspection.SummaryRatioNg,
+                leftRatio = okRatio,
+                rightRatio = ngRatio,
             )
+        }
+    }
+}
+
+@Composable
+private fun InspectionSearchModal(
+    open: Boolean,
+    query: String,
+    results: List<Part>,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+    onPickPart: (Part) -> Unit,
+) {
+    AnimatedVisibility(
+        visible = open,
+        enter = fadeIn(animationSpec = tween(180)),
+        exit = fadeOut(animationSpec = tween(160)),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.34f))
+                    .clickable(onClick = onClose),
+        ) {
+            Surface(
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 120.dp)
+                        .width(620.dp)
+                        .clickable(enabled = false) {},
+                color = NeutralSurface,
+                shape = MaterialTheme.shapes.medium,
+                border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+                elevation = 10.dp,
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(text = AppStrings.Inspection.SearchPartLabel, style = MaterialTheme.typography.subtitle1)
+                        AppBadge(
+                            text = "Ctrl+K",
+                            backgroundColor = NeutralLight,
+                            contentColor = NeutralTextMuted,
+                        )
+                    }
+                    AppTextField(
+                        spec =
+                            FieldSpec(
+                                label = AppStrings.Inspection.SearchPartLabel,
+                                placeholder = AppStrings.Inspection.SearchPartPlaceholder,
+                                helperText = AppStrings.Inspection.SearchPartHint,
+                            ),
+                        value = query,
+                        onValueChange = onQueryChange,
+                        singleLine = true,
+                    )
+                    if (results.isEmpty()) {
+                        Text(
+                            text = "Part tidak ditemukan.",
+                            style = MaterialTheme.typography.body2,
+                            color = NeutralTextMuted,
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().height(240.dp),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        ) {
+                            results.forEachIndexed { index, part ->
+                                SearchResultRow(
+                                    part = part,
+                                    hint = if (index == 0) "Tekan Enter untuk langsung fokus" else null,
+                                    onClick = { onPickPart(part) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultRow(
+    part: Part,
+    hint: String?,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        color = NeutralLight,
+        shape = MaterialTheme.shapes.small,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = "(${part.uniqCode}) ${part.name}",
+                style = MaterialTheme.typography.body1,
+                color = NeutralText,
+            )
+            Text(
+                text = "Part Number ${part.partNumber}",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            hint?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.caption,
+                    color = StatusInfo,
+                )
+            }
         }
     }
 }
