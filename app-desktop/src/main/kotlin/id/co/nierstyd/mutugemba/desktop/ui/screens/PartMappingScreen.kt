@@ -26,7 +26,6 @@ import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -71,10 +70,7 @@ import id.co.nierstyd.mutugemba.usecase.qa.GetTopDefectsPerModelMonthlyUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.time.YearMonth
 import org.jetbrains.skia.Image as SkiaImage
@@ -98,73 +94,87 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     var search by rememberSaveable { mutableStateOf("") }
     var monthInput by rememberSaveable { mutableStateOf("%04d-%02d".format(now.year, now.monthValue)) }
     val selectedMonth = remember(monthInput) { parseYearMonth(monthInput) ?: now }
-    val partFilterFlow =
-        remember {
-            MutableStateFlow(
-                PartFilter(
-                    lineCode = null,
-                    modelCode = null,
-                    search = null,
-                    year = now.year,
-                    month = now.monthValue,
-                ),
-            )
-        }
+    var parts by remember { mutableStateOf<List<PartListItem>>(emptyList()) }
+    var catalogParts by remember { mutableStateOf<List<PartListItem>>(emptyList()) }
+    var partsLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(lineCode, modelCode, search, selectedMonth) {
-        partFilterFlow.value =
-            PartFilter(
-                lineCode = lineCode.takeIf { it.isNotBlank() }?.lowercase(),
-                modelCode = modelCode.takeIf { it.isNotBlank() },
-                search = search.takeIf { it.isNotBlank() },
-                year = selectedMonth.year,
-                month = selectedMonth.monthValue,
-            )
+    LaunchedEffect(selectedMonth) {
+        catalogParts =
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dependencies
+                        .observeParts
+                        .execute(
+                            PartFilter(
+                                lineCode = null,
+                                modelCode = null,
+                                search = null,
+                                year = selectedMonth.year,
+                                month = selectedMonth.monthValue,
+                            ),
+                        ).first()
+                }
+            }.getOrDefault(emptyList())
     }
 
-    val partsFlow =
-        remember(partFilterFlow) {
-            partFilterFlow
-                .debounce(250)
-                .flatMapLatest { filter -> dependencies.observeParts.execute(filter) }
-                .catch { throwable ->
-                    loadError = throwable.message ?: "Gagal memuat data part."
-                    emit(emptyList())
+    LaunchedEffect(lineCode, modelCode, search, selectedMonth) {
+        partsLoading = true
+        loadError = null
+        val result =
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dependencies
+                        .observeParts
+                        .execute(
+                            PartFilter(
+                                lineCode = lineCode.takeIf { it.isNotBlank() }?.lowercase(),
+                                modelCode = modelCode.takeIf { it.isNotBlank() },
+                                search = search.takeIf { it.isNotBlank() },
+                                year = selectedMonth.year,
+                                month = selectedMonth.monthValue,
+                            ),
+                        ).first()
                 }
-        }
-    val parts by partsFlow.collectAsState(initial = emptyList())
-    val catalogFlow =
-        remember(selectedMonth) {
-            dependencies.observeParts
-                .execute(
-                    PartFilter(
-                        lineCode = null,
-                        modelCode = null,
-                        search = null,
-                        year = selectedMonth.year,
-                        month = selectedMonth.monthValue,
-                    ),
-                ).catch { emit(emptyList()) }
-        }
-    val catalogParts by catalogFlow.collectAsState(initial = emptyList())
+            }
+        result
+            .onSuccess { parts = it }
+            .onFailure { throwable ->
+                parts = emptyList()
+                loadError = throwable.message ?: "Gagal memuat data part."
+            }
+        partsLoading = false
+    }
+
     val lineOptions =
         remember(catalogParts) {
-            listOf(DropdownOption(-1, "Semua")) +
+            buildList {
+                add(DropdownOption(-1L, "Semua"))
                 catalogParts
-                    .map { it.lineCode }
+                    .asSequence()
+                    .map { it.lineCode.trim() }
+                    .filter { it.isNotEmpty() }
                     .distinct()
                     .sorted()
-                    .map { DropdownOption(it.hashCode().toLong(), it) }
+                    .forEachIndexed { index, value ->
+                        add(DropdownOption(index.toLong() + 1L, value))
+                    }
+            }
         }
     val modelOptions =
         remember(catalogParts) {
-            listOf(DropdownOption(-1, "Semua")) +
+            buildList {
+                add(DropdownOption(-1L, "Semua"))
                 catalogParts
                     .flatMap { it.modelCodes }
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
                     .distinct()
                     .sorted()
-                    .map { DropdownOption(it.hashCode().toLong(), it) }
+                    .forEachIndexed { index, value ->
+                        add(DropdownOption(index.toLong() + 10_000L, value))
+                    }
+            }
         }
 
     var selectedUniqNo by rememberSaveable { mutableStateOf<String?>(null) }
@@ -356,7 +366,15 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         text = "${AppStrings.PartMapping.PartListTitle} (${parts.size})",
                         style = MaterialTheme.typography.subtitle1,
                     )
-                    if (parts.isEmpty()) {
+                    if (partsLoading) {
+                        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                repeat(6) {
+                                    SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
+                                }
+                            }
+                        }
+                    } else if (parts.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopStart) {
                             Text(
                                 text = AppStrings.PartMapping.EmptyParts,
