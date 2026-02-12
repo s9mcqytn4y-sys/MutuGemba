@@ -75,8 +75,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 import java.time.YearMonth
 import org.jetbrains.skia.Image as SkiaImage
@@ -112,7 +110,6 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                 ),
             )
         }
-    var partsLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(lineCode, modelCode, search, selectedMonth) {
@@ -131,13 +128,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             partFilterFlow
                 .debounce(250)
                 .flatMapLatest { filter -> dependencies.observeParts.execute(filter) }
-                .onStart {
-                    partsLoading = true
-                    loadError = null
-                }.onEach {
-                    partsLoading = false
-                }.catch { throwable ->
-                    partsLoading = false
+                .catch { throwable ->
                     loadError = throwable.message ?: "Gagal memuat data part."
                     emit(emptyList())
                 }
@@ -278,7 +269,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
@@ -347,7 +338,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().height(760.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Surface(
@@ -365,15 +356,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         text = "${AppStrings.PartMapping.PartListTitle} (${parts.size})",
                         style = MaterialTheme.typography.subtitle1,
                     )
-                    if (partsLoading) {
-                        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                                repeat(6) {
-                                    SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
-                                }
-                            }
-                        }
-                    } else if (parts.isEmpty()) {
+                    if (parts.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopStart) {
                             Text(
                                 text = AppStrings.PartMapping.EmptyParts,
