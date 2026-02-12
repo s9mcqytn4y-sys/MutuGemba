@@ -72,8 +72,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 import java.time.YearMonth
 import org.jetbrains.skia.Image as SkiaImage
@@ -109,6 +112,8 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                 ),
             )
         }
+    var partsLoading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(lineCode, modelCode, search, selectedMonth) {
         partFilterFlow.value =
@@ -126,20 +131,30 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             partFilterFlow
                 .debounce(250)
                 .flatMapLatest { filter -> dependencies.observeParts.execute(filter) }
+                .onStart {
+                    partsLoading = true
+                    loadError = null
+                }.onEach {
+                    partsLoading = false
+                }.catch { throwable ->
+                    partsLoading = false
+                    loadError = throwable.message ?: "Gagal memuat data part."
+                    emit(emptyList())
+                }
         }
-    val partsState by partsFlow.collectAsState(initial = null)
-    val parts = partsState ?: emptyList()
+    val parts by partsFlow.collectAsState(initial = emptyList())
     val catalogFlow =
         remember(dependencies, selectedMonth) {
-            dependencies.observeParts.execute(
-                PartFilter(
-                    lineCode = null,
-                    modelCode = null,
-                    search = null,
-                    year = selectedMonth.year,
-                    month = selectedMonth.monthValue,
-                ),
-            )
+            dependencies.observeParts
+                .execute(
+                    PartFilter(
+                        lineCode = null,
+                        modelCode = null,
+                        search = null,
+                        year = selectedMonth.year,
+                        month = selectedMonth.monthValue,
+                    ),
+                ).catch { emit(emptyList()) }
         }
     val catalogParts by catalogFlow.collectAsState(initial = emptyList())
     val lineOptions =
@@ -274,6 +289,12 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             feedback = UserFeedback(FeedbackType.INFO, AppStrings.PartMapping.ImportBannerOffline),
             dense = true,
         )
+        loadError?.let { message ->
+            StatusBanner(
+                feedback = UserFeedback(FeedbackType.ERROR, "Gagal memuat part: $message"),
+                dense = true,
+            )
+        }
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -344,7 +365,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         text = "${AppStrings.PartMapping.PartListTitle} (${parts.size})",
                         style = MaterialTheme.typography.subtitle1,
                     )
-                    if (partsState == null) {
+                    if (partsLoading) {
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             repeat(6) {
                                 SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
