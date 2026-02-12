@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
+import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
@@ -89,18 +90,21 @@ data class PartMappingScreenDependencies(
 fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     val now = remember { YearMonth.now() }
 
-    var lineCode by rememberSaveable { mutableStateOf("") }
-    var modelCode by rememberSaveable { mutableStateOf("") }
+    var lineCode by rememberSaveable { mutableStateOf<String?>(null) }
+    var modelCode by rememberSaveable { mutableStateOf<String?>(null) }
     var search by rememberSaveable { mutableStateOf("") }
     var monthInput by rememberSaveable { mutableStateOf("%04d-%02d".format(now.year, now.monthValue)) }
     val selectedMonth = remember(monthInput) { parseYearMonth(monthInput) ?: now }
+    var allParts by remember { mutableStateOf<List<PartListItem>>(emptyList()) }
     var parts by remember { mutableStateOf<List<PartListItem>>(emptyList()) }
     var catalogParts by remember { mutableStateOf<List<PartListItem>>(emptyList()) }
     var partsLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(selectedMonth) {
-        catalogParts =
+        partsLoading = true
+        loadError = null
+        val result =
             runCatching {
                 withContext(Dispatchers.IO) {
                     dependencies
@@ -112,38 +116,45 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                                 search = null,
                                 year = selectedMonth.year,
                                 month = selectedMonth.monthValue,
-                            ),
-                        ).first()
-                }
-            }.getOrDefault(emptyList())
-    }
-
-    LaunchedEffect(lineCode, modelCode, search, selectedMonth) {
-        partsLoading = true
-        loadError = null
-        val result =
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    dependencies
-                        .observeParts
-                        .execute(
-                            PartFilter(
-                                lineCode = lineCode.takeIf { it.isNotBlank() }?.lowercase(),
-                                modelCode = modelCode.takeIf { it.isNotBlank() },
-                                search = search.takeIf { it.isNotBlank() },
-                                year = selectedMonth.year,
-                                month = selectedMonth.monthValue,
+                                limit = Int.MAX_VALUE,
                             ),
                         ).first()
                 }
             }
         result
-            .onSuccess { parts = it }
+            .onSuccess { loaded ->
+                val base =
+                    if (loaded.isNotEmpty()) {
+                        loaded
+                    } else {
+                        withContext(Dispatchers.IO) {
+                            dependencies
+                                .observeParts
+                                .execute(
+                                    PartFilter(
+                                        lineCode = null,
+                                        modelCode = null,
+                                        search = null,
+                                        year = null,
+                                        month = null,
+                                        limit = Int.MAX_VALUE,
+                                    ),
+                                ).first()
+                        }
+                    }
+                allParts = base
+                catalogParts = base
+            }
             .onFailure { throwable ->
+                allParts = emptyList()
+                catalogParts = emptyList()
                 parts = emptyList()
                 loadError = throwable.message ?: "Gagal memuat data part."
             }
         partsLoading = false
+    }
+    LaunchedEffect(allParts, lineCode, modelCode, search) {
+        parts = applyPartFilters(allParts, lineCode, modelCode, search)
     }
 
     val lineOptions =
@@ -176,6 +187,20 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                     }
             }
         }
+    val hasActiveFilters = !lineCode.isNullOrBlank() || !modelCode.isNullOrBlank() || search.isNotBlank()
+    val activeFilterCount = listOf(lineCode, modelCode).count { !it.isNullOrBlank() } + if (search.isNotBlank()) 1 else 0
+
+    LaunchedEffect(lineOptions, modelOptions) {
+        val validLine = lineOptions.any { option -> option.id != -1L && option.label.equals(lineCode, ignoreCase = true) }
+        if (!lineCode.isNullOrBlank() && !validLine) {
+            lineCode = null
+        }
+        val validModel =
+            modelOptions.any { option -> option.id != -1L && option.label.equals(modelCode, ignoreCase = true) }
+        if (!modelCode.isNullOrBlank() && !validModel) {
+            modelCode = null
+        }
+    }
 
     var selectedUniqNo by rememberSaveable { mutableStateOf<String?>(null) }
     var partDetail by remember { mutableStateOf<PartDetail?>(null) }
@@ -256,24 +281,28 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     var heatmapRows by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(selectedMonth, modelCode) {
         val top =
-            withContext(Dispatchers.IO) {
-                dependencies
-                    .getTopDefects
-                    .execute(selectedMonth.year, selectedMonth.monthValue, 5)
-                    .map { item -> "${item.modelCode} - ${item.defectName}" to item.totalQty }
-            }
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dependencies
+                        .getTopDefects
+                        .execute(selectedMonth.year, selectedMonth.monthValue, 5)
+                        .map { item -> "${item.modelCode} - ${item.defectName}" to item.totalQty }
+                }
+            }.getOrDefault(emptyList())
         val heatmap =
-            withContext(Dispatchers.IO) {
-                dependencies
-                    .getDefectHeatmap
-                    .execute(
-                        selectedMonth.year,
-                        selectedMonth.monthValue,
-                        modelCode.takeIf { it.isNotBlank() },
-                    ).map { row ->
-                        "${row.reportDate ?: "-"} | ${row.defectName} | ${row.totalQty}"
-                    }
-            }
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dependencies
+                        .getDefectHeatmap
+                        .execute(
+                            selectedMonth.year,
+                            selectedMonth.monthValue,
+                            modelCode?.takeIf { it.isNotBlank() },
+                        ).map { row ->
+                            "${row.reportDate ?: "-"} | ${row.defectName} | ${row.totalQty}"
+                        }
+                }
+            }.getOrDefault(emptyList())
         topDefects = top
         heatmapRows = heatmap
     }
@@ -321,9 +350,9 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                     selectedOption =
                         lineOptions.firstOrNull {
                             it.label.equals(lineCode, ignoreCase = true) ||
-                                (lineCode.isBlank() && it.id == -1L)
+                                (lineCode.isNullOrBlank() && it.id == -1L)
                         },
-                    onSelected = { lineCode = if (it.id == -1L) "" else it.label },
+                    onSelected = { lineCode = if (it.id == -1L) null else it.label },
                     modifier = Modifier.weight(0.18f),
                 )
                 AppDropdown(
@@ -332,9 +361,9 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                     selectedOption =
                         modelOptions.firstOrNull {
                             it.label.equals(modelCode, ignoreCase = true) ||
-                                (modelCode.isBlank() && it.id == -1L)
+                                (modelCode.isNullOrBlank() && it.id == -1L)
                         },
-                    onSelected = { modelCode = if (it.id == -1L) "" else it.label },
+                    onSelected = { modelCode = if (it.id == -1L) null else it.label },
                     modifier = Modifier.weight(0.2f),
                 )
                 OutlinedTextField(
@@ -345,6 +374,36 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                     singleLine = true,
                 )
             }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                AppBadge(
+                    text = "Tampil ${parts.size} part",
+                    backgroundColor = NeutralLight,
+                    contentColor = NeutralText,
+                )
+                if (hasActiveFilters) {
+                    AppBadge(
+                        text = "Filter aktif: $activeFilterCount",
+                        backgroundColor = NeutralLight,
+                        contentColor = NeutralTextMuted,
+                    )
+                }
+            }
+            SecondaryButton(
+                text = "Reset Filter",
+                onClick = {
+                    lineCode = null
+                    modelCode = null
+                    search = ""
+                },
+                enabled = hasActiveFilters,
+            )
         }
 
         Row(
@@ -377,7 +436,12 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                     } else if (parts.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopStart) {
                             Text(
-                                text = AppStrings.PartMapping.EmptyParts,
+                                text =
+                                    if (hasActiveFilters) {
+                                        "Tidak ada part yang cocok dengan filter saat ini. Klik Reset Filter."
+                                    } else {
+                                        AppStrings.PartMapping.EmptyParts
+                                    },
                                 style = MaterialTheme.typography.body2,
                                 color = NeutralTextMuted,
                             )
@@ -686,6 +750,29 @@ private fun parseYearMonth(input: String): YearMonth? {
     val text = input.trim()
     if (!Regex("^\\d{4}-\\d{2}$").matches(text)) return null
     return runCatching { YearMonth.parse(text) }.getOrNull()
+}
+
+private fun applyPartFilters(
+    source: List<PartListItem>,
+    lineCode: String?,
+    modelCode: String?,
+    search: String,
+): List<PartListItem> {
+    val lineFilter = lineCode?.trim()?.takeIf { it.isNotBlank() }
+    val modelFilter = modelCode?.trim()?.takeIf { it.isNotBlank() }
+    val searchFilter = search.trim().takeIf { it.isNotBlank() }
+    return source.filter { item ->
+        val lineMatch = lineFilter == null || item.lineCode.equals(lineFilter, ignoreCase = true)
+        val modelMatch =
+            modelFilter == null ||
+                item.modelCodes.any { model -> model.equals(modelFilter, ignoreCase = true) }
+        val searchMatch =
+            searchFilter == null ||
+                item.uniqNo.contains(searchFilter, ignoreCase = true) ||
+                item.partNumber.contains(searchFilter, ignoreCase = true) ||
+                item.partName.contains(searchFilter, ignoreCase = true)
+        lineMatch && modelMatch && searchMatch
+    }
 }
 
 private fun decodeImageBitmap(bytes: ByteArray?): ImageBitmap? {
