@@ -127,7 +127,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     }
 
     val partsFlow =
-        remember(dependencies, partFilterFlow) {
+        remember(partFilterFlow) {
             partFilterFlow
                 .debounce(250)
                 .flatMapLatest { filter -> dependencies.observeParts.execute(filter) }
@@ -144,7 +144,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
         }
     val parts by partsFlow.collectAsState(initial = emptyList())
     val catalogFlow =
-        remember(dependencies, selectedMonth) {
+        remember(selectedMonth) {
             dependencies.observeParts
                 .execute(
                     PartFilter(
@@ -366,19 +366,26 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         style = MaterialTheme.typography.subtitle1,
                     )
                     if (partsLoading) {
-                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            repeat(6) {
-                                SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
+                        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                repeat(6) {
+                                    SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
+                                }
                             }
                         }
                     } else if (parts.isEmpty()) {
-                        Text(
-                            text = AppStrings.PartMapping.EmptyParts,
-                            style = MaterialTheme.typography.body2,
-                            color = NeutralTextMuted,
-                        )
+                        Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopStart) {
+                            Text(
+                                text = AppStrings.PartMapping.EmptyParts,
+                                style = MaterialTheme.typography.body2,
+                                color = NeutralTextMuted,
+                            )
+                        }
                     } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
                             items(parts, key = { it.partId }) { item ->
                                 PartCard(
                                     item = item,
