@@ -19,10 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
+import id.co.nierstyd.mutugemba.desktop.ui.resources.classpathPainterResource
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
@@ -104,7 +104,7 @@ fun HeaderBar(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
                     Image(
-                        painter = painterResource("branding/pt_prima_mark.png"),
+                        painter = classpathPainterResource("branding/pt_prima_mark.png"),
                         contentDescription = "Logo PT Primaraya",
                         modifier = Modifier.size(34.dp),
                         contentScale = ContentScale.Fit,

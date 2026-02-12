@@ -36,7 +36,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
@@ -182,6 +181,9 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
+        val assetLoadedCount = thumbnailMap.values.count { it != null }
+        val selectedPartLabel = partDetail?.partNumber ?: selectedUniqNo ?: "-"
+
         SectionHeader(
             title = AppStrings.PartMapping.Title,
             subtitle = "Data part resmi PT. Primaraya Graha Nusantara (tanpa filter).",
@@ -191,51 +193,40 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             feedback =
                 UserFeedback(
                     FeedbackType.INFO,
-                    "Identitas resmi PT aktif. Menampilkan seluruh part dari database lokal.",
+                    "Data part dibaca offline dari SQLite lokal. " +
+                        "Pilih part untuk melihat detail model dan kebutuhan qty KBN.",
                 ),
             dense = true,
         )
 
-        Surface(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            color = NeutralSurface,
-            border = BorderStroke(1.dp, NeutralBorder),
-            shape = MaterialTheme.shapes.medium,
-            elevation = 0.dp,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Image(
-                        painter = painterResource("branding/pt_prima_logo.png"),
-                        contentDescription = "PT Primaraya Logo",
-                        modifier = Modifier.height(42.dp),
-                        contentScale = ContentScale.Fit,
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = AppStrings.App.CompanyName,
-                            style = MaterialTheme.typography.subtitle2,
-                        )
-                        Text(
-                            text = AppStrings.App.CompanyAddress,
-                            style = MaterialTheme.typography.caption,
-                            color = NeutralTextMuted,
-                        )
-                    }
-                }
-                AppBadge(
-                    text = AppStrings.App.CompanyMotto,
-                    backgroundColor = NeutralLight,
-                    contentColor = NeutralTextMuted,
-                )
-            }
+            PartContextCard(
+                modifier = Modifier.weight(1f),
+                title = "Periode QA",
+                value = "${period.monthValue.toString().padStart(2, '0')}-${period.year}",
+                hint = "Sumber analitik defect bulanan",
+            )
+            PartContextCard(
+                modifier = Modifier.weight(1f),
+                title = "Total Part Aktif",
+                value = parts.size.toString(),
+                hint = "Part tersedia untuk line produksi",
+            )
+            PartContextCard(
+                modifier = Modifier.weight(1f),
+                title = "Aset Gambar",
+                value = "$assetLoadedCount/${parts.size}",
+                hint = if (thumbnailLoading) "Memuat thumbnail..." else "Sinkron dari asset hash store",
+            )
+            PartContextCard(
+                modifier = Modifier.weight(1f),
+                title = "Part Terpilih",
+                value = selectedPartLabel,
+                hint = "Gunakan daftar kiri untuk berpindah cepat",
+            )
         }
 
         loadError?.let { message ->
@@ -334,6 +325,31 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PartContextCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    hint: String,
+) {
+    Surface(
+        modifier = modifier,
+        color = NeutralSurface,
+        border = BorderStroke(1.dp, NeutralBorder),
+        shape = MaterialTheme.shapes.medium,
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(text = title, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            Text(text = value, style = MaterialTheme.typography.subtitle2, color = NeutralText)
+            Text(text = hint, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         }
     }
 }

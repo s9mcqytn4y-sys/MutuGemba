@@ -7,6 +7,7 @@ plugins {
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.materialIconsExtended)
+    implementation(compose.components.resources)
     implementation(project(":core-usecase"))
     implementation(project(":core-data"))
     implementation(project(":core-domain"))

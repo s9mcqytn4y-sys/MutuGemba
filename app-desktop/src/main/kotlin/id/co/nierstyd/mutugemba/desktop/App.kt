@@ -26,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.di.AppContainer
@@ -35,6 +34,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.FooterBar
 import id.co.nierstyd.mutugemba.desktop.ui.components.HeaderBar
 import id.co.nierstyd.mutugemba.desktop.ui.layout.AppLayout
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
+import id.co.nierstyd.mutugemba.desktop.ui.resources.classpathPainterResource
 import id.co.nierstyd.mutugemba.desktop.ui.screens.AbnormalScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.HomeScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionDefaultsUseCases
@@ -290,7 +290,7 @@ private fun AppWelcomeLoading() {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             androidx.compose.foundation.Image(
-                painter = painterResource("branding/pt_prima_logo.png"),
+                painter = classpathPainterResource("branding/pt_prima_logo.png"),
                 contentDescription = "PT Primaraya Logo",
                 modifier = Modifier.height(52.dp),
                 contentScale = ContentScale.Fit,

@@ -27,11 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.navigation.AppRoute
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
+import id.co.nierstyd.mutugemba.desktop.ui.resources.classpathPainterResource
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Sizing
@@ -64,7 +65,7 @@ fun SidebarMenu(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
                 Image(
-                    painter = painterResource("branding/pt_prima_mark.png"),
+                    painter = classpathPainterResource("branding/pt_prima_mark.png"),
                     contentDescription = "Logo PT Primaraya",
                     modifier = Modifier.size(30.dp),
                     contentScale = ContentScale.Fit,
@@ -72,12 +73,14 @@ fun SidebarMenu(
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = AppStrings.App.Name,
-                        style = MaterialTheme.typography.h6,
+                        style = MaterialTheme.typography.subtitle1,
                     )
                     Text(
                         text = AppStrings.App.CompanyName,
                         style = MaterialTheme.typography.caption,
                         color = MaterialTheme.colors.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -89,21 +92,27 @@ fun SidebarMenu(
                         .height(1.dp),
             ) {}
             Text(text = "Operasional", style = MaterialTheme.typography.caption, color = MaterialTheme.colors.primary)
-            listOf(AppRoute.Home, AppRoute.PartMapping, AppRoute.Inspection, AppRoute.Abnormal).forEach { route ->
-                SidebarItem(
-                    label = route.label,
-                    icon =
-                        when (route) {
-                            AppRoute.Home -> AppIcons.Home
-                            AppRoute.PartMapping -> AppIcons.Inventory
-                            AppRoute.Inspection -> AppIcons.Inspection
-                            AppRoute.Abnormal -> AppIcons.Abnormal
-                            else -> AppIcons.Reports
-                        },
-                    selected = route == currentRoute,
-                    onClick = { onRouteSelected(route) },
-                )
-            }
+            routes
+                .filter { route ->
+                    route == AppRoute.Home ||
+                        route == AppRoute.PartMapping ||
+                        route == AppRoute.Inspection ||
+                        route == AppRoute.Abnormal
+                }.forEach { route ->
+                    SidebarItem(
+                        label = route.label,
+                        icon =
+                            when (route) {
+                                AppRoute.Home -> AppIcons.Home
+                                AppRoute.PartMapping -> AppIcons.Inventory
+                                AppRoute.Inspection -> AppIcons.Inspection
+                                AppRoute.Abnormal -> AppIcons.Abnormal
+                                else -> AppIcons.Reports
+                            },
+                        selected = route == currentRoute,
+                        onClick = { onRouteSelected(route) },
+                    )
+                }
 
             Text(text = "Laporan", style = MaterialTheme.typography.caption, color = MaterialTheme.colors.primary)
             val reportSelected = currentRoute == AppRoute.Reports || currentRoute == AppRoute.ReportsMonthly
@@ -149,6 +158,13 @@ fun SidebarMenu(
                 style = MaterialTheme.typography.body2,
                 modifier = Modifier.padding(top = Spacing.sm),
             )
+            Text(
+                text = currentRoute.navHint(),
+                style = MaterialTheme.typography.caption,
+                color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -189,7 +205,9 @@ private fun SidebarItem(
         Text(
             text = label,
             color = textColor,
-            style = MaterialTheme.typography.subtitle1,
+            style = MaterialTheme.typography.body1,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -232,7 +250,9 @@ private fun SidebarSectionHeader(
             Text(
                 text = label,
                 color = textColor,
-                style = MaterialTheme.typography.subtitle1,
+                style = MaterialTheme.typography.body1,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         Icon(
@@ -267,6 +287,19 @@ private fun SidebarSubItem(
             text = label,
             color = textColor,
             style = MaterialTheme.typography.body2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
+
+private fun AppRoute.navHint(): String =
+    when (this) {
+        AppRoute.Home -> "Ringkasan KPI harian, pareto, dan trend QC."
+        AppRoute.PartMapping -> "Cari part aktif, cek gambar, dan telusuri kebutuhan model."
+        AppRoute.Inspection -> "Input checksheet harian untuk line produksi."
+        AppRoute.Abnormal -> "Tindak lanjut tiket abnormal: detect, contain, close."
+        AppRoute.Reports -> "Review dokumen checksheet harian dan status tanggal."
+        AppRoute.ReportsMonthly -> "Ringkasan bulanan dan cetak PDF laporan."
+        AppRoute.Settings -> "Atur aturan input, backup/restore, dan maintenance."
+    }
