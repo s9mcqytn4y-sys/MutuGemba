@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.resources.classpathPainterResource
@@ -95,7 +96,7 @@ fun HeaderBar(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
@@ -106,18 +107,22 @@ fun HeaderBar(
                     Image(
                         painter = classpathPainterResource("branding/pt_prima_mark.png"),
                         contentDescription = "Logo PT Primaraya",
-                        modifier = Modifier.size(34.dp),
+                        modifier = Modifier.size(28.dp),
                         contentScale = ContentScale.Fit,
                     )
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         Text(
                             text = title,
-                            style = MaterialTheme.typography.h5,
+                            style = MaterialTheme.typography.h6,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = subtitle,
-                            style = MaterialTheme.typography.body2,
+                            style = MaterialTheme.typography.caption,
                             color = NeutralTextMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -125,11 +130,6 @@ fun HeaderBar(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = AppStrings.App.CompanyMotto,
-                        style = MaterialTheme.typography.caption,
-                        color = NeutralTextMuted,
-                    )
                     badges.forEach { badge ->
                         AppBadge(
                             text = badge.text,
@@ -180,12 +180,12 @@ fun FooterBar(
         ) {
             Text(
                 text = statusText,
-                style = MaterialTheme.typography.body2,
+                style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
             Text(
                 text = hintText,
-                style = MaterialTheme.typography.body2,
+                style = MaterialTheme.typography.caption,
             )
         }
     }

@@ -1,6 +1,7 @@
 ﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,8 +34,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
@@ -47,6 +50,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.buildLineColors
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
+import id.co.nierstyd.mutugemba.desktop.ui.resources.classpathPainterResource
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
@@ -1210,8 +1214,12 @@ private fun LogoMark() {
         border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
         elevation = 0.dp,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(text = AppStrings.App.Logo, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(4.dp)) {
+            Image(
+                painter = classpathPainterResource("branding/pt_prima_mark.png"),
+                contentDescription = AppStrings.App.Logo,
+                contentScale = ContentScale.Fit,
+            )
         }
     }
 }
@@ -1273,6 +1281,7 @@ private fun DocumentEntryTable(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Row(modifier = Modifier.fillMaxWidth()) {
+            DocumentHeaderCell(text = "No", weight = 0.45f)
             DocumentHeaderCell(text = AppStrings.Reports.DocumentTablePartUniq, weight = 1.05f)
             DocumentHeaderCell(text = AppStrings.Reports.DocumentTablePartNumber, weight = 1.2f)
             DocumentHeaderCell(text = AppStrings.Reports.DocumentTablePartName, weight = 1.55f)
@@ -1286,9 +1295,15 @@ private fun DocumentEntryTable(
             val ratio = if (entry.totalCheck > 0) entry.totalDefect.toDouble() / entry.totalCheck.toDouble() else 0.0
             val rowBackground = if (index % 2 == 0) NeutralSurface else NeutralLight
             Row(modifier = Modifier.fillMaxWidth()) {
+                DocumentBodyCell(
+                    text = (index + 1).toString(),
+                    weight = 0.45f,
+                    alignCenter = true,
+                    backgroundColor = rowBackground,
+                )
                 DocumentBodyCell(text = entry.uniqCode, weight = 1.05f, backgroundColor = rowBackground)
-                DocumentBodyCell(text = entry.partNumber, weight = 1.2f, backgroundColor = rowBackground)
-                DocumentBodyCell(text = entry.partName, weight = 1.55f, backgroundColor = rowBackground)
+                DocumentBodyCell(text = entry.partNumber, weight = 1.2f, backgroundColor = rowBackground, maxLines = 2)
+                DocumentBodyCell(text = entry.partName, weight = 1.55f, backgroundColor = rowBackground, maxLines = 2)
                 DocumentBodyCell(
                     text = entry.totalCheck.toString(),
                     weight = 0.8f,
@@ -1317,7 +1332,7 @@ private fun DocumentEntryTable(
         }
 
         Row(modifier = Modifier.fillMaxWidth()) {
-            DocumentFooterCell(text = AppStrings.Reports.DocumentTableTotal, weight = 1.05f + 1.2f + 1.55f)
+            DocumentFooterCell(text = AppStrings.Reports.DocumentTableTotal, weight = 0.45f + 1.05f + 1.2f + 1.55f)
             DocumentFooterCell(text = totals.totalCheck.toString(), weight = 0.8f, alignCenter = true)
             DocumentFooterCell(text = totals.totalDefect.toString(), weight = 0.7f, alignCenter = true)
             DocumentFooterCell(text = totals.totalOk.toString(), weight = 0.7f, alignCenter = true)
@@ -1356,6 +1371,7 @@ private fun RowScope.DocumentBodyCell(
     weight: Float,
     alignCenter: Boolean = false,
     backgroundColor: androidx.compose.ui.graphics.Color = NeutralSurface,
+    maxLines: Int = 1,
 ) {
     Box(
         modifier =
@@ -1370,7 +1386,9 @@ private fun RowScope.DocumentBodyCell(
             text = text,
             style = MaterialTheme.typography.body2,
             color = NeutralText,
-            maxLines = 1,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
         )
     }
 }

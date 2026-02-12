@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
@@ -413,42 +414,112 @@ private fun PartCard(
                     backgroundColor = NeutralLight,
                     contentColor = NeutralText,
                 )
+                Text(
+                    text = "Klik untuk lihat profil detail part",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
             }
         }
     }
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun PartDetailContent(
     detail: PartDetail,
     bitmap: ImageBitmap?,
 ) {
+    val requirementTotal = detail.requirements.sumOf { it.qtyKbn }
+
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        Text("(${detail.uniqNo}) ${detail.partName}", style = MaterialTheme.typography.subtitle1)
+        Text("Profil Detail Part", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        Text(
+            text = "(${detail.uniqNo}) ${detail.partName}",
+            style = MaterialTheme.typography.subtitle1,
+            color = NeutralText,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
         Text("Part Number ${detail.partNumber}", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
 
-        Box(
+        Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(240.dp)
-                    .clip(MaterialTheme.shapes.small)
-                    .border(1.dp, NeutralBorder, MaterialTheme.shapes.small)
-                    .background(NeutralLight),
-            contentAlignment = Alignment.Center,
+                    .height(280.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            if (bitmap == null) {
-                Text("Gambar tidak tersedia", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
-            } else {
-                Image(
-                    bitmap = bitmap,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
+            Surface(
+                modifier = Modifier.weight(0.52f).fillMaxHeight(),
+                color = NeutralLight,
+                border = BorderStroke(1.dp, NeutralBorder),
+                shape = MaterialTheme.shapes.medium,
+                elevation = 0.dp,
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(Spacing.sm),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (bitmap == null) {
+                        Text("Gambar tidak tersedia", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                    } else {
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(0.48f).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                PartProfileMetric(
+                    label = "UNIQ",
+                    value = detail.uniqNo,
                 )
+                PartProfileMetric(
+                    label = "Line Produksi",
+                    value = detail.lineCode.uppercase(),
+                )
+                PartProfileMetric(
+                    label = "Model Terkait",
+                    value = detail.models.size.toString(),
+                )
+                PartProfileMetric(
+                    label = "Total Qty KBN",
+                    value = requirementTotal.toString(),
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = NeutralLight,
+                    border = BorderStroke(1.dp, NeutralBorder),
+                    shape = MaterialTheme.shapes.small,
+                    elevation = 0.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        Text(
+                            text = "Status Asset",
+                            style = MaterialTheme.typography.caption,
+                            color = NeutralTextMuted,
+                        )
+                        Text(
+                            text = if (bitmap == null) "Belum tersedia" else "Tersedia",
+                            style = MaterialTheme.typography.body2,
+                            color = if (bitmap == null) NeutralTextMuted else MaterialTheme.colors.primary,
+                        )
+                    }
+                }
             }
         }
 
@@ -458,19 +529,114 @@ private fun PartDetailContent(
             contentColor = NeutralText,
         )
 
-        Text("Model", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
-        Text(
-            detail.models.joinToString(", ").ifBlank { "-" },
-            style = MaterialTheme.typography.caption,
-            color = NeutralTextMuted,
-        )
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = NeutralSurface,
+            border = BorderStroke(1.dp, NeutralBorder),
+            shape = MaterialTheme.shapes.medium,
+            elevation = 0.dp,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Text("Model Terkait", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
+                if (detail.models.isEmpty()) {
+                    Text("-", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                } else {
+                    detail.models.sorted().forEach { model ->
+                        Text(
+                            text = "• $model",
+                            style = MaterialTheme.typography.caption,
+                            color = NeutralTextMuted,
+                        )
+                    }
+                }
+            }
+        }
 
-        Text("Qty KBN", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
-        if (detail.requirements.isEmpty()) {
-            Text("-", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-        } else {
-            detail.requirements.forEach {
-                Text("${it.modelCode}: ${it.qtyKbn}", style = MaterialTheme.typography.caption)
+        PartRequirementTable(requirements = detail.requirements.map { it.modelCode to it.qtyKbn })
+    }
+}
+
+@Composable
+private fun PartProfileMetric(
+    label: String,
+    value: String,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        border = BorderStroke(1.dp, NeutralBorder),
+        shape = MaterialTheme.shapes.small,
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(text = label, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            Text(
+                text = value.ifBlank { "-" },
+                style = MaterialTheme.typography.body1,
+                color = NeutralText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PartRequirementTable(requirements: List<Pair<String, Int>>) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralSurface,
+        border = BorderStroke(1.dp, NeutralBorder),
+        shape = MaterialTheme.shapes.medium,
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text("Kebutuhan Qty KBN", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
+            if (requirements.isEmpty()) {
+                Text("-", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            } else {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Model",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = "Qty",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                        modifier = Modifier.weight(0.4f),
+                    )
+                }
+                requirements.sortedBy { it.first }.forEach { (modelCode, qtyKbn) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        Text(
+                            text = modelCode,
+                            style = MaterialTheme.typography.body2,
+                            color = NeutralText,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = qtyKbn.toString(),
+                            style = MaterialTheme.typography.body2,
+                            color = NeutralText,
+                            modifier = Modifier.weight(0.4f),
+                        )
+                    }
+                }
             }
         }
     }

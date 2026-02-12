@@ -21,15 +21,14 @@ import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.graphics.vector.ImageVector
 
 object AppIcons {
     val Home: ImageVector = Icons.Filled.Home
-    val Inspection: ImageVector = Icons.AutoMirrored.Filled.FactCheck
-    val Abnormal: ImageVector = Icons.Filled.Warning
+    val Inspection: ImageVector = Icons.AutoMirrored.Filled.Assignment
+    val Abnormal: ImageVector = Icons.Filled.ErrorOutline
     val Reports: ImageVector = Icons.Filled.Report
-    val ReportsDaily: ImageVector = Icons.AutoMirrored.Filled.FactCheck
+    val ReportsDaily: ImageVector = Icons.Filled.Description
     val ReportsMonthly: ImageVector = Icons.Filled.CalendarMonth
     val Settings: ImageVector = Icons.Filled.Settings
 

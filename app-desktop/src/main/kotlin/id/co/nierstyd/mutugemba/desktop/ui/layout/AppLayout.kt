@@ -68,7 +68,7 @@ fun AppLayout(
                     Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .padding(Spacing.lg)
+                        .padding(Spacing.md)
                 val scrollModifier =
                     if (scrollableContent) {
                         contentModifier.verticalScroll(rememberScrollState())

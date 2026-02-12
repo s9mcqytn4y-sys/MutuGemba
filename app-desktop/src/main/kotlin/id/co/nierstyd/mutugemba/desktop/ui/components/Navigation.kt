@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.navigation.AppRoute
@@ -57,7 +58,7 @@ fun SidebarMenu(
             modifier =
                 Modifier
                     .fillMaxHeight()
-                    .padding(Spacing.md),
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Row(
@@ -67,13 +68,14 @@ fun SidebarMenu(
                 Image(
                     painter = classpathPainterResource("branding/pt_prima_mark.png"),
                     contentDescription = "Logo PT Primaraya",
-                    modifier = Modifier.size(30.dp),
+                    modifier = Modifier.size(26.dp),
                     contentScale = ContentScale.Fit,
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = AppStrings.App.Name,
-                        style = MaterialTheme.typography.subtitle1,
+                        style = MaterialTheme.typography.subtitle2,
+                        fontWeight = FontWeight.SemiBold,
                     )
                     Text(
                         text = AppStrings.App.CompanyName,
@@ -91,7 +93,7 @@ fun SidebarMenu(
                         .background(NeutralBorder)
                         .height(1.dp),
             ) {}
-            Text(text = "Operasional", style = MaterialTheme.typography.caption, color = MaterialTheme.colors.primary)
+            SidebarSectionLabel("Operasional")
             routes
                 .filter { route ->
                     route == AppRoute.Home ||
@@ -114,7 +116,7 @@ fun SidebarMenu(
                     )
                 }
 
-            Text(text = "Laporan", style = MaterialTheme.typography.caption, color = MaterialTheme.colors.primary)
+            SidebarSectionLabel("Laporan")
             val reportSelected = currentRoute == AppRoute.Reports || currentRoute == AppRoute.ReportsMonthly
             SidebarSectionHeader(
                 label = AppStrings.Navigation.Reports,
@@ -138,7 +140,7 @@ fun SidebarMenu(
                 )
             }
 
-            Text(text = "Sistem", style = MaterialTheme.typography.caption, color = MaterialTheme.colors.primary)
+            SidebarSectionLabel("Sistem")
             SidebarItem(
                 label = AppRoute.Settings.label,
                 icon = AppIcons.Settings,
@@ -155,7 +157,7 @@ fun SidebarMenu(
             ) {}
             Text(
                 text = AppStrings.App.Offline,
-                style = MaterialTheme.typography.body2,
+                style = MaterialTheme.typography.caption,
                 modifier = Modifier.padding(top = Spacing.sm),
             )
             Text(
@@ -167,6 +169,15 @@ fun SidebarMenu(
             )
         }
     }
+}
+
+@Composable
+private fun SidebarSectionLabel(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.caption,
+        color = MaterialTheme.colors.primary.copy(alpha = 0.75f),
+    )
 }
 
 @Composable
@@ -192,20 +203,25 @@ private fun SidebarItem(
         Box(
             modifier =
                 Modifier
-                    .width(4.dp)
-                    .height(24.dp)
+                    .width(3.dp)
+                    .height(18.dp)
                     .background(
                         if (selected) MaterialTheme.colors.primary else NeutralSurface,
                         MaterialTheme.shapes.small,
                     ),
         )
         Spacer(modifier = Modifier.width(Spacing.sm))
-        Icon(imageVector = icon, contentDescription = null, tint = textColor)
-        Spacer(modifier = Modifier.width(Spacing.sm))
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = textColor,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(modifier = Modifier.width(Spacing.xs))
         Text(
             text = label,
             color = textColor,
-            style = MaterialTheme.typography.body1,
+            style = MaterialTheme.typography.body2,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -237,20 +253,25 @@ private fun SidebarSectionHeader(
             Box(
                 modifier =
                     Modifier
-                        .width(4.dp)
-                        .height(24.dp)
+                        .width(3.dp)
+                        .height(18.dp)
                         .background(
                             if (selected) MaterialTheme.colors.primary else NeutralSurface,
                             MaterialTheme.shapes.small,
                         ),
             )
             Spacer(modifier = Modifier.width(Spacing.sm))
-            Icon(imageVector = icon, contentDescription = null, tint = textColor)
-            Spacer(modifier = Modifier.width(Spacing.sm))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(Spacing.xs))
             Text(
                 text = label,
                 color = textColor,
-                style = MaterialTheme.typography.body1,
+                style = MaterialTheme.typography.body2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -259,6 +280,7 @@ private fun SidebarSectionHeader(
             imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
             contentDescription = null,
             tint = textColor,
+            modifier = Modifier.size(16.dp),
         )
     }
 }
@@ -281,12 +303,12 @@ private fun SidebarSubItem(
                 .padding(start = Spacing.lg, end = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = textColor, modifier = Modifier.size(12.dp))
-        Spacer(modifier = Modifier.width(Spacing.sm))
+        Icon(imageVector = icon, contentDescription = null, tint = textColor, modifier = Modifier.size(14.dp))
+        Spacer(modifier = Modifier.width(Spacing.xs))
         Text(
             text = label,
             color = textColor,
-            style = MaterialTheme.typography.body2,
+            style = MaterialTheme.typography.caption,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

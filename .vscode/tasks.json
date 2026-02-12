@@ -4,38 +4,58 @@
     {
       "label": "MutuGemba: Run Desktop",
       "type": "shell",
-      "command": "./gradlew :app-desktop:run",
+      "command": "./gradlew :app-desktop:run --console=plain",
       "group": "build",
       "problemMatcher": []
     },
     {
-      "label": "MutuGemba: Compile",
+      "label": "MutuGemba: Rebuild Desktop",
       "type": "shell",
-      "command": "./gradlew :app-desktop:compileKotlin",
+      "command": "./gradlew clean :app-desktop:build --console=plain",
       "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "MutuGemba: Compile Desktop",
+      "type": "shell",
+      "command": "./gradlew :app-desktop:compileKotlin --console=plain",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "MutuGemba: Format",
+      "type": "shell",
+      "command": "./gradlew ktlintFormat --console=plain",
+      "group": "test",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: Lint",
       "type": "shell",
-      "command": "./gradlew ktlintCheck detektAll",
+      "command": "./gradlew ktlintCheck detektAll --console=plain",
       "group": "test",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: Test",
       "type": "shell",
-      "command": "./gradlew test",
+      "command": "./gradlew test --console=plain",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "MutuGemba: Verify Fast",
+      "type": "shell",
+      "command": "./gradlew ktlintCheck :app-desktop:compileKotlin test --console=plain",
       "group": "test",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: CI Verify",
       "type": "shell",
-      "command": "./gradlew --no-daemon clean ktlintCheck detektAll test :app-desktop:compileKotlin",
+      "command": "./gradlew --no-daemon clean ktlintCheck detektAll test :app-desktop:build --console=plain",
       "group": "test",
       "problemMatcher": []
     }
   ]
 }
-

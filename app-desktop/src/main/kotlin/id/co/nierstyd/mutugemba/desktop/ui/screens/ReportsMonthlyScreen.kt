@@ -52,6 +52,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
+import id.co.nierstyd.mutugemba.desktop.ui.resources.classpathPainterResource
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
@@ -1198,8 +1199,12 @@ private fun LogoMark() {
         border = BorderStroke(1.dp, NeutralBorder),
         elevation = 0.dp,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(text = AppStrings.App.Logo, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(4.dp)) {
+            Image(
+                painter = classpathPainterResource("branding/pt_prima_mark.png"),
+                contentDescription = AppStrings.App.Logo,
+                contentScale = ContentScale.Fit,
+            )
         }
     }
 }
@@ -1261,7 +1266,7 @@ private fun isHoliday(
 private fun formatPartNumber(
     partNumber: String,
     uniqCode: String,
-): String = "$partNumber($uniqCode)"
+): String = "$partNumber ($uniqCode)"
 
 private fun formatProblemItems(items: List<String>): String {
     if (items.isEmpty()) return AppStrings.Common.Placeholder

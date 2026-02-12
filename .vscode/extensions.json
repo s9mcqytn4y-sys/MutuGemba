@@ -1,11 +1,14 @@
 {
   "recommendations": [
-    "rnoro.vscode-ktlint-formatter",
     "fwcd.kotlin",
+    "rnoro.vscode-ktlint-formatter",
     "vscjava.vscode-java-pack",
-    "vscode-icons-team.vscode-icons",
+    "vscjava.vscode-gradle",
     "eamodio.gitlens",
-    "usernamehw.errorlens"
+    "usernamehw.errorlens",
+    "shardulm94.trailing-spaces",
+    "streetsidesoftware.code-spell-checker",
+    "catppuccin.catppuccin-vsc",
+    "miguelsolorio.symbols"
   ]
 }
-

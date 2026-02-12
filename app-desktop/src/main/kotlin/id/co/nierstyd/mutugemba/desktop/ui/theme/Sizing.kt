@@ -3,10 +3,10 @@
 import androidx.compose.ui.unit.dp
 
 object Sizing {
-    val sidebarWidth = 264.dp
-    val sidebarItemHeight = 56.dp
-    val headerHeight = 84.dp
-    val footerHeight = 48.dp
-    val contentMaxWidth = 1200.dp
-    val controlHeightLarge = 48.dp
+    val sidebarWidth = 248.dp
+    val sidebarItemHeight = 48.dp
+    val headerHeight = 70.dp
+    val footerHeight = 40.dp
+    val contentMaxWidth = 1240.dp
+    val controlHeightLarge = 44.dp
 }
