@@ -8,12 +8,16 @@ import java.time.YearMonth
 object AppStrings {
     object App {
         const val Name = "MutuGemba"
-        const val WindowTitle = "MutuGemba - QC TPS v1.2.0"
-        const val IdentityTagline = "Platform QC TPS Offline"
+        const val WindowTitle = "MutuGemba - PT. Primaraya QC TPS v1.2.0"
+        const val IdentityTagline = "Platform QC TPS Offline - Industrial Modern"
         const val BuildVersion = "v1.2.0"
         const val HeaderBadge = "QC TPS Harian"
         const val CompanyName = "PT. Primaraya Graha Nusantara"
         const val DepartmentName = "Quality Assurance Dept."
+        const val CompanyMotto = "RESPONSIBLE | COMMIT | TRUSTED"
+        const val CompanyAddress = "Jl. Raya Bekasi KM.17 No.5, Jatinegara Kaum, Pulogadung, Jakarta Timur 13250"
+        const val CompanyPhone = "+62-21-4788 3012"
+        const val CompanyEmail = "primaraya.granusa@yahoo.co.id"
         const val CustomerName = "Customer"
         const val Offline = "Offline"
         const val OfflineStatus = "Offline - Lokal"

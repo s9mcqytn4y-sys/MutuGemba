@@ -31,6 +31,7 @@ compose.desktop {
             windows {
                 menuGroup = "MutuGemba"
                 shortcut = true
+                iconFile.set(project.file("src/main/resources/branding/app_icon.ico"))
             }
         }
     }

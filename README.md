@@ -6,6 +6,7 @@ Aplikasi QC TPS offline untuk desktop Windows. MVP ini berfokus pada clean archi
 Fitur laporan bulanan tersedia dalam format dokumen A4 landscape (read-only) dengan opsi ekspor PDF.
 
 Dokumen spesifikasi produk: `docs/spec/product.md`.
+Dokumen branding & aset statis: `docs/BRANDING_ASSETS.md`.
 
 ## Prasyarat
 - JDK 17

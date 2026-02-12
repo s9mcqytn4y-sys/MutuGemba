@@ -1,5 +1,6 @@
 ﻿package id.co.nierstyd.mutugemba.desktop.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.navigation.AppRoute
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
@@ -56,16 +59,27 @@ fun SidebarMenu(
                     .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(
-                    text = AppStrings.App.Name,
-                    style = MaterialTheme.typography.h6,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Image(
+                    painter = painterResource("branding/pt_prima_mark.png"),
+                    contentDescription = "Logo PT Primaraya",
+                    modifier = Modifier.size(30.dp),
+                    contentScale = ContentScale.Fit,
                 )
-                Text(
-                    text = AppStrings.App.HeaderBadge,
-                    style = MaterialTheme.typography.caption,
-                    color = MaterialTheme.colors.primary,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = AppStrings.App.Name,
+                        style = MaterialTheme.typography.h6,
+                    )
+                    Text(
+                        text = AppStrings.App.CompanyName,
+                        style = MaterialTheme.typography.caption,
+                        color = MaterialTheme.colors.primary,
+                    )
+                }
             }
             Row(
                 modifier =

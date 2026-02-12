@@ -37,3 +37,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 tools/**/.venv/
+
+# Branding workbench artifacts
+app-desktop/src/main/resources/branding/source_pdf/
+app-desktop/src/main/resources/branding/*.pdf

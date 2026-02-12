@@ -25,6 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.di.AppContainer
@@ -136,7 +138,7 @@ fun MutuGembaApp() {
             headerContent = {
                 HeaderBar(
                     title = AppStrings.App.Name,
-                    subtitle = AppStrings.App.CompanyName,
+                    subtitle = AppStrings.App.DepartmentName,
                     demoMode = false,
                     dummyData = false,
                 )
@@ -287,6 +289,12 @@ private fun AppWelcomeLoading() {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            androidx.compose.foundation.Image(
+                painter = painterResource("branding/pt_prima_logo.png"),
+                contentDescription = "PT Primaraya Logo",
+                modifier = Modifier.height(52.dp),
+                contentScale = ContentScale.Fit,
+            )
             Text(text = AppStrings.App.Name, style = MaterialTheme.typography.h3)
             Text(
                 text = AppStrings.App.IdentityTagline,
