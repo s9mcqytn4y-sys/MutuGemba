@@ -1,16 +1,14 @@
-﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
+package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -36,16 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
-import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
-import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
-import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
@@ -69,8 +62,6 @@ import id.co.nierstyd.mutugemba.usecase.part.ObservePartsUseCase
 import id.co.nierstyd.mutugemba.usecase.qa.GetDefectHeatmapUseCase
 import id.co.nierstyd.mutugemba.usecase.qa.GetTopDefectsPerModelMonthlyUseCase
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.time.YearMonth
@@ -86,151 +77,55 @@ data class PartMappingScreenDependencies(
 )
 
 @Composable
-@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
-    val now = remember { YearMonth.now() }
+    val period = remember { YearMonth.now() }
 
-    var lineCode by rememberSaveable { mutableStateOf<String?>(null) }
-    var modelCode by rememberSaveable { mutableStateOf<String?>(null) }
-    var search by rememberSaveable { mutableStateOf("") }
-    var monthInput by rememberSaveable { mutableStateOf("%04d-%02d".format(now.year, now.monthValue)) }
-    val selectedMonth = remember(monthInput) { parseYearMonth(monthInput) ?: now }
-    var allParts by remember { mutableStateOf<List<PartListItem>>(emptyList()) }
     var parts by remember { mutableStateOf<List<PartListItem>>(emptyList()) }
-    var catalogParts by remember { mutableStateOf<List<PartListItem>>(emptyList()) }
     var partsLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(selectedMonth) {
-        partsLoading = true
-        loadError = null
-        val result =
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    dependencies
-                        .observeParts
-                        .execute(
-                            PartFilter(
-                                lineCode = null,
-                                modelCode = null,
-                                search = null,
-                                year = selectedMonth.year,
-                                month = selectedMonth.monthValue,
-                                limit = Int.MAX_VALUE,
-                            ),
-                        ).first()
-                }
-            }
-        result
-            .onSuccess { loaded ->
-                val base =
-                    if (loaded.isNotEmpty()) {
-                        loaded
-                    } else {
-                        withContext(Dispatchers.IO) {
-                            dependencies
-                                .observeParts
-                                .execute(
-                                    PartFilter(
-                                        lineCode = null,
-                                        modelCode = null,
-                                        search = null,
-                                        year = null,
-                                        month = null,
-                                        limit = Int.MAX_VALUE,
-                                    ),
-                                ).first()
-                        }
-                    }
-                allParts = base
-                catalogParts = base
-            }
-            .onFailure { throwable ->
-                allParts = emptyList()
-                catalogParts = emptyList()
-                parts = emptyList()
-                loadError = throwable.message ?: "Gagal memuat data part."
-            }
-        partsLoading = false
-    }
-    LaunchedEffect(allParts, lineCode, modelCode, search) {
-        parts = applyPartFilters(allParts, lineCode, modelCode, search)
-    }
-
-    val lineOptions =
-        remember(catalogParts) {
-            buildList {
-                add(DropdownOption(-1L, "Semua"))
-                catalogParts
-                    .asSequence()
-                    .map { it.lineCode.trim() }
-                    .filter { it.isNotEmpty() }
-                    .distinct()
-                    .sorted()
-                    .forEachIndexed { index, value ->
-                        add(DropdownOption(index.toLong() + 1L, value))
-                    }
-            }
-        }
-    val modelOptions =
-        remember(catalogParts) {
-            buildList {
-                add(DropdownOption(-1L, "Semua"))
-                catalogParts
-                    .flatMap { it.modelCodes }
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .distinct()
-                    .sorted()
-                    .forEachIndexed { index, value ->
-                        add(DropdownOption(index.toLong() + 10_000L, value))
-                    }
-            }
-        }
-    val hasActiveFilters = !lineCode.isNullOrBlank() || !modelCode.isNullOrBlank() || search.isNotBlank()
-    val activeFilterCount = listOf(lineCode, modelCode).count { !it.isNullOrBlank() } + if (search.isNotBlank()) 1 else 0
-
-    LaunchedEffect(lineOptions, modelOptions) {
-        val validLine = lineOptions.any { option -> option.id != -1L && option.label.equals(lineCode, ignoreCase = true) }
-        if (!lineCode.isNullOrBlank() && !validLine) {
-            lineCode = null
-        }
-        val validModel =
-            modelOptions.any { option -> option.id != -1L && option.label.equals(modelCode, ignoreCase = true) }
-        if (!modelCode.isNullOrBlank() && !validModel) {
-            modelCode = null
-        }
-    }
 
     var selectedUniqNo by rememberSaveable { mutableStateOf<String?>(null) }
     var partDetail by remember { mutableStateOf<PartDetail?>(null) }
     var partDetailLoading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(parts) {
-        if (parts.isNotEmpty() && selectedUniqNo !in parts.map { it.uniqNo }) {
-            selectedUniqNo = parts.first().uniqNo
-        }
-    }
-
-    LaunchedEffect(selectedUniqNo, selectedMonth) {
-        val uniq =
-            selectedUniqNo ?: run {
-                partDetail = null
-                return@LaunchedEffect
-            }
-        partDetailLoading = true
-        partDetail =
-            withContext(Dispatchers.IO) {
-                dependencies.getPartDetail.execute(uniq, selectedMonth.year, selectedMonth.monthValue)
-            }
-        partDetailLoading = false
-    }
-
     val thumbnailMap = remember { mutableStateMapOf<String, ImageBitmap?>() }
     var thumbnailLoading by remember { mutableStateOf(false) }
+    var detailBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(Unit) {
+        partsLoading = true
+        loadError = null
+        runCatching {
+            withContext(Dispatchers.IO) {
+                dependencies
+                    .observeParts
+                    .execute(
+                        PartFilter(
+                            lineCode = null,
+                            modelCode = null,
+                            search = null,
+                            year = null,
+                            month = null,
+                            limit = Int.MAX_VALUE,
+                        ),
+                    ).first()
+            }
+        }.onSuccess { loaded ->
+            parts = loaded
+            if (selectedUniqNo == null && loaded.isNotEmpty()) {
+                selectedUniqNo = loaded.first().uniqNo
+            }
+        }.onFailure { throwable ->
+            parts = emptyList()
+            loadError = throwable.message ?: "Gagal memuat part."
+        }
+        partsLoading = false
+    }
+
     LaunchedEffect(parts) {
         val missing = parts.filterNot { thumbnailMap.containsKey(it.uniqNo) }
         if (missing.isEmpty()) return@LaunchedEffect
+
         thumbnailLoading = true
         val loaded =
             withContext(Dispatchers.IO) {
@@ -244,24 +139,29 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
         thumbnailLoading = false
     }
 
-    LaunchedEffect(parts.size) {
-        // Clear stale thumbnails gradually to avoid unbounded cache growth across long sessions.
-        if (thumbnailMap.size > 260) {
-            val active = parts.map { it.uniqNo }.toSet()
-            thumbnailMap.keys
-                .filter { it !in active }
-                .take(80)
-                .forEach { thumbnailMap.remove(it) }
-        }
+    LaunchedEffect(selectedUniqNo) {
+        val uniq =
+            selectedUniqNo ?: run {
+                partDetail = null
+                detailBitmap = null
+                return@LaunchedEffect
+            }
+
+        partDetailLoading = true
+        partDetail =
+            withContext(Dispatchers.IO) {
+                dependencies.getPartDetail.execute(uniq, period.year, period.monthValue)
+            }
+        partDetailLoading = false
     }
 
-    var detailBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(partDetail?.image?.storageRelPath) {
         val image =
             partDetail?.image ?: run {
                 detailBitmap = null
                 return@LaunchedEffect
             }
+
         detailBitmap =
             withContext(Dispatchers.IO) {
                 dependencies
@@ -277,132 +177,24 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             }
     }
 
-    var topDefects by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
-    var heatmapRows by remember { mutableStateOf<List<String>>(emptyList()) }
-    LaunchedEffect(selectedMonth, modelCode) {
-        val top =
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    dependencies
-                        .getTopDefects
-                        .execute(selectedMonth.year, selectedMonth.monthValue, 5)
-                        .map { item -> "${item.modelCode} - ${item.defectName}" to item.totalQty }
-                }
-            }.getOrDefault(emptyList())
-        val heatmap =
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    dependencies
-                        .getDefectHeatmap
-                        .execute(
-                            selectedMonth.year,
-                            selectedMonth.monthValue,
-                            modelCode?.takeIf { it.isNotBlank() },
-                        ).map { row ->
-                            "${row.reportDate ?: "-"} | ${row.defectName} | ${row.totalQty}"
-                        }
-                }
-            }.getOrDefault(emptyList())
-        topDefects = top
-        heatmapRows = heatmap
-    }
-
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SectionHeader(
             title = AppStrings.PartMapping.Title,
-            subtitle = AppStrings.PartMapping.Subtitle,
+            subtitle = "Daftar part dan detail part (tanpa filter).",
         )
+
         StatusBanner(
-            feedback = UserFeedback(FeedbackType.INFO, AppStrings.PartMapping.ImportBannerOffline),
+            feedback = UserFeedback(FeedbackType.INFO, "Mode sederhana: menampilkan seluruh part dari database lokal."),
             dense = true,
         )
+
         loadError?.let { message ->
             StatusBanner(
                 feedback = UserFeedback(FeedbackType.ERROR, "Gagal memuat part: $message"),
                 dense = true,
-            )
-        }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = NeutralSurface,
-            border = BorderStroke(1.dp, NeutralBorder),
-            shape = MaterialTheme.shapes.medium,
-            elevation = 0.dp,
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            ) {
-                OutlinedTextField(
-                    value = monthInput,
-                    onValueChange = { monthInput = it },
-                    label = { Text(AppStrings.PartMapping.MonthLabel) },
-                    modifier = Modifier.weight(0.18f),
-                    singleLine = true,
-                )
-                AppDropdown(
-                    label = AppStrings.PartMapping.LineLabel,
-                    options = lineOptions,
-                    selectedOption =
-                        lineOptions.firstOrNull {
-                            it.label.equals(lineCode, ignoreCase = true) ||
-                                (lineCode.isNullOrBlank() && it.id == -1L)
-                        },
-                    onSelected = { lineCode = if (it.id == -1L) null else it.label },
-                    modifier = Modifier.weight(0.18f),
-                )
-                AppDropdown(
-                    label = AppStrings.PartMapping.ModelLabel,
-                    options = modelOptions,
-                    selectedOption =
-                        modelOptions.firstOrNull {
-                            it.label.equals(modelCode, ignoreCase = true) ||
-                                (modelCode.isNullOrBlank() && it.id == -1L)
-                        },
-                    onSelected = { modelCode = if (it.id == -1L) null else it.label },
-                    modifier = Modifier.weight(0.2f),
-                )
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    label = { Text(AppStrings.PartMapping.SearchLabel) },
-                    modifier = Modifier.weight(0.44f),
-                    singleLine = true,
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-                AppBadge(
-                    text = "Tampil ${parts.size} part",
-                    backgroundColor = NeutralLight,
-                    contentColor = NeutralText,
-                )
-                if (hasActiveFilters) {
-                    AppBadge(
-                        text = "Filter aktif: $activeFilterCount",
-                        backgroundColor = NeutralLight,
-                        contentColor = NeutralTextMuted,
-                    )
-                }
-            }
-            SecondaryButton(
-                text = "Reset Filter",
-                onClick = {
-                    lineCode = null
-                    modelCode = null
-                    search = ""
-                },
-                enabled = hasActiveFilters,
             )
         }
 
@@ -425,127 +217,72 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         text = "${AppStrings.PartMapping.PartListTitle} (${parts.size})",
                         style = MaterialTheme.typography.subtitle1,
                     )
-                    if (partsLoading) {
-                        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+
+                    when {
+                        partsLoading -> {
                             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                                repeat(6) {
+                                repeat(8) {
                                     SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
                                 }
                             }
                         }
-                    } else if (parts.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopStart) {
+
+                        parts.isEmpty() -> {
                             Text(
-                                text =
-                                    if (hasActiveFilters) {
-                                        "Tidak ada part yang cocok dengan filter saat ini. Klik Reset Filter."
-                                    } else {
-                                        AppStrings.PartMapping.EmptyParts
-                                    },
+                                text = AppStrings.PartMapping.EmptyParts,
                                 style = MaterialTheme.typography.body2,
                                 color = NeutralTextMuted,
                             )
                         }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxWidth().weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        ) {
-                            items(parts, key = { it.partId }) { item ->
-                                PartCard(
-                                    item = item,
-                                    thumbnail = thumbnailMap[item.uniqNo],
-                                    thumbnailLoading = thumbnailLoading && !thumbnailMap.containsKey(item.uniqNo),
-                                    selected = item.uniqNo == selectedUniqNo,
-                                    onClick = { selectedUniqNo = item.uniqNo },
-                                )
+
+                        else -> {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                            ) {
+                                items(parts, key = { it.partId }) { item ->
+                                    PartCard(
+                                        item = item,
+                                        thumbnail = thumbnailMap[item.uniqNo],
+                                        thumbnailLoading = thumbnailLoading && !thumbnailMap.containsKey(item.uniqNo),
+                                        selected = item.uniqNo == selectedUniqNo,
+                                        onClick = { selectedUniqNo = item.uniqNo },
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            Column(
+            Surface(
                 modifier = Modifier.weight(0.56f).fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                color = NeutralSurface,
+                border = BorderStroke(1.dp, NeutralBorder),
+                shape = MaterialTheme.shapes.medium,
+                elevation = 0.dp,
             ) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().weight(0.58f),
-                    color = NeutralSurface,
-                    border = BorderStroke(1.dp, NeutralBorder),
-                    shape = MaterialTheme.shapes.medium,
-                    elevation = 0.dp,
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(Spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    ) {
-                        Text(text = AppStrings.PartMapping.DetailTitle, style = MaterialTheme.typography.subtitle1)
-                        when {
-                            partDetailLoading ->
-                                Text(
-                                    "Memuat detail...",
-                                    style = MaterialTheme.typography.body2,
-                                    color = NeutralTextMuted,
-                                )
-                            partDetail == null ->
-                                Text(
-                                    AppStrings.PartMapping.EmptyDetail,
-                                    style = MaterialTheme.typography.body2,
-                                    color = NeutralTextMuted,
-                                )
-                            else -> PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
-                        }
-                    }
-                }
+                    Text(text = AppStrings.PartMapping.DetailTitle, style = MaterialTheme.typography.subtitle1)
 
-                Surface(
-                    modifier = Modifier.fillMaxWidth().weight(0.42f),
-                    color = NeutralSurface,
-                    border = BorderStroke(1.dp, NeutralBorder),
-                    shape = MaterialTheme.shapes.medium,
-                    elevation = 0.dp,
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(Spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    ) {
-                        Text(text = AppStrings.PartMapping.DashboardTitle, style = MaterialTheme.typography.subtitle1)
-                        Text(
-                            text = AppStrings.PartMapping.TopDefects,
-                            style = MaterialTheme.typography.body2,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        if (topDefects.isEmpty()) {
-                            Text(
-                                "Belum ada data defect.",
-                                style = MaterialTheme.typography.body2,
-                                color = NeutralTextMuted,
-                            )
-                        } else {
-                            topDefects.forEachIndexed { index, pair ->
-                                Text(
-                                    "${index + 1}. ${pair.first}: ${pair.second}",
-                                    style = MaterialTheme.typography.body2,
-                                )
-                            }
+                    when {
+                        partDetailLoading -> {
+                            Text("Memuat detail...", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
                         }
-                        Spacer(modifier = Modifier.height(Spacing.xs))
-                        Text(
-                            text = AppStrings.PartMapping.Heatmap,
-                            style = MaterialTheme.typography.body2,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        if (heatmapRows.isEmpty()) {
+
+                        partDetail == null -> {
                             Text(
-                                "Belum ada data heatmap.",
+                                AppStrings.PartMapping.EmptyDetail,
                                 style = MaterialTheme.typography.body2,
                                 color = NeutralTextMuted,
                             )
-                        } else {
-                            heatmapRows.take(10).forEach { row ->
-                                Text(row, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-                            }
+                        }
+
+                        else -> {
+                            PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
                         }
                     }
                 }
@@ -563,65 +300,56 @@ private fun PartCard(
     onClick: () -> Unit,
 ) {
     val borderColor = if (selected) MaterialTheme.colors.primary else NeutralBorder
-    Box(
-        modifier = Modifier.fillMaxWidth(),
+    Surface(
+        modifier =
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).pointerInput(onClick) {
+                detectTapGestures(onTap = { onClick() })
+            },
+        color = NeutralSurface,
+        border = BorderStroke(1.dp, borderColor),
+        shape = MaterialTheme.shapes.medium,
+        elevation = 0.dp,
     ) {
-        Surface(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium)
-                    .pointerInput(onClick) {
-                        detectTapGestures(onTap = { onClick() })
-                    },
-            color = NeutralSurface,
-            border = BorderStroke(1.dp, borderColor),
-            shape = MaterialTheme.shapes.medium,
-            elevation = 0.dp,
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier =
+                    Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, NeutralBorder, RoundedCornerShape(8.dp))
+                        .background(NeutralLight),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, NeutralBorder, RoundedCornerShape(8.dp))
-                            .background(NeutralLight),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (thumbnail != null) {
-                        Image(
-                            bitmap = thumbnail,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                        )
-                    } else if (thumbnailLoading) {
-                        SkeletonBlock(width = 54.dp, height = 54.dp, color = NeutralBorder)
-                    } else {
-                        Text("PNG", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
-                    }
+                if (thumbnail != null) {
+                    Image(
+                        bitmap = thumbnail,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit,
+                    )
+                } else if (thumbnailLoading) {
+                    SkeletonBlock(width = 54.dp, height = 54.dp, color = NeutralBorder)
+                } else {
+                    Text("PNG", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
                 }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("${item.partNumber} (${item.uniqNo})", style = MaterialTheme.typography.subtitle2)
-                    Text(item.partName, style = MaterialTheme.typography.body2, color = NeutralText)
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                        AppBadge(
-                            text = item.lineCode.uppercase(),
-                            backgroundColor = NeutralLight,
-                            contentColor = NeutralText,
-                        )
-                        AppBadge(
-                            text = item.modelCodes.joinToString(", ").ifBlank { "-" },
-                            backgroundColor = NeutralLight,
-                            contentColor = NeutralTextMuted,
-                        )
-                    }
-                }
+            }
+
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(text = "(${item.uniqNo}) ${item.partName}", style = MaterialTheme.typography.subtitle2)
+                Text(
+                    text = "Part Number ${item.partNumber}",
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralText,
+                )
+                AppBadge(
+                    text = item.lineCode.uppercase(),
+                    backgroundColor = NeutralLight,
+                    contentColor = NeutralText,
+                )
             }
         }
     }
@@ -636,142 +364,52 @@ private fun PartDetailContent(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
-        Text("${detail.partNumber} (${detail.uniqNo})", style = MaterialTheme.typography.subtitle1)
-        Text(detail.partName, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+        Text("(${detail.uniqNo}) ${detail.partName}", style = MaterialTheme.typography.subtitle1)
+        Text("Part Number ${detail.partNumber}", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
 
-        Row(
-            modifier = Modifier.fillMaxWidth().height(230.dp),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            ZoomableImagePanel(bitmap = bitmap, modifier = Modifier.weight(0.48f))
-            Column(modifier = Modifier.weight(0.52f), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                AppBadge(
-                    text = "Line ${detail.lineCode.uppercase()}",
-                    backgroundColor = NeutralLight,
-                    contentColor = NeutralText,
-                )
-                AppBadge(
-                    text = "Models: ${detail.models.joinToString(", ").ifBlank { "-" }}",
-                    backgroundColor = NeutralLight,
-                    contentColor = NeutralTextMuted,
-                )
-                Text("Qty KBN per model", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
-                detail.requirements.ifEmpty { listOf() }.forEach { requirement ->
-                    Text("- ${requirement.modelCode}: ${requirement.qtyKbn}", style = MaterialTheme.typography.caption)
-                }
-            }
-        }
-
-        Text("Material Layers", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
-        if (detail.materials.isEmpty()) {
-            Text("-", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
-        } else {
-            detail.materials.forEach { material ->
-                val materialLine =
-                    "L${material.layerOrder} ${material.materialName} | g=${material.weightG ?: "-"} | " +
-                        "gsm=${material.basisWeightGsm ?: "-"} | ${material.unit ?: "-"}"
-                Text(
-                    text = materialLine,
-                    style = MaterialTheme.typography.caption,
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.xs))
-        Text("Defect Risk x Material", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
-        if (detail.materialDefectRisks.isEmpty()) {
-            Text("-", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
-        } else {
-            detail.materialDefectRisks.take(8).forEach { risk ->
-                Text(
-                    text =
-                        "${risk.defectName} | ${risk.sourceLine.uppercase()} | score ${"%.2f".format(
-                            risk.riskScore,
-                        )} | ${risk.affectedParts} part",
-                    style = MaterialTheme.typography.caption,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ZoomableImagePanel(
-    bitmap: ImageBitmap?,
-    modifier: Modifier = Modifier,
-) {
-    var scale by remember { mutableStateOf(1f) }
-    var offsetX by remember { mutableStateOf(0f) }
-    var offsetY by remember { mutableStateOf(0f) }
-
-    Surface(
-        modifier = modifier.fillMaxHeight(),
-        color = NeutralLight,
-        border = BorderStroke(1.dp, NeutralBorder),
-        shape = MaterialTheme.shapes.small,
-        elevation = 0.dp,
-    ) {
         Box(
             modifier =
                 Modifier
-                    .fillMaxSize()
-                    .pointerInput(bitmap) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(1f, 4f)
-                            offsetX += pan.x
-                            offsetY += pan.y
-                        }
-                    },
+                    .fillMaxWidth()
+                    .height(240.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .border(1.dp, NeutralBorder, MaterialTheme.shapes.small)
+                    .background(NeutralLight),
             contentAlignment = Alignment.Center,
         ) {
             if (bitmap == null) {
-                Text("No image", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text("Gambar tidak tersedia", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
             } else {
                 Image(
                     bitmap = bitmap,
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(
-                                scaleX = scale,
-                                scaleY = scale,
-                                translationX = offsetX,
-                                translationY = offsetY,
-                            ),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
-    }
-}
 
-private fun parseYearMonth(input: String): YearMonth? {
-    val text = input.trim()
-    if (!Regex("^\\d{4}-\\d{2}$").matches(text)) return null
-    return runCatching { YearMonth.parse(text) }.getOrNull()
-}
+        AppBadge(
+            text = "Line ${detail.lineCode.uppercase()}",
+            backgroundColor = NeutralLight,
+            contentColor = NeutralText,
+        )
 
-private fun applyPartFilters(
-    source: List<PartListItem>,
-    lineCode: String?,
-    modelCode: String?,
-    search: String,
-): List<PartListItem> {
-    val lineFilter = lineCode?.trim()?.takeIf { it.isNotBlank() }
-    val modelFilter = modelCode?.trim()?.takeIf { it.isNotBlank() }
-    val searchFilter = search.trim().takeIf { it.isNotBlank() }
-    return source.filter { item ->
-        val lineMatch = lineFilter == null || item.lineCode.equals(lineFilter, ignoreCase = true)
-        val modelMatch =
-            modelFilter == null ||
-                item.modelCodes.any { model -> model.equals(modelFilter, ignoreCase = true) }
-        val searchMatch =
-            searchFilter == null ||
-                item.uniqNo.contains(searchFilter, ignoreCase = true) ||
-                item.partNumber.contains(searchFilter, ignoreCase = true) ||
-                item.partName.contains(searchFilter, ignoreCase = true)
-        lineMatch && modelMatch && searchMatch
+        Text("Model", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
+        Text(
+            detail.models.joinToString(", ").ifBlank { "-" },
+            style = MaterialTheme.typography.caption,
+            color = NeutralTextMuted,
+        )
+
+        Text("Qty KBN", style = MaterialTheme.typography.body2, fontWeight = FontWeight.SemiBold)
+        if (detail.requirements.isEmpty()) {
+            Text("-", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        } else {
+            detail.requirements.forEach {
+                Text("${it.modelCode}: ${it.qtyKbn}", style = MaterialTheme.typography.caption)
+            }
+        }
     }
 }
 
