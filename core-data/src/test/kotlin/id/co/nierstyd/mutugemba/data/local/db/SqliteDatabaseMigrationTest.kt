@@ -51,9 +51,16 @@ class SqliteDatabaseMigrationTest {
                     }
                 }
             }
+        val backupCount =
+            Files.list(tempDir).use { paths ->
+                paths
+                    .filter { path -> path.fileName.toString().startsWith("mapping.db.backup-v10-") }
+                    .count()
+            }
 
         assertTrue(hasPartTable)
         assertEquals(12, userVersion)
         assertTrue(hasPartReportIndex)
+        assertEquals(1L, backupCount)
     }
 }

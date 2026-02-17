@@ -8,6 +8,7 @@ import java.sql.DriverManager
 
 private const val TARGET_SCHEMA_VERSION = 12
 private const val SQLITE_BUSY_TIMEOUT_MS = 5_000
+private const val BACKUP_FILE_LABEL = "backup"
 
 class SqliteDatabase(
     private val dbFile: Path,
@@ -63,27 +64,19 @@ class SqliteDatabase(
                 }
             val hasNormalizedSchema = hasColumn(connection, table = "part", column = "uniq_no_norm")
             val hasQaObservationPartReportIndex = hasIndex(connection, indexName = "idx_qa_obs_part_report")
-            if (currentVersion >= TARGET_SCHEMA_VERSION && hasNormalizedSchema && hasQaObservationPartReportIndex) {
+            if (!isMigrationRequired(currentVersion, hasNormalizedSchema, hasQaObservationPartReportIndex)) {
                 return@withConnection
             }
-
+            val partCountBefore = readPartCount(connection)
+            val backupPath = createBackupIfNeeded(currentVersion)
             logger.info(
-                "Applying hard-replace schema migration from version {} to {}.",
+                "Menjalankan migrasi skema lokal dari versi {} ke {} (backup: {}).",
                 currentVersion,
                 TARGET_SCHEMA_VERSION,
+                backupPath?.toAbsolutePath() ?: "tidak diperlukan",
             )
-            val schemaSql = loadSchemaSql()
-            connection.autoCommit = false
-            runCatching {
-                schemaSql.statements().forEach { sql ->
-                    connection.createStatement().use { statement -> statement.execute(sql) }
-                }
-                connection.createStatement().use { it.execute("PRAGMA user_version = $TARGET_SCHEMA_VERSION;") }
-                connection.commit()
-            }.onFailure {
-                connection.rollback()
-                throw it
-            }
+            applySchemaMigration(connection, loadSchemaSql())
+            warnIfPartDataCleared(connection, partCountBefore)
         }
     }
 
@@ -94,34 +87,116 @@ class SqliteDatabase(
             ?.use { it.readText() }
             ?: error("Missing schema resource: db/schema_v$TARGET_SCHEMA_VERSION.sql")
 
-    private fun hasColumn(
+    private fun isMigrationRequired(
+        currentVersion: Int,
+        hasNormalizedSchema: Boolean,
+        hasQaObservationPartReportIndex: Boolean,
+    ): Boolean = currentVersion < TARGET_SCHEMA_VERSION || !hasNormalizedSchema || !hasQaObservationPartReportIndex
+
+    private fun readPartCount(connection: Connection): Int =
+        if (hasTable(connection, "part")) countRows(connection, "part") else 0
+
+    private fun applySchemaMigration(
         connection: Connection,
-        table: String,
-        column: String,
-    ): Boolean =
-        connection.createStatement().use { statement ->
-            statement.executeQuery("PRAGMA table_info($table)").use { rs ->
-                while (rs.next()) {
-                    if (rs.getString("name") == column) {
-                        return@use true
-                    }
-                }
-                false
+        schemaSql: String,
+    ) {
+        connection.autoCommit = false
+        runCatching {
+            schemaSql.statements().forEach { sql ->
+                connection.createStatement().use { statement -> statement.execute(sql) }
             }
+            connection.createStatement().use { it.execute("PRAGMA user_version = $TARGET_SCHEMA_VERSION;") }
+            connection.commit()
+        }.onFailure {
+            connection.rollback()
+            throw it
+        }
+    }
+
+    private fun warnIfPartDataCleared(
+        connection: Connection,
+        partCountBefore: Int,
+    ) {
+        val partCountAfter = readPartCount(connection)
+        if (partCountBefore > 0 && partCountAfter == 0) {
+            logger.warn(
+                "Migrasi skema mengosongkan data part lama. Gunakan file backup sebelum lanjut bootstrap ulang.",
+            )
+        }
+    }
+
+    private fun createBackupIfNeeded(currentVersion: Int): Path? {
+        val shouldBackup =
+            currentVersion > 0 &&
+                Files.exists(dbFile) &&
+                runCatching { Files.size(dbFile) }.getOrDefault(0L) > 0L
+        if (!shouldBackup) {
+            return null
+        }
+        val backupPath =
+            dbFile.resolveSibling(
+                "${dbFile.fileName}.$BACKUP_FILE_LABEL-v$currentVersion-${System.currentTimeMillis()}",
+            )
+        runCatching {
+            Files.copy(dbFile, backupPath)
+        }.getOrElse { throwable ->
+            throw IllegalStateException(
+                "Backup migrasi gagal dibuat. Proses dihentikan agar data lokal tetap aman.",
+                throwable,
+            )
+        }
+        return backupPath
+    }
+}
+
+private fun hasColumn(
+    connection: Connection,
+    table: String,
+    column: String,
+): Boolean =
+    connection.createStatement().use { statement ->
+        statement.executeQuery("PRAGMA table_info($table)").use { rs ->
+            buildList {
+                while (rs.next()) {
+                    add(rs.getString("name"))
+                }
+            }.any { it == column }
+        }
+    }
+
+private fun hasIndex(
+    connection: Connection,
+    indexName: String,
+): Boolean =
+    connection
+        .prepareStatement(
+            "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ? LIMIT 1",
+        ).use { statement ->
+            statement.setString(1, indexName)
+            statement.executeQuery().use { rs -> rs.next() }
         }
 
-    private fun hasIndex(
-        connection: Connection,
-        indexName: String,
-    ): Boolean =
-        connection
-            .prepareStatement(
-                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ? LIMIT 1",
-            ).use { statement ->
-                statement.setString(1, indexName)
-                statement.executeQuery().use { rs -> rs.next() }
-            }
-}
+private fun hasTable(
+    connection: Connection,
+    tableName: String,
+): Boolean =
+    connection
+        .prepareStatement(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+        ).use { statement ->
+            statement.setString(1, tableName)
+            statement.executeQuery().use { rs -> rs.next() }
+        }
+
+private fun countRows(
+    connection: Connection,
+    tableName: String,
+): Int =
+    connection.createStatement().use { statement ->
+        statement.executeQuery("SELECT COUNT(*) FROM $tableName").use { rs ->
+            if (rs.next()) rs.getInt(1) else 0
+        }
+    }
 
 private fun String.statements(): List<String> {
     val statements = mutableListOf<String>()
