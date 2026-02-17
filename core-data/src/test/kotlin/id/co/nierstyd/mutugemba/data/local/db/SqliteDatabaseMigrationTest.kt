@@ -40,8 +40,20 @@ class SqliteDatabaseMigrationTest {
                     }
                 }
             }
+        val hasPartReportIndex =
+            database.read { connection ->
+                connection.prepareStatement(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_qa_obs_part_report'",
+                ).use { statement ->
+                    statement.executeQuery().use { rs ->
+                        rs.next()
+                        rs.getInt(1) == 1
+                    }
+                }
+            }
 
         assertTrue(hasPartTable)
-        assertEquals(11, userVersion)
+        assertEquals(12, userVersion)
+        assertTrue(hasPartReportIndex)
     }
 }

@@ -6,7 +6,7 @@ import java.nio.file.Path
 import java.sql.Connection
 import java.sql.DriverManager
 
-private const val TARGET_SCHEMA_VERSION = 11
+private const val TARGET_SCHEMA_VERSION = 12
 private const val SQLITE_BUSY_TIMEOUT_MS = 5_000
 
 class SqliteDatabase(
@@ -62,7 +62,8 @@ class SqliteDatabase(
                     }
                 }
             val hasNormalizedSchema = hasColumn(connection, table = "part", column = "uniq_no_norm")
-            if (currentVersion >= TARGET_SCHEMA_VERSION && hasNormalizedSchema) {
+            val hasQaObservationPartReportIndex = hasIndex(connection, indexName = "idx_qa_obs_part_report")
+            if (currentVersion >= TARGET_SCHEMA_VERSION && hasNormalizedSchema && hasQaObservationPartReportIndex) {
                 return@withConnection
             }
 
@@ -88,10 +89,10 @@ class SqliteDatabase(
 
     private fun loadSchemaSql(): String =
         javaClass.classLoader
-            .getResourceAsStream("db/schema_v11.sql")
+            .getResourceAsStream("db/schema_v$TARGET_SCHEMA_VERSION.sql")
             ?.bufferedReader(Charsets.UTF_8)
             ?.use { it.readText() }
-            ?: error("Missing schema resource: db/schema_v11.sql")
+            ?: error("Missing schema resource: db/schema_v$TARGET_SCHEMA_VERSION.sql")
 
     private fun hasColumn(
         connection: Connection,
@@ -108,6 +109,18 @@ class SqliteDatabase(
                 false
             }
         }
+
+    private fun hasIndex(
+        connection: Connection,
+        indexName: String,
+    ): Boolean =
+        connection
+            .prepareStatement(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ? LIMIT 1",
+            ).use { statement ->
+                statement.setString(1, indexName)
+                statement.executeQuery().use { rs -> rs.next() }
+            }
 }
 
 private fun String.statements(): List<String> {
