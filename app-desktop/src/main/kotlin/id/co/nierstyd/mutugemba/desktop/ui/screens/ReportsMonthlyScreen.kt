@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.data.AppDataPaths
@@ -52,7 +53,6 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
-import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -785,7 +785,7 @@ private fun MonthlyReportTable(
                 visibleRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
             }
         }
-    val filteredGrandTotal = remember(visibleRows) { visibleRows.sumOf { it.totalDefect } }
+    val filteredGrandTotal = remember(filteredDayTotals) { filteredDayTotals.sum() }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
@@ -864,9 +864,20 @@ private fun MonthlyReportTable(
             }
         }
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val leftColumnsWidth = SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth
+            val defaultLeftColumnsWidth = SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth
+            val fullDaySectionWidth = DayColumnWidth * days.size
+            val minDayViewportWidth = (DayColumnWidth * 4).coerceAtMost(fullDaySectionWidth)
+            val reservedWidth = TotalColumnWidth + SectionDividerWidth + minDayViewportWidth
+            val safeLeftBudget = (maxWidth - reservedWidth).coerceAtLeast(360.dp)
+            val adaptiveScale = (safeLeftBudget / defaultLeftColumnsWidth).coerceIn(0.72f, 1f)
+            val adaptiveSketchColumnWidth = SketchColumnWidth * adaptiveScale
+            val adaptivePartNumberColumnWidth = PartNumberColumnWidth * adaptiveScale
+            val adaptiveProblemItemColumnWidth = ProblemItemColumnWidth * adaptiveScale
+            val leftColumnsWidth =
+                adaptiveSketchColumnWidth + adaptivePartNumberColumnWidth + adaptiveProblemItemColumnWidth
             val dayViewportWidth =
-                (maxWidth - leftColumnsWidth - TotalColumnWidth - SectionDividerWidth).coerceAtLeast(240.dp)
+                (maxWidth - leftColumnsWidth - TotalColumnWidth - SectionDividerWidth)
+                    .coerceIn(minDayViewportWidth, fullDaySectionWidth)
             val rightSectionWidth = dayViewportWidth + TotalColumnWidth
 
             Row(
@@ -876,17 +887,17 @@ private fun MonthlyReportTable(
                     Row {
                         TableHeaderCell(
                             text = AppStrings.ReportsMonthly.TableSketch,
-                            width = SketchColumnWidth,
+                            width = adaptiveSketchColumnWidth,
                             height = HeaderRowHeight + SubHeaderRowHeight,
                         )
                         TableHeaderCell(
                             text = AppStrings.ReportsMonthly.TablePartNumber,
-                            width = PartNumberColumnWidth,
+                            width = adaptivePartNumberColumnWidth,
                             height = HeaderRowHeight + SubHeaderRowHeight,
                         )
                         TableHeaderCell(
                             text = AppStrings.ReportsMonthly.TableProblemItem,
-                            width = ProblemItemColumnWidth,
+                            width = adaptiveProblemItemColumnWidth,
                             height = HeaderRowHeight + SubHeaderRowHeight,
                         )
                     }
@@ -943,7 +954,7 @@ private fun MonthlyReportTable(
                     days.mapIndexed { index, _ ->
                         rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
                     }
-                val partTotal = rowsForPart.sumOf { it.totalDefect }
+                val partTotal = partDayTotals.sum()
                 val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
                 val sketchBitmap =
                     partSample.sketchPath
@@ -954,7 +965,7 @@ private fun MonthlyReportTable(
                     TablePartSectionHeader(
                         text =
                             "Part ${partSample.uniqCode} - ${partSample.partNumber} " +
-                                "(${rowsForPart.size} jenis NG)",
+                                "(${rowsForPart.size} jenis NG | Total $partTotal)",
                         width = leftColumnsWidth + SectionDividerWidth + rightSectionWidth,
                     )
                 }
@@ -965,14 +976,14 @@ private fun MonthlyReportTable(
                         SketchCell(
                             sketchPath = partSample.sketchPath,
                             bitmap = sketchBitmap,
-                            width = SketchColumnWidth,
+                            width = adaptiveSketchColumnWidth,
                             height = groupHeight,
                             backgroundColor = rowBackground,
                             showPlaceholder = true,
                         )
                         TableBodyCell(
                             text = formatPartNumber(partSample.partNumber, partSample.uniqCode),
-                            width = PartNumberColumnWidth,
+                            width = adaptivePartNumberColumnWidth,
                             height = groupHeight,
                             backgroundColor = rowBackground,
                             maxLines = 2,
@@ -982,7 +993,7 @@ private fun MonthlyReportTable(
                                 Row {
                                     TableBodyCell(
                                         text = formatProblemItems(row.problemItems),
-                                        width = ProblemItemColumnWidth,
+                                        width = adaptiveProblemItemColumnWidth,
                                         height = BodyRowHeight,
                                         backgroundColor = rowBackground,
                                         maxLines = 1,
@@ -994,6 +1005,7 @@ private fun MonthlyReportTable(
                     VerticalSectionDivider(height = groupHeight)
                     Column(modifier = Modifier.width(rightSectionWidth)) {
                         rowsForPart.forEach { row ->
+                            val rowTotal = row.dayValues.sum()
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 Box(
                                     modifier =
@@ -1018,7 +1030,7 @@ private fun MonthlyReportTable(
                                     }
                                 }
                                 TableBodyCell(
-                                    text = row.totalDefect.toString(),
+                                    text = rowTotal.toString(),
                                     width = TotalColumnWidth,
                                     height = BodyRowHeight,
                                     backgroundColor = rowBackground,
@@ -1033,13 +1045,13 @@ private fun MonthlyReportTable(
                     Row(modifier = Modifier.width(leftColumnsWidth)) {
                         TableSubtotalCell(
                             text = "",
-                            width = SketchColumnWidth + PartNumberColumnWidth,
+                            width = adaptiveSketchColumnWidth + adaptivePartNumberColumnWidth,
                             height = SubtotalRowHeight,
                             backgroundColor = SubtotalHighlight,
                         )
                         TableSubtotalCell(
                             text = "${AppStrings.ReportsMonthly.TableSubtotal} ${partSample.uniqCode}",
-                            width = ProblemItemColumnWidth,
+                            width = adaptiveProblemItemColumnWidth,
                             height = SubtotalRowHeight,
                             backgroundColor = SubtotalHighlight,
                         )
@@ -1179,6 +1191,7 @@ private fun RowScope.TableHeaderCell(
             style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
             color = textColor,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
     }
@@ -1204,6 +1217,7 @@ private fun TablePartSectionHeader(
             style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
             color = NeutralText,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -1238,6 +1252,7 @@ private fun RowScope.TableBodyCell(
                 },
             color = textColor,
             maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
             textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
         )
     }
@@ -1262,7 +1277,13 @@ private fun RowScope.TableSubtotalCell(
                 .padding(horizontal = Spacing.xs, vertical = Spacing.xs),
         contentAlignment = if (alignCenter) Alignment.Center else Alignment.CenterStart,
     ) {
-        Text(text = text, style = MaterialTheme.typography.caption, color = textColor)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.caption,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1285,7 +1306,13 @@ private fun RowScope.TableFooterCell(
                 .padding(horizontal = Spacing.xs, vertical = Spacing.xs),
         contentAlignment = if (alignCenter) Alignment.Center else Alignment.CenterStart,
     ) {
-        Text(text = text, style = MaterialTheme.typography.body2, color = textColor)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.body2,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1437,13 +1464,14 @@ private fun SketchCell(
                 bitmap = bitmap,
                 contentDescription = AppStrings.Inspection.PartImageDescription,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().height(height - 6.dp),
+                modifier = Modifier.fillMaxWidth().height(height - 6.dp).clipToBounds(),
             )
         } else if (!sketchPath.isNullOrBlank()) {
-            SkeletonBlock(
-                width = width - 12.dp,
-                height = (height - 10.dp).coerceAtLeast(28.dp),
-                color = NeutralBorder.copy(alpha = 0.35f),
+            Text(
+                text = "Sketch tidak ditemukan",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+                textAlign = TextAlign.Center,
             )
         } else if (showPlaceholder) {
             Text(
@@ -1665,12 +1693,17 @@ private fun loadSketchBitmap(path: String?): androidx.compose.ui.graphics.ImageB
 }
 
 private fun resolveSketchFile(path: String): File? {
-    val direct = File(path)
+    val normalized = path.replace('\\', '/')
+    val direct = File(normalized)
     if (direct.exists()) return direct
     if (direct.isAbsolute) return null
-    val attachmentCandidate = AppDataPaths.attachmentsDir().resolve(path).toFile()
+    val attachmentCandidate = AppDataPaths.attachmentsDir().resolve(normalized).toFile()
     if (attachmentCandidate.exists()) return attachmentCandidate
-    val dataCandidate = AppDataPaths.dataDir().resolve(path).toFile()
+    val assetStoreCandidate = AppDataPaths.assetsStoreDir().resolve(normalized).toFile()
+    if (assetStoreCandidate.exists()) return assetStoreCandidate
+    val dataCandidate = AppDataPaths.dataDir().resolve(normalized).toFile()
     if (dataCandidate.exists()) return dataCandidate
+    val cwdCandidate = File(System.getProperty("user.dir", ".")).resolve(normalized)
+    if (cwdCandidate.exists()) return cwdCandidate
     return null
 }

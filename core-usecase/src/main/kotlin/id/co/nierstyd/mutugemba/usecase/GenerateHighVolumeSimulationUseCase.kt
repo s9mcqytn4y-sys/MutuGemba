@@ -93,6 +93,19 @@ class GenerateHighVolumeSimulationUseCase(
                 fallbackCodesByMaterial = buildFallbackDefectCodesByMaterial(parts),
                 fallbackCodesByLine = buildFallbackDefectCodesByLine(parts),
             )
+        val candidateDefectsByPartId =
+            parts.associate { part ->
+                part.id to
+                    resolveCandidateDefects(
+                        part = part,
+                        lineCode = part.lineCode,
+                        defectByCode = resolverContext.byCode,
+                        defectByCanonicalName = resolverContext.byCanonicalName,
+                        fallbackDefectCodesByMaterial = resolverContext.fallbackCodesByMaterial,
+                        fallbackDefectCodesByLine = resolverContext.fallbackCodesByLine,
+                    )
+            }
+        val safeDensity = density.coerceAtLeast(1)
 
         repeat(safeDays) { dayOffset ->
             val date = now.minusDays(dayOffset.toLong())
@@ -100,23 +113,46 @@ class GenerateHighVolumeSimulationUseCase(
             lines.forEach { line ->
                 val lineParts = parts.filter { it.lineCode == line.code }
                 if (lineParts.isEmpty()) return@forEach
-                var insertedForLineOnDate = 0
+                val eligibleParts =
+                    lineParts.filter { part ->
+                        candidateDefectsByPartId[part.id].orEmpty().isNotEmpty()
+                    }
+                if (eligibleParts.isEmpty()) return@forEach
 
-                val minBatchSize = minOf(8, lineParts.size)
-                val loadMultiplier = if (isWeekend) 0.55 else 1.0
-                val randomizedBatchRatio = (0.28 + random.nextDouble() * 0.36) * loadMultiplier
-                val batchSize = (lineParts.size * randomizedBatchRatio).toInt().coerceIn(minBatchSize, lineParts.size)
+                val coverageBaseRatio = if (isWeekend) 0.5 else 0.75
+                val coverageRatio = (coverageBaseRatio + random.nextDouble(-0.12, 0.18)).coerceIn(0.35, 1.0)
+                val minBatchSize = minOf(maxOf(2, safeDensity), eligibleParts.size)
+                val baseBatchSize =
+                    (eligibleParts.size * coverageRatio)
+                        .toInt()
+                        .coerceIn(minBatchSize, eligibleParts.size)
+                val rotationSeed = dayOffset + line.id.toInt() + safeDensity
+                val rotatedParts = eligibleParts.rotateFromIndex(rotationSeed)
+                val extraSpotChecks = if (isWeekend) 0 else (safeDensity / 2).coerceAtMost(2)
+                val fallbackPartIds =
+                    eligibleParts
+                        .filter { it.recommendedDefectCodes.isEmpty() }
+                        .map { it.id }
+                        .toSet()
+                var selectedParts =
+                    (rotatedParts.take(baseBatchSize) + rotatedParts.shuffled(random).take(extraSpotChecks))
+                        .distinctBy { it.id }
+                if (fallbackPartIds.isNotEmpty() && selectedParts.none { it.id in fallbackPartIds }) {
+                    val fallbackPart = rotatedParts.firstOrNull { it.id in fallbackPartIds }
+                    if (fallbackPart != null) {
+                        selectedParts = (selectedParts + fallbackPart).distinctBy { it.id }
+                    }
+                }
                 val shiftId = shifts[random.nextInt(shifts.size)].id
-                lineParts.shuffled(random).take(batchSize).forEachIndexed { slotIndex, part ->
-                    val weekendMultiplier = if (isWeekend) 0.7 else 1.0
-                    val dailyDensity =
-                        (density.coerceAtLeast(1).toDouble() * weekendMultiplier)
-                            .toInt()
-                            .coerceAtLeast(1)
+                selectedParts.forEachIndexed { slotIndex, part ->
+                    val weekendPenalty = if (isWeekend) 1 else 0
+                    val densityVariance = if (safeDensity <= 1) 0 else random.nextInt(0, 2)
+                    val dailyDensity = (safeDensity - weekendPenalty + densityVariance).coerceAtLeast(1)
+                    val candidateDefects = candidateDefectsByPartId[part.id].orEmpty()
                     val lineInserted =
                         insertPartSimulation(
                             part = part,
-                            lineCode = line.code,
+                            candidateDefects = candidateDefects,
                             batchContext =
                                 SimulationBatchContext(
                                     lineId = line.id,
@@ -128,46 +164,9 @@ class GenerateHighVolumeSimulationUseCase(
                                     formatter = formatter,
                                 ),
                             random = random,
-                            resolverContext = resolverContext,
                         )
                     inserted += lineInserted
-                    insertedForLineOnDate += lineInserted
                     insertedByLineId[line.id] = (insertedByLineId[line.id] ?: 0) + lineInserted
-                }
-
-                if (insertedForLineOnDate == 0) {
-                    val fallbackPart =
-                        lineParts.firstOrNull { part ->
-                            resolveCandidateDefects(
-                                part = part,
-                                lineCode = line.code,
-                                defectByCode = resolverContext.byCode,
-                                defectByCanonicalName = resolverContext.byCanonicalName,
-                                fallbackDefectCodesByMaterial = resolverContext.fallbackCodesByMaterial,
-                                fallbackDefectCodesByLine = resolverContext.fallbackCodesByLine,
-                            ).isNotEmpty()
-                        }
-                    if (fallbackPart != null) {
-                        val fallbackInserted =
-                            insertPartSimulation(
-                                part = fallbackPart,
-                                lineCode = line.code,
-                                batchContext =
-                                    SimulationBatchContext(
-                                        lineId = line.id,
-                                        lineName = line.name,
-                                        shiftId = shiftId,
-                                        date = date,
-                                        slotIndex = 0,
-                                        density = 1,
-                                        formatter = formatter,
-                                    ),
-                                random = random,
-                                resolverContext = resolverContext,
-                            )
-                        inserted += fallbackInserted
-                        insertedByLineId[line.id] = (insertedByLineId[line.id] ?: 0) + fallbackInserted
-                    }
                 }
             }
         }
@@ -263,22 +262,12 @@ class GenerateHighVolumeSimulationUseCase(
 
     private fun insertPartSimulation(
         part: Part,
-        lineCode: LineCode,
+        candidateDefects: List<DefectType>,
         batchContext: SimulationBatchContext,
         random: Random,
-        resolverContext: DefectResolverContext,
     ): Int {
         var inserted = 0
         repeat(batchContext.density) { densityIndex ->
-            val candidateDefects =
-                resolveCandidateDefects(
-                    part = part,
-                    lineCode = lineCode,
-                    defectByCode = resolverContext.byCode,
-                    defectByCanonicalName = resolverContext.byCanonicalName,
-                    fallbackDefectCodesByMaterial = resolverContext.fallbackCodesByMaterial,
-                    fallbackDefectCodesByLine = resolverContext.fallbackCodesByLine,
-                )
             if (candidateDefects.isEmpty()) return@repeat
 
             val picked =
@@ -323,5 +312,10 @@ class GenerateHighVolumeSimulationUseCase(
             inserted += 1
         }
         return inserted
+    }
+
+    private fun <T> List<T>.rotateFromIndex(seed: Int): List<T> {
+        val safeStart = if (isEmpty()) 0 else ((seed % size) + size) % size
+        return if (safeStart == 0) this else drop(safeStart) + take(safeStart)
     }
 }
