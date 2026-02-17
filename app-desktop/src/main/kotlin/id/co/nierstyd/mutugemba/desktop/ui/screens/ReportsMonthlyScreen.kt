@@ -84,22 +84,22 @@ import java.time.LocalDateTime
 import java.time.YearMonth
 import org.jetbrains.skia.Image as SkiaImage
 
-private val DocumentWidth = 1140.dp
+private val DocumentWidth = 1280.dp
 private val DocumentMinHeight = 760.dp
-private val HeaderRowHeight = 34.dp
-private val SubHeaderRowHeight = 34.dp
-private val PartSectionHeaderHeight = 30.dp
-private val BodyRowHeight = 46.dp
-private val SubtotalRowHeight = 32.dp
-private val TotalRowHeight = 34.dp
-private val SketchColumnWidth = 132.dp
-private val PartNumberColumnWidth = 148.dp
-private val ProblemItemColumnWidth = 246.dp
-private val DayColumnWidth = 40.dp
-private val TotalColumnWidth = 88.dp
+private val HeaderRowHeight = 38.dp
+private val SubHeaderRowHeight = 36.dp
+private val PartSectionHeaderHeight = 32.dp
+private val BodyRowHeight = 50.dp
+private val SubtotalRowHeight = 36.dp
+private val TotalRowHeight = 38.dp
+private val SketchColumnWidth = 164.dp
+private val PartNumberColumnWidth = 176.dp
+private val ProblemItemColumnWidth = 276.dp
+private val DayColumnWidth = 44.dp
+private val TotalColumnWidth = 96.dp
 private val SectionDividerWidth = 2.dp
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
-private const val PREVIEW_PART_LIMIT = 8
+private const val PREVIEW_PART_LIMIT = 6
 private const val FULL_DOCUMENT_PAGE_PART_LIMIT = 14
 
 private sealed class MonthlyReportUiState {
@@ -213,7 +213,11 @@ fun ReportsMonthlyScreen(
                     val result =
                         withContext(Dispatchers.IO) {
                             runCatching {
-                                exportMonthlyPdf(document, manualHolidays)
+                                exportMonthlyPdf(
+                                    document = document,
+                                    manualHolidays = manualHolidays,
+                                    colorProfile = ReportColorProfile.PRINT,
+                                )
                             }
                         }
                     result
@@ -243,7 +247,13 @@ fun ReportsMonthlyScreen(
                 scope.launch {
                     val result =
                         withContext(Dispatchers.IO) {
-                            runCatching { exportMonthlyPdf(document, manualHolidays) }
+                            runCatching {
+                                exportMonthlyPdf(
+                                    document = document,
+                                    manualHolidays = manualHolidays,
+                                    colorProfile = ReportColorProfile.EXPORT,
+                                )
+                            }
                         }
                     feedback =
                         if (result.isSuccess) {
@@ -308,6 +318,7 @@ fun ReportsMonthlyScreen(
 private fun exportMonthlyPdf(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
+    colorProfile: ReportColorProfile = ReportColorProfile.EXPORT,
 ): java.nio.file.Path {
     val exportDir = AppDataPaths.exportsDir()
     Files.createDirectories(exportDir)
@@ -327,7 +338,13 @@ private fun exportMonthlyPdf(
                     AppStrings.ReportsMonthly.DocumentTitlePress
                 },
         )
-    return MonthlyReportPdfExporter.export(document, meta, outputPath, manualHolidays)
+    return MonthlyReportPdfExporter.export(
+        document = document,
+        meta = meta,
+        outputPath = outputPath,
+        manualHolidays = manualHolidays,
+        colorProfile = colorProfile,
+    )
 }
 
 @Composable
@@ -746,6 +763,13 @@ private fun MonthlyReportTable(
             visibleGroupedRows
                 .mapNotNull { rows -> rows.firstOrNull()?.sketchPath?.takeIf { it.isNotBlank() } }
                 .distinct()
+                .let { candidates ->
+                    if (documentMode == MonthlyDocumentMode.PREVIEW) {
+                        candidates.take(4)
+                    } else {
+                        candidates
+                    }
+                }
         val missingPaths = paths.filterNot { sketchCache.containsKey(it) }
         if (missingPaths.isEmpty()) return@LaunchedEffect
         val loaded =
@@ -841,7 +865,7 @@ private fun MonthlyReportTable(
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val leftColumnsWidth = SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth
             val dayViewportWidth =
-                (maxWidth - leftColumnsWidth - TotalColumnWidth - SectionDividerWidth).coerceAtLeast(180.dp)
+                (maxWidth - leftColumnsWidth - TotalColumnWidth - SectionDividerWidth).coerceAtLeast(240.dp)
             val rightSectionWidth = dayViewportWidth + TotalColumnWidth
 
             Row(
@@ -1166,7 +1190,7 @@ private fun RowScope.TableBodyCell(
         modifier =
             Modifier
                 .width(width)
-                .heightIn(min = height)
+                .height(height)
                 .border(1.dp, NeutralBorder)
                 .background(backgroundColor)
                 .padding(horizontal = Spacing.xs, vertical = Spacing.xs),
@@ -1174,9 +1198,15 @@ private fun RowScope.TableBodyCell(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.body2,
+            style =
+                if (alignCenter) {
+                    MaterialTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold)
+                } else {
+                    MaterialTheme.typography.body2
+                },
             color = textColor,
             maxLines = maxLines,
+            textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
         )
     }
 }

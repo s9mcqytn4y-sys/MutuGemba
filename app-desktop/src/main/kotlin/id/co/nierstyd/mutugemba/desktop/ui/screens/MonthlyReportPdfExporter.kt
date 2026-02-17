@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "LongParameterList", "MaxLineLength")
+
 package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -33,9 +35,11 @@ object MonthlyReportPdfExporter {
         meta: MonthlyReportPrintMeta,
         outputPath: Path,
         manualHolidays: Set<LocalDate>,
+        colorProfile: ReportColorProfile = ReportColorProfile.EXPORT,
     ): Path {
         Files.createDirectories(outputPath.parent)
         val pdf = PDDocument()
+        val palette = paletteFor(colorProfile)
         val pageSpecs = buildPageSpecs(document, manualHolidays)
         pageSpecs.forEach { spec ->
             val page = PDPage(PDRectangle(PDRectangle.A4.height, PDRectangle.A4.width))
@@ -47,6 +51,7 @@ object MonthlyReportPdfExporter {
                     document = document,
                     meta = meta,
                     spec = spec,
+                    palette = palette,
                 )
             }
         }
@@ -236,6 +241,7 @@ object MonthlyReportPdfExporter {
         document: MonthlyReportDocument,
         meta: MonthlyReportPrintMeta,
         spec: PageSpec,
+        palette: ReportPalette,
     ) {
         val marginLeft = mmToPoint(14f)
         val marginTop = mmToPoint(16f)
@@ -255,8 +261,9 @@ object MonthlyReportPdfExporter {
                 width = contentWidth,
                 document = document,
                 spec = spec,
+                palette = palette,
             )
-        drawSignature(content, marginLeft, cursorY, contentWidth)
+        drawSignature(content, marginLeft, cursorY, contentWidth, palette)
     }
 
     private fun drawHeader(
@@ -371,6 +378,7 @@ object MonthlyReportPdfExporter {
         width: Float,
         document: MonthlyReportDocument,
         spec: PageSpec,
+        palette: ReportPalette,
     ): Float {
         val headerHeight = 18f
         val subHeaderHeight = 18f
@@ -386,8 +394,8 @@ object MonthlyReportPdfExporter {
         val totalWidth = 38f
 
         var cursorY = top
-        val headerBackground = Color(238, 242, 247)
-        val subtotalBackground = Color(245, 245, 245)
+        val headerBackground = palette.header
+        val subtotalBackground = palette.subtotal
 
         val leftHeaderHeight = headerHeight + subHeaderHeight
         drawCell(
@@ -517,7 +525,7 @@ object MonthlyReportPdfExporter {
             val partDayTotals = MutableList(dayCount) { 0 }
             val partDefectTotals = MutableList(defectCount) { 0 }
             var partTotal = 0
-            val rowBackground = if (partIndex % 2 == 0) Color.WHITE else Color(250, 250, 250)
+            val rowBackground = if (partIndex % 2 == 0) Color.WHITE else palette.stripe
             val sketchHeight = rowHeight * partRows.size
 
             drawCell(
@@ -679,7 +687,7 @@ object MonthlyReportPdfExporter {
             totalLabelWidth,
             totalHeight,
             AppStrings.ReportsMonthly.TableGrandTotal,
-            subtotalBackground,
+            palette.total,
             fontBold,
             7.5f,
         )
@@ -733,6 +741,7 @@ object MonthlyReportPdfExporter {
         left: Float,
         top: Float,
         width: Float,
+        palette: ReportPalette,
     ) {
         val boxWidth = 110f
         val boxHeight = 46f
@@ -748,7 +757,18 @@ object MonthlyReportPdfExporter {
         val y = top - 64f
         labels.forEach { label ->
             drawText(content, label, x, y + boxHeight + 12f, fontRegular, 8f, width = boxWidth, alignCenter = true)
-            drawCell(content, x, y + boxHeight, boxWidth, boxHeight, "", Color(245, 245, 245), fontRegular, 7f)
+            drawCell(
+                content,
+                x,
+                y + boxHeight,
+                boxWidth,
+                boxHeight,
+                "",
+                palette.stripe,
+                fontRegular,
+                7f,
+                palette.border,
+            )
             drawText(
                 content,
                 AppStrings.Reports.DocumentSignatureName,
@@ -773,6 +793,7 @@ object MonthlyReportPdfExporter {
         background: Color,
         font: org.apache.pdfbox.pdmodel.font.PDFont,
         fontSize: Float,
+        border: Color = Color(200, 200, 200),
         alignCenter: Boolean = false,
         alignRight: Boolean = false,
     ) {
@@ -780,7 +801,7 @@ object MonthlyReportPdfExporter {
         content.setNonStrokingColor(background)
         content.addRect(left, bottom, width, height)
         content.fill()
-        content.setStrokingColor(Color(200, 200, 200))
+        content.setStrokingColor(border)
         content.addRect(left, bottom, width, height)
         content.stroke()
 

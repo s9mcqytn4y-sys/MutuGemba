@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
@@ -67,7 +69,14 @@ import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetDetail
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.Line
+import id.co.nierstyd.mutugemba.usecase.FeedbackType
+import id.co.nierstyd.mutugemba.usecase.UserFeedback
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.awt.Desktop
+import java.nio.file.Files
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -107,6 +116,28 @@ private fun calculateDocumentTotals(entries: List<ChecksheetEntry>): DocumentTot
     return DocumentTotals(totalCheck = totalCheck, totalDefect = totalDefect, totalOk = totalOk, ratio = ratio)
 }
 
+private fun exportDailyPdf(
+    detail: DailyChecksheetDetail,
+    colorProfile: ReportColorProfile = ReportColorProfile.EXPORT,
+): java.nio.file.Path {
+    val exportDir = AppDataPaths.exportsDir()
+    Files.createDirectories(exportDir)
+    val safeLine = detail.lineName.replace(Regex("[^A-Za-z0-9_-]"), "_")
+    val filename = "DailyReport-$safeLine-${detail.date}.pdf"
+    val outputPath = exportDir.resolve(filename)
+    Files.deleteIfExists(outputPath)
+    return DailyReportPdfExporter.export(
+        detail = detail,
+        meta =
+            DailyReportPrintMeta(
+                companyName = AppStrings.App.CompanyName,
+                departmentName = AppStrings.App.DepartmentName,
+            ),
+        outputPath = outputPath,
+        colorProfile = colorProfile,
+    )
+}
+
 @Composable
 fun ReportsScreen(
     lines: List<Line>,
@@ -140,6 +171,14 @@ fun ReportsScreen(
     var detailState by remember { mutableStateOf<HistoryDetailState>(HistoryDetailState.Empty) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var showHistoryInfo by remember { mutableStateOf(true) }
+    var documentFeedback by remember { mutableStateOf<UserFeedback?>(null) }
+
+    LaunchedEffect(documentFeedback) {
+        if (documentFeedback != null) {
+            delay(2500)
+            documentFeedback = null
+        }
+    }
 
     LaunchedEffect(Unit) {
         manualHolidays = loadManualHolidays()
@@ -283,6 +322,9 @@ fun ReportsScreen(
                     val targetIndex = availableDates.indexOf(it).coerceAtLeast(0)
                     pageIndex = targetIndex / HISTORY_PAGE_SIZE
                 },
+                feedback = documentFeedback,
+                onFeedbackDismiss = { documentFeedback = null },
+                onFeedback = { documentFeedback = it },
             )
         }
     }
@@ -843,13 +885,18 @@ private fun LegendPill(
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun DailyDocumentSection(
     detailState: HistoryDetailState,
     allDates: List<LocalDate>,
     selectedDate: LocalDate,
     onDateSelected: (LocalDate) -> Unit,
+    feedback: UserFeedback?,
+    onFeedbackDismiss: () -> Unit,
+    onFeedback: (UserFeedback) -> Unit,
 ) {
     var viewMode by remember { mutableStateOf(DocumentViewMode.PREVIEW) }
+    val scope = rememberCoroutineScope()
     val selectedIndex = allDates.indexOf(selectedDate)
     val previousDate = if (selectedIndex > 0) allDates.getOrNull(selectedIndex - 1) else null
     val nextDate =
@@ -882,24 +929,95 @@ private fun DailyDocumentSection(
             viewMode = viewMode,
             onModeChange = { viewMode = it },
         )
+        feedback?.let {
+            StatusBanner(
+                feedback = it,
+                onDismiss = onFeedbackDismiss,
+                dense = true,
+            )
+        }
         when (detailState) {
             HistoryDetailState.Loading -> HistoryDetailSkeleton()
             HistoryDetailState.Empty -> EmptyHistoryState(selectedDate = selectedDate)
             is HistoryDetailState.Loaded -> {
+                val detail = detailState.detail
                 if (viewMode == DocumentViewMode.PREVIEW) {
                     DocumentPreviewCard(
-                        detail = detailState.detail,
+                        detail = detail,
                         onExpand = { viewMode = DocumentViewMode.FULL },
                     )
                 } else {
-                    DailyDocumentCard(detail = detailState.detail)
+                    DailyDocumentCard(detail = detail)
                 }
                 DailyDocumentBottomNavigator(
                     previousDate = previousDate,
                     nextDate = nextDate,
                     onSelectDate = onDateSelected,
                 )
-                DocumentActionRow()
+                DocumentActionRow(
+                    onPrint = {
+                        scope.launch {
+                            val result =
+                                withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        exportDailyPdf(
+                                            detail = detail,
+                                            colorProfile = ReportColorProfile.PRINT,
+                                        )
+                                    }
+                                }
+                            result
+                                .onSuccess { path ->
+                                    val printed =
+                                        runCatching {
+                                            if (Desktop.isDesktopSupported()) {
+                                                Desktop.getDesktop().print(path.toFile())
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        }.getOrElse { false }
+                                    onFeedback(
+                                        if (printed) {
+                                            UserFeedback(FeedbackType.SUCCESS, "Dokumen harian siap dicetak.")
+                                        } else {
+                                            UserFeedback(
+                                                FeedbackType.ERROR,
+                                                "Gagal memicu proses cetak dokumen harian.",
+                                            )
+                                        },
+                                    )
+                                }.onFailure {
+                                    onFeedback(
+                                        UserFeedback(
+                                            FeedbackType.ERROR,
+                                            "Gagal membuat PDF dokumen harian.",
+                                        ),
+                                    )
+                                }
+                        }
+                    },
+                    onExport = {
+                        scope.launch {
+                            val ok =
+                                withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        exportDailyPdf(
+                                            detail = detail,
+                                            colorProfile = ReportColorProfile.EXPORT,
+                                        )
+                                    }.isSuccess
+                                }
+                            onFeedback(
+                                if (ok) {
+                                    UserFeedback(FeedbackType.SUCCESS, "PDF dokumen harian berhasil dibuat.")
+                                } else {
+                                    UserFeedback(FeedbackType.ERROR, "Gagal membuat PDF dokumen harian.")
+                                },
+                            )
+                        }
+                    },
+                )
             }
         }
     }
@@ -1616,19 +1734,22 @@ private fun RowScope.SignatureCell(label: String) {
 }
 
 @Composable
-private fun DocumentActionRow() {
+private fun DocumentActionRow(
+    onPrint: () -> Unit,
+    onExport: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         SecondaryButton(
             text = AppStrings.Actions.PrintDocument,
-            onClick = {},
+            onClick = onPrint,
             modifier = Modifier.weight(1f),
         )
         PrimaryButton(
             text = AppStrings.Actions.ExportPdf,
-            onClick = {},
+            onClick = onExport,
             modifier = Modifier.weight(1f),
         )
     }
