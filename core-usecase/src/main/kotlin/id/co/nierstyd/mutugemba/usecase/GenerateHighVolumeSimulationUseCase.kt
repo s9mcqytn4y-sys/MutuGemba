@@ -1,10 +1,13 @@
 package id.co.nierstyd.mutugemba.usecase
 
+import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
+import id.co.nierstyd.mutugemba.domain.LineCode
 import id.co.nierstyd.mutugemba.domain.MasterDataRepository
+import id.co.nierstyd.mutugemba.domain.Part
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -31,6 +34,8 @@ class GenerateHighVolumeSimulationUseCase(
         val random = seed?.let { Random(it) } ?: Random(System.currentTimeMillis())
         val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
         var inserted = 0
+        val fallbackDefectCodesByMaterial = buildFallbackDefectCodesByMaterial(parts)
+        val defectByCode = defectTypes.associateBy { it.code }
 
         repeat(days.coerceAtLeast(1)) { dayOffset ->
             val date = now.minusDays(dayOffset.toLong())
@@ -52,14 +57,12 @@ class GenerateHighVolumeSimulationUseCase(
                             .coerceAtLeast(1)
                     repeat(dailyDensity) { densityIndex ->
                         val candidateDefects =
-                            part.recommendedDefectCodes
-                                .mapNotNull { code -> defectTypes.firstOrNull { it.code == code } }
-                                .ifEmpty {
-                                    defectTypes
-                                        .filter { it.lineCode == null || it.lineCode == line.code }
-                                        .shuffled(random)
-                                        .take(3)
-                                }
+                            resolveCandidateDefects(
+                                part = part,
+                                lineCode = line.code,
+                                defectByCode = defectByCode,
+                                fallbackDefectCodesByMaterial = fallbackDefectCodesByMaterial,
+                            )
                         if (candidateDefects.isEmpty()) return@repeat
 
                         val picked =
@@ -78,7 +81,13 @@ class GenerateHighVolumeSimulationUseCase(
                                 )
                             }
                         val totalDefect = entries.sumOf { it.quantity }.coerceAtLeast(1)
-                        val totalCheck = totalDefect + random.nextInt(12, 54)
+                        val targetRatio = random.nextDouble(0.015, 0.16)
+                        val expectedCheckFromRatio = (totalDefect.toDouble() / targetRatio).toInt()
+                        val totalCheck =
+                            maxOf(
+                                totalDefect + random.nextInt(15, 70),
+                                expectedCheckFromRatio,
+                            )
                         val clock = LocalTime.of((8 + (slotIndex % 8)).coerceAtMost(16), random.nextInt(0, 59))
                         val createdAt = LocalDateTime.of(date, clock).plusMinutes((densityIndex * 7).toLong())
                         inspectionRepository.insert(
@@ -103,4 +112,42 @@ class GenerateHighVolumeSimulationUseCase(
 
         return inserted
     }
+
+    private fun resolveCandidateDefects(
+        part: Part,
+        lineCode: LineCode,
+        defectByCode: Map<String, DefectType>,
+        fallbackDefectCodesByMaterial: Map<String, List<String>>,
+    ): List<DefectType> {
+        val recommended =
+            part.recommendedDefectCodes
+                .mapNotNull { code -> defectByCode[code] }
+                .filter { defect -> defect.lineCode == null || defect.lineCode == lineCode }
+                .distinctBy { it.id }
+        val materialKey = part.material.trim().uppercase()
+        val inferredByMaterial =
+            fallbackDefectCodesByMaterial[materialKey]
+                .orEmpty()
+                .mapNotNull { code -> defectByCode[code] }
+                .filter { defect -> defect.lineCode == null || defect.lineCode == lineCode }
+                .distinctBy { it.id }
+        return when {
+            recommended.isNotEmpty() -> recommended
+            inferredByMaterial.isNotEmpty() -> inferredByMaterial
+            else -> emptyList()
+        }
+    }
+
+    private fun buildFallbackDefectCodesByMaterial(parts: List<Part>): Map<String, List<String>> =
+        parts
+            .groupBy { it.material.trim().uppercase() }
+            .mapValues { (_, groupedParts) ->
+                groupedParts
+                    .flatMap { it.recommendedDefectCodes }
+                    .groupingBy { it }
+                    .eachCount()
+                    .entries
+                    .sortedByDescending { it.value }
+                    .map { it.key }
+            }
 }

@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -639,16 +640,18 @@ private fun MonthlyReportTable(
     val keyword = searchQuery.trim().lowercase()
     val normalizedKeyword = DefectNameSanitizer.canonicalKey(searchQuery).lowercase()
     val filteredRows =
-        document.rows.filter { row ->
-            if (keyword.isBlank()) {
-                true
-            } else {
-                row.partNumber.lowercase().contains(keyword) ||
-                    row.uniqCode.lowercase().contains(keyword) ||
-                    row.problemItems.any {
-                        val normalizedItem = DefectNameSanitizer.canonicalKey(it).lowercase()
-                        it.lowercase().contains(keyword) || normalizedItem.contains(normalizedKeyword)
-                    }
+        remember(document.rows, keyword, normalizedKeyword) {
+            document.rows.filter { row ->
+                if (keyword.isBlank()) {
+                    true
+                } else {
+                    row.partNumber.lowercase().contains(keyword) ||
+                        row.uniqCode.lowercase().contains(keyword) ||
+                        row.problemItems.any {
+                            val normalizedItem = DefectNameSanitizer.canonicalKey(it).lowercase()
+                            it.lowercase().contains(keyword) || normalizedItem.contains(normalizedKeyword)
+                        }
+                }
             }
         }
     if (filteredRows.isEmpty()) {
@@ -656,13 +659,15 @@ private fun MonthlyReportTable(
         return
     }
     val groupedRows =
-        filteredRows
-            .groupBy { it.partId }
-            .toList()
-            .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber ?: "" }
-            .map { (_, rows) ->
-                rows.sortedBy { row -> row.problemItems.firstOrNull().orEmpty() }
-            }
+        remember(filteredRows) {
+            filteredRows
+                .groupBy { it.partId }
+                .toList()
+                .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber ?: "" }
+                .map { (_, rows) ->
+                    rows.sortedBy { row -> row.problemItems.firstOrNull().orEmpty() }
+                }
+        }
 
     val scrollState = rememberScrollState()
     val days = document.days
@@ -676,10 +681,12 @@ private fun MonthlyReportTable(
             }
         }
     val filteredDayTotals =
-        days.mapIndexed { index, _ ->
-            filteredRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
+        remember(filteredRows, days) {
+            days.mapIndexed { index, _ ->
+                filteredRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
+            }
         }
-    val filteredGrandTotal = filteredRows.sumOf { it.totalDefect }
+    val filteredGrandTotal = remember(filteredRows) { filteredRows.sumOf { it.totalDefect } }
     val markerProfile = remember(filteredDayTotals) { DayMarkerProfile.from(filteredDayTotals) }
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -737,6 +744,7 @@ private fun MonthlyReportTable(
 
         groupedRows.forEachIndexed { groupIndex, rowsForPart ->
             val partSample = rowsForPart.first()
+            val groupHeight = BodyRowHeight * rowsForPart.size
             val partDayTotals =
                 days.mapIndexed { index, _ ->
                     rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
@@ -744,64 +752,71 @@ private fun MonthlyReportTable(
             val partTotal = rowsForPart.sumOf { it.totalDefect }
             val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
 
-            rowsForPart.forEachIndexed { rowIndex, row ->
-                val dynamicBodyHeight = BodyRowHeight
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth),
-                    ) {
-                        SketchCell(
-                            sketchPath = if (rowIndex == 0) partSample.sketchPath else null,
-                            width = SketchColumnWidth,
-                            height = dynamicBodyHeight,
-                            backgroundColor = rowBackground,
-                            showPlaceholder = rowIndex == 0,
-                        )
-                        TableBodyCell(
-                            text = if (rowIndex == 0) formatPartNumber(row.partNumber, row.uniqCode) else "",
-                            width = PartNumberColumnWidth,
-                            height = dynamicBodyHeight,
-                            backgroundColor = rowBackground,
-                            maxLines = 1,
-                        )
-                        TableBodyCell(
-                            text = formatProblemItems(row.problemItems),
-                            width = ProblemItemColumnWidth,
-                            height = dynamicBodyHeight,
-                            backgroundColor = rowBackground,
-                            maxLines = 1,
-                        )
-                    }
-                    VerticalSectionDivider(height = dynamicBodyHeight)
-                    Row {
-                        Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                            row.dayValues.forEachIndexed { index, value ->
-                                val style = dayStyles.getValue(days[index])
-                                val marker =
-                                    DayMarkerCellStyle.resolve(
-                                        value = value,
-                                        totalForDay = filteredDayTotals[index],
-                                        profile = markerProfile,
-                                        baseBackground = style.bodyBackground,
-                                        baseTextColor = style.bodyTextColor,
-                                    )
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth),
+                ) {
+                    SketchCell(
+                        sketchPath = partSample.sketchPath,
+                        width = SketchColumnWidth,
+                        height = groupHeight,
+                        backgroundColor = rowBackground,
+                        showPlaceholder = true,
+                    )
+                    TableBodyCell(
+                        text = formatPartNumber(partSample.partNumber, partSample.uniqCode),
+                        width = PartNumberColumnWidth,
+                        height = groupHeight,
+                        backgroundColor = rowBackground,
+                        maxLines = 2,
+                    )
+                    Column {
+                        rowsForPart.forEach { row ->
+                            Row {
                                 TableBodyCell(
-                                    text = value.toString(),
-                                    width = DayColumnWidth,
-                                    height = dynamicBodyHeight,
-                                    backgroundColor = marker.backgroundColor,
-                                    alignCenter = true,
-                                    textColor = marker.textColor,
+                                    text = formatProblemItems(row.problemItems),
+                                    width = ProblemItemColumnWidth,
+                                    height = BodyRowHeight,
+                                    backgroundColor = rowBackground,
+                                    maxLines = 1,
                                 )
                             }
                         }
-                        TableBodyCell(
-                            text = row.totalDefect.toString(),
-                            width = TotalColumnWidth,
-                            height = dynamicBodyHeight,
-                            backgroundColor = rowBackground,
-                            alignCenter = true,
-                        )
+                    }
+                }
+                VerticalSectionDivider(height = groupHeight)
+                Column {
+                    rowsForPart.forEach { row ->
+                        Row {
+                            Row(modifier = Modifier.horizontalScroll(scrollState)) {
+                                row.dayValues.forEachIndexed { index, value ->
+                                    val style = dayStyles.getValue(days[index])
+                                    val marker =
+                                        DayMarkerCellStyle.resolve(
+                                            value = value,
+                                            totalForDay = filteredDayTotals[index],
+                                            profile = markerProfile,
+                                            baseBackground = style.bodyBackground,
+                                            baseTextColor = style.bodyTextColor,
+                                        )
+                                    TableBodyCell(
+                                        text = value.toString(),
+                                        width = DayColumnWidth,
+                                        height = BodyRowHeight,
+                                        backgroundColor = marker.backgroundColor,
+                                        alignCenter = true,
+                                        textColor = marker.textColor,
+                                    )
+                                }
+                            }
+                            TableBodyCell(
+                                text = row.totalDefect.toString(),
+                                width = TotalColumnWidth,
+                                height = BodyRowHeight,
+                                backgroundColor = rowBackground,
+                                alignCenter = true,
+                            )
+                        }
                     }
                 }
             }
@@ -1173,10 +1188,12 @@ private fun SketchCell(
                 .padding(2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        val bitmap = remember(sketchPath) { loadSketchBitmap(sketchPath) }
+        val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(initialValue = null, key1 = sketchPath) {
+            value = withContext(Dispatchers.IO) { loadSketchBitmap(sketchPath) }
+        }
         if (bitmap != null) {
             Image(
-                bitmap = bitmap,
+                bitmap = bitmap!!,
                 contentDescription = AppStrings.Inspection.PartImageDescription,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxWidth().height(height - 6.dp),

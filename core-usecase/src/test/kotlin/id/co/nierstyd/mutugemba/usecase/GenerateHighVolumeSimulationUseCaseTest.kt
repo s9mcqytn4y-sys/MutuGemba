@@ -19,6 +19,7 @@ import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -186,6 +187,151 @@ class GenerateHighVolumeSimulationUseCaseTest {
             firstDefectTotal,
             secondDefectTotal,
         )
+    }
+
+    @Test
+    fun `fallback defect uses same material recommendation only`() {
+        val inspectionRepository = RecordingInspectionRepository()
+        val useCase =
+            GenerateHighVolumeSimulationUseCase(
+                inspectionRepository = inspectionRepository,
+                masterDataRepository =
+                    FakeMasterDataRepository(
+                        lines = listOf(Line(id = 1L, code = LineCode.PRESS, name = "Press")),
+                        shifts =
+                            listOf(
+                                Shift(
+                                    id = 1L,
+                                    code = "S1",
+                                    name = "Shift 1",
+                                    startTime = "08:00",
+                                    endTime = "17:00",
+                                ),
+                            ),
+                        parts =
+                            listOf(
+                                Part(
+                                    id = 11L,
+                                    partNumber = "PN-001",
+                                    model = "M1",
+                                    name = "Part A",
+                                    uniqCode = "U-1",
+                                    material = "FELT",
+                                    picturePath = null,
+                                    lineCode = LineCode.PRESS,
+                                    recommendedDefectCodes = listOf("DF-FELT"),
+                                ),
+                                Part(
+                                    id = 12L,
+                                    partNumber = "PN-002",
+                                    model = "M2",
+                                    name = "Part B",
+                                    uniqCode = "U-2",
+                                    material = "FELT",
+                                    picturePath = null,
+                                    lineCode = LineCode.PRESS,
+                                    recommendedDefectCodes = emptyList(),
+                                ),
+                                Part(
+                                    id = 13L,
+                                    partNumber = "PN-003",
+                                    model = "M3",
+                                    name = "Part C",
+                                    uniqCode = "U-3",
+                                    material = "PVC",
+                                    picturePath = null,
+                                    lineCode = LineCode.PRESS,
+                                    recommendedDefectCodes = listOf("DF-PVC"),
+                                ),
+                            ),
+                        defects =
+                            listOf(
+                                DefectType(
+                                    id = 101L,
+                                    code = "DF-FELT",
+                                    name = "Scratch Felt",
+                                    category = "ITEM_DEFECT",
+                                    severity = DefectSeverity.NORMAL,
+                                    lineCode = LineCode.PRESS,
+                                ),
+                                DefectType(
+                                    id = 102L,
+                                    code = "DF-PVC",
+                                    name = "Bubble PVC",
+                                    category = "ITEM_DEFECT",
+                                    severity = DefectSeverity.NORMAL,
+                                    lineCode = LineCode.PRESS,
+                                ),
+                            ),
+                    ),
+            )
+
+        useCase.execute(days = 1, density = 1, seed = 99L)
+
+        val feltPartInputs = inspectionRepository.insertedInputs.filter { it.partId == 12L }
+        assertFalse(feltPartInputs.isEmpty(), "Part tanpa rekomendasi tetap harus dapat defect fallback.")
+        feltPartInputs.forEach { input ->
+            val pickedDefectIds = input.defects.map { it.defectTypeId }.toSet()
+            assertEquals(setOf(101L), pickedDefectIds, "Fallback defect harus relevan dengan material FELT.")
+        }
+    }
+
+    @Test
+    fun `simulation keeps total check above defect and ratio in realistic bound`() {
+        val inspectionRepository = RecordingInspectionRepository()
+        val useCase =
+            GenerateHighVolumeSimulationUseCase(
+                inspectionRepository = inspectionRepository,
+                masterDataRepository =
+                    FakeMasterDataRepository(
+                        lines = listOf(Line(id = 1L, code = LineCode.PRESS, name = "Press")),
+                        shifts =
+                            listOf(
+                                Shift(
+                                    id = 1L,
+                                    code = "S1",
+                                    name = "Shift 1",
+                                    startTime = "08:00",
+                                    endTime = "17:00",
+                                ),
+                            ),
+                        parts =
+                            listOf(
+                                Part(
+                                    id = 11L,
+                                    partNumber = "PN-001",
+                                    model = "M1",
+                                    name = "Part A",
+                                    uniqCode = "U-1",
+                                    material = "FELT",
+                                    picturePath = null,
+                                    lineCode = LineCode.PRESS,
+                                    recommendedDefectCodes = listOf("DF-A"),
+                                ),
+                            ),
+                        defects =
+                            listOf(
+                                DefectType(
+                                    id = 101L,
+                                    code = "DF-A",
+                                    name = "Scratch",
+                                    category = "ITEM_DEFECT",
+                                    severity = DefectSeverity.NORMAL,
+                                    lineCode = LineCode.PRESS,
+                                ),
+                            ),
+                    ),
+            )
+
+        useCase.execute(days = 4, density = 2, seed = 77L)
+
+        inspectionRepository.insertedInputs.forEach { input ->
+            val totalDefect = input.defects.sumOf { it.quantity }
+            val totalCheck = input.totalCheck ?: 0
+            assertTrue(totalCheck > totalDefect)
+            val ratio = totalDefect.toDouble() / totalCheck.toDouble()
+            assertTrue(ratio in 0.01..0.2, "Rasio NG simulasi harus realistis (1%-20%).")
+        }
     }
 }
 
