@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppScreenContainer
 import id.co.nierstyd.mutugemba.desktop.ui.components.ConfirmDialog
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
@@ -85,10 +86,7 @@ fun AbnormalScreen() {
     val openTickets = tickets.count { it.step != JidokaStep.CLOSE }
     val closedTickets = tickets.size - openTickets
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
+    AppScreenContainer {
         SectionHeader(
             title = AppStrings.Abnormal.Title,
             subtitle = AppStrings.Abnormal.Subtitle,

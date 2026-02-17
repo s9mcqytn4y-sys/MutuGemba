@@ -56,6 +56,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppScreenContainer
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
@@ -180,186 +181,188 @@ private fun InspectionScreenContent(
         onDispose { manager.removeKeyEventDispatcher(dispatcher) }
     }
 
-    BoxWithConstraints(
-        modifier =
-            Modifier
-                .fillMaxHeight()
-                .fillMaxWidth()
-                .focusRequester(focusRequester)
-                .focusable()
-                .onPreviewKeyEvent { event ->
-                    val isKeyDown = event.type == KeyEventType.KeyDown
-                    val isEscapePressed = isKeyDown && event.key == Key.Escape
-                    val shouldSaveFromConfirm =
-                        isKeyDown &&
-                            event.key == Key.Enter &&
-                            state.showConfirmDialog &&
-                            !state.isSaving
-                    val shouldOpenSaveReview =
-                        isKeyDown &&
-                            event.key == Key.Enter &&
-                            state.canSave &&
-                            !showSearchModal &&
-                            !state.showConfirmDialog
-                    if (isKeyDown && event.isCtrlPressed && event.key == Key.K) {
-                        showSearchModal = true
-                        true
-                    } else if (isEscapePressed) {
-                        when {
-                            showSearchModal -> {
-                                showSearchModal = false
-                                true
-                            }
-                            state.showConfirmDialog -> {
-                                state.dismissConfirm()
-                                true
-                            }
-                            else -> false
-                        }
-                    } else if (shouldSaveFromConfirm) {
-                        scope.launch {
-                            state.onConfirmSave(onRecordsSaved)
-                        }
-                        true
-                    } else if (shouldOpenSaveReview) {
-                        state.onSaveRequested()
-                        true
-                    } else if (event.type == KeyEventType.KeyDown && showSearchModal && event.key == Key.Enter) {
-                        focusFirstResult()
-                        true
-                    } else {
-                        false
-                    }
-                },
-    ) {
-        val viewportMaxHeight = if (maxHeight != Dp.Infinity) maxHeight else 900.dp
-        LazyColumn(
-            state = listState,
+    AppScreenContainer {
+        BoxWithConstraints(
             modifier =
                 Modifier
+                    .fillMaxHeight()
                     .fillMaxWidth()
-                    .heightIn(max = viewportMaxHeight),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                    .focusRequester(focusRequester)
+                    .focusable()
+                    .onPreviewKeyEvent { event ->
+                        val isKeyDown = event.type == KeyEventType.KeyDown
+                        val isEscapePressed = isKeyDown && event.key == Key.Escape
+                        val shouldSaveFromConfirm =
+                            isKeyDown &&
+                                event.key == Key.Enter &&
+                                state.showConfirmDialog &&
+                                !state.isSaving
+                        val shouldOpenSaveReview =
+                            isKeyDown &&
+                                event.key == Key.Enter &&
+                                state.canSave &&
+                                !showSearchModal &&
+                                !state.showConfirmDialog
+                        if (isKeyDown && event.isCtrlPressed && event.key == Key.K) {
+                            showSearchModal = true
+                            true
+                        } else if (isEscapePressed) {
+                            when {
+                                showSearchModal -> {
+                                    showSearchModal = false
+                                    true
+                                }
+                                state.showConfirmDialog -> {
+                                    state.dismissConfirm()
+                                    true
+                                }
+                                else -> false
+                            }
+                        } else if (shouldSaveFromConfirm) {
+                            scope.launch {
+                                state.onConfirmSave(onRecordsSaved)
+                            }
+                            true
+                        } else if (shouldOpenSaveReview) {
+                            state.onSaveRequested()
+                            true
+                        } else if (event.type == KeyEventType.KeyDown && showSearchModal && event.key == Key.Enter) {
+                            focusFirstResult()
+                            true
+                        } else {
+                            false
+                        }
+                    },
         ) {
-            item {
-                SectionHeader(
-                    title = AppStrings.Inspection.Title,
-                    subtitle = AppStrings.Inspection.Subtitle,
-                )
-            }
-
-            item {
-                InspectionIntroCard()
-            }
-
-            item {
-                SectionLabel(
-                    title = AppStrings.Inspection.ContextTitle,
-                    subtitle = AppStrings.Inspection.ContextSubtitle,
-                )
-            }
-
-            item {
-                HeaderContextCard(
-                    dateLabel = DateTimeFormats.formatDate(state.today),
-                    shiftLabel = state.shiftLabel,
-                    picName = state.picName,
-                )
-            }
-
-            item {
-                StatusBanner(
-                    feedback =
-                        UserFeedback(
-                            FeedbackType.INFO,
-                            AppStrings.Inspection.ContextBanner,
-                        ),
-                )
-            }
-
-            item {
-                SectionLabel(
-                    title = AppStrings.Inspection.LineTitle,
-                    subtitle = AppStrings.Inspection.LineSubtitle,
-                )
-            }
-
-            item {
-                InspectionSelectorCard(
-                    lineName = state.selectedLineName,
-                    lineCode = state.selectedLineCodeName,
-                    lineHint = state.lineHint,
-                    allowDuplicate = state.isDuplicateAllowed(),
-                )
-            }
-
-            item {
-                SectionLabel(
-                    title = AppStrings.Inspection.PartTitle,
-                    subtitle = AppStrings.Inspection.PartSubtitle,
-                )
-            }
-
-            if (parts.isEmpty()) {
-                item {
-                    if (state.isMasterLoading) {
-                        InspectionLoadingState()
-                    } else {
-                        EmptyPartState()
-                    }
-                }
-            } else {
-                items(items = parts, key = { it.id }) { part ->
-                    PartChecksheetCard(
-                        part = part,
-                        defectTypes = state.defectTypesForPart(part.id),
-                        timeSlots = state.timeSlots,
-                        totalCheckInput = state.totalCheckInput(part.id),
-                        totalDefect = state.totalDefectQuantity(part.id),
-                        totalOk = state.totalOk(part.id),
-                        totalCheckInvalid = state.isTotalCheckInvalid(part.id),
-                        defectSlotValues = state.defectSlotInputs,
-                        expanded = state.isExpanded(part.id),
-                        status = state.partStatus(part.id),
-                        onToggleExpanded = { state.toggleExpanded(part.id) },
-                        onTotalCheckChanged = { state.onTotalCheckChanged(part.id, it) },
-                        customDefectInput = state.customDefectInput,
-                        onCustomDefectInputChanged = state::onCustomDefectInputChanged,
-                        existingDefectOptions = state.existingDefectOptions(),
-                        onSelectExistingDefect = state::onCustomDefectInputChanged,
-                        onAddCustomDefect = state::addCustomDefectType,
-                        onDeleteDefect = state::deleteDefectType,
-                        currentLine = state.selectedLineName,
-                        onDefectSlotChanged = { defectId, slot, value ->
-                            state.onDefectSlotChanged(part.id, defectId, slot, value)
-                        },
-                    )
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(120.dp))
-            }
-        }
-
-        InspectionFloatingActions(
-            showSummaryPanel = showSummaryPanel,
-            summary = state.summaryTotals,
-            canSave = state.canSave,
-            onToggleSummary = { showSummaryPanel = !showSummaryPanel },
-            onOpenSearch = { showSearchModal = true },
-            onClearAll = { state.clearAllInputs() },
-            onSaveRequest = { state.onSaveRequested() },
-        )
-        state.feedback?.let { currentFeedback ->
-            InspectionFeedbackToast(
-                feedback = currentFeedback,
-                onDismiss = { state.clearFeedback() },
+            val viewportMaxHeight = if (maxHeight != Dp.Infinity) maxHeight else 900.dp
+            LazyColumn(
+                state = listState,
                 modifier =
                     Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = Spacing.md, end = Spacing.md),
+                        .fillMaxWidth()
+                        .heightIn(max = viewportMaxHeight),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                item {
+                    SectionHeader(
+                        title = AppStrings.Inspection.Title,
+                        subtitle = AppStrings.Inspection.Subtitle,
+                    )
+                }
+
+                item {
+                    InspectionIntroCard()
+                }
+
+                item {
+                    SectionLabel(
+                        title = AppStrings.Inspection.ContextTitle,
+                        subtitle = AppStrings.Inspection.ContextSubtitle,
+                    )
+                }
+
+                item {
+                    HeaderContextCard(
+                        dateLabel = DateTimeFormats.formatDate(state.today),
+                        shiftLabel = state.shiftLabel,
+                        picName = state.picName,
+                    )
+                }
+
+                item {
+                    StatusBanner(
+                        feedback =
+                            UserFeedback(
+                                FeedbackType.INFO,
+                                AppStrings.Inspection.ContextBanner,
+                            ),
+                    )
+                }
+
+                item {
+                    SectionLabel(
+                        title = AppStrings.Inspection.LineTitle,
+                        subtitle = AppStrings.Inspection.LineSubtitle,
+                    )
+                }
+
+                item {
+                    InspectionSelectorCard(
+                        lineName = state.selectedLineName,
+                        lineCode = state.selectedLineCodeName,
+                        lineHint = state.lineHint,
+                        allowDuplicate = state.isDuplicateAllowed(),
+                    )
+                }
+
+                item {
+                    SectionLabel(
+                        title = AppStrings.Inspection.PartTitle,
+                        subtitle = AppStrings.Inspection.PartSubtitle,
+                    )
+                }
+
+                if (parts.isEmpty()) {
+                    item {
+                        if (state.isMasterLoading) {
+                            InspectionLoadingState()
+                        } else {
+                            EmptyPartState()
+                        }
+                    }
+                } else {
+                    items(items = parts, key = { it.id }) { part ->
+                        PartChecksheetCard(
+                            part = part,
+                            defectTypes = state.defectTypesForPart(part.id),
+                            timeSlots = state.timeSlots,
+                            totalCheckInput = state.totalCheckInput(part.id),
+                            totalDefect = state.totalDefectQuantity(part.id),
+                            totalOk = state.totalOk(part.id),
+                            totalCheckInvalid = state.isTotalCheckInvalid(part.id),
+                            defectSlotValues = state.defectSlotInputs,
+                            expanded = state.isExpanded(part.id),
+                            status = state.partStatus(part.id),
+                            onToggleExpanded = { state.toggleExpanded(part.id) },
+                            onTotalCheckChanged = { state.onTotalCheckChanged(part.id, it) },
+                            customDefectInput = state.customDefectInput,
+                            onCustomDefectInputChanged = state::onCustomDefectInputChanged,
+                            existingDefectOptions = state.existingDefectOptions(),
+                            onSelectExistingDefect = state::onCustomDefectInputChanged,
+                            onAddCustomDefect = state::addCustomDefectType,
+                            onDeleteDefect = state::deleteDefectType,
+                            currentLine = state.selectedLineName,
+                            onDefectSlotChanged = { defectId, slot, value ->
+                                state.onDefectSlotChanged(part.id, defectId, slot, value)
+                            },
+                        )
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(120.dp))
+                }
+            }
+
+            InspectionFloatingActions(
+                showSummaryPanel = showSummaryPanel,
+                summary = state.summaryTotals,
+                canSave = state.canSave,
+                onToggleSummary = { showSummaryPanel = !showSummaryPanel },
+                onOpenSearch = { showSearchModal = true },
+                onClearAll = { state.clearAllInputs() },
+                onSaveRequest = { state.onSaveRequested() },
             )
+            state.feedback?.let { currentFeedback ->
+                InspectionFeedbackToast(
+                    feedback = currentFeedback,
+                    onDismiss = { state.clearFeedback() },
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = Spacing.md, end = Spacing.md),
+                )
+            }
         }
     }
 

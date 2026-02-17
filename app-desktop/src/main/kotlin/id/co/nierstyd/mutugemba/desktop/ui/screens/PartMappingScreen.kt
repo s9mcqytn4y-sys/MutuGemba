@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppScreenContainer
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
@@ -215,10 +216,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
+    AppScreenContainer(modifier = Modifier.fillMaxWidth()) {
         val assetLoadedCount = thumbnailMap.values.count { it != null }
         val selectedPartLabel = partDetail?.partNumber ?: selectedUniqNo ?: "-"
 

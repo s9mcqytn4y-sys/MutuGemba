@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppScreenContainer
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
@@ -258,10 +259,7 @@ fun ReportsScreen(
             buildLineColors(lines)
         }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
+    AppScreenContainer {
         SectionHeader(
             title = AppStrings.Reports.Title,
             subtitle = AppStrings.Reports.Subtitle,

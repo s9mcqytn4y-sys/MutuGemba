@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppScreenContainer
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
@@ -197,10 +198,7 @@ fun ReportsMonthlyScreen(
         state = document?.let { MonthlyReportUiState.Loaded(it) } ?: MonthlyReportUiState.Empty
     }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
+    AppScreenContainer {
         SectionHeader(
             title = AppStrings.ReportsMonthly.Title,
             subtitle = AppStrings.ReportsMonthly.Subtitle,

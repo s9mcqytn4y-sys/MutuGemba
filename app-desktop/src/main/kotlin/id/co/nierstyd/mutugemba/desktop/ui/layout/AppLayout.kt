@@ -1,5 +1,6 @@
 ﻿package id.co.nierstyd.mutugemba.desktop.ui.layout
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,13 +82,24 @@ fun AppLayout(
                     modifier = scrollModifier,
                     contentAlignment = Alignment.TopCenter,
                 ) {
-                    Box(
+                    Surface(
                         modifier =
                             Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                                 .widthIn(max = Sizing.contentMaxWidth),
+                        shape = MaterialTheme.shapes.large,
+                        color = NeutralLight.copy(alpha = 0.38f),
+                        border = BorderStroke(1.dp, NeutralBorder.copy(alpha = 0.95f)),
+                        elevation = 0.dp,
                     ) {
-                        content()
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(Spacing.sm),
+                        ) {
+                            content()
+                        }
                     }
                 }
                 footerContent()

@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppScreenContainer
 import id.co.nierstyd.mutugemba.desktop.ui.components.ConfirmDialog
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
@@ -95,10 +96,7 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
     }
 
     Box(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
+        AppScreenContainer {
             SectionHeader(
                 title = AppStrings.Settings.Title,
                 subtitle = AppStrings.Settings.Subtitle,

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +33,26 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.Sizing
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
+
+@Composable
+fun AppScreenContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = NeutralSurface.copy(alpha = 0.96f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder.copy(alpha = 0.9f)),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            content = content,
+        )
+    }
+}
 
 @Composable
 fun HeaderBar(
