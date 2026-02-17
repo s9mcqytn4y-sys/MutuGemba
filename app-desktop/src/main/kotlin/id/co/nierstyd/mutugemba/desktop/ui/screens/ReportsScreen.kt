@@ -126,6 +126,7 @@ fun ReportsScreen(
     val todayMonth = YearMonth.from(today)
     var month by remember { mutableStateOf(todayMonth) }
     var selectedLineId by remember(lines) { mutableStateOf(lines.firstOrNull()?.id) }
+    var lineSelectionLockedByUser by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(today) }
     val maxStoredDate =
         remember(dailySummaries, month) {
@@ -147,6 +148,25 @@ fun ReportsScreen(
     LaunchedEffect(lines) {
         if (selectedLineId == null && lines.isNotEmpty()) {
             selectedLineId = lines.first().id
+        }
+    }
+
+    LaunchedEffect(lines, dailySummaries, month, selectedDate, lineSelectionLockedByUser) {
+        if (lineSelectionLockedByUser || lines.isEmpty()) return@LaunchedEffect
+        val preferredFromDate =
+            dailySummaries
+                .firstOrNull { it.date == selectedDate }
+                ?.lineId
+        val preferredFromMonth =
+            dailySummaries
+                .asSequence()
+                .filter { YearMonth.from(it.date) == month }
+                .groupBy { it.lineId }
+                .maxByOrNull { (_, rows) -> rows.size }
+                ?.key
+        val preferredLineId = preferredFromDate ?: preferredFromMonth
+        if (preferredLineId != null && preferredLineId != selectedLineId) {
+            selectedLineId = preferredLineId
         }
     }
 
@@ -216,7 +236,10 @@ fun ReportsScreen(
                 todayMonth = todayMonth,
                 lines = lines,
                 selectedLineId = selectedLineId,
-                onLineSelected = { selectedLineId = it },
+                onLineSelected = {
+                    lineSelectionLockedByUser = true
+                    selectedLineId = it
+                },
                 dates = availableDates,
                 pageIndex = pageIndex,
                 onPageChange = { pageIndex = it },

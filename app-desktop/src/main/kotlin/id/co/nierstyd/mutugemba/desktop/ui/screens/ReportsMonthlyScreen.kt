@@ -129,6 +129,7 @@ fun ReportsMonthlyScreen(
     val todayMonth = YearMonth.from(today)
     var month by remember { mutableStateOf(todayMonth) }
     var selectedLineId by remember(lines) { mutableStateOf(lines.firstOrNull()?.id) }
+    var lineSelectionLockedByUser by remember { mutableStateOf(false) }
     var state by remember { mutableStateOf<MonthlyReportUiState>(MonthlyReportUiState.Loading) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
@@ -150,6 +151,20 @@ fun ReportsMonthlyScreen(
     LaunchedEffect(lines) {
         if (selectedLineId == null && lines.isNotEmpty()) {
             selectedLineId = lines.first().id
+        }
+    }
+
+    LaunchedEffect(lines, dailySummaries, month, lineSelectionLockedByUser) {
+        if (lineSelectionLockedByUser || lines.isEmpty()) return@LaunchedEffect
+        val preferredLineId =
+            dailySummaries
+                .asSequence()
+                .filter { YearMonth.from(it.date) == month }
+                .groupBy { it.lineId }
+                .maxByOrNull { (_, rows) -> rows.size }
+                ?.key
+        if (preferredLineId != null && preferredLineId != selectedLineId) {
+            selectedLineId = preferredLineId
         }
     }
 
@@ -186,7 +201,10 @@ fun ReportsMonthlyScreen(
             todayMonth = todayMonth,
             lines = lines,
             selectedLineId = selectedLineId,
-            onLineSelected = { selectedLineId = it },
+            onLineSelected = {
+                lineSelectionLockedByUser = true
+                selectedLineId = it
+            },
             onMonthChange = { target -> month = if (target.isAfter(todayMonth)) todayMonth else target },
             onPrint = {
                 val document = (state as? MonthlyReportUiState.Loaded)?.document ?: return@MonthlyReportToolbar
