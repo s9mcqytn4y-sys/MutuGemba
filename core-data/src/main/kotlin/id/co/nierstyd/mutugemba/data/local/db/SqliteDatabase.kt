@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 private const val TARGET_SCHEMA_VERSION = 11
+private const val SQLITE_BUSY_TIMEOUT_MS = 5_000
 
 class SqliteDatabase(
     private val dbFile: Path,
@@ -37,6 +38,11 @@ class SqliteDatabase(
         DriverManager.getConnection("jdbc:sqlite:${dbFile.toAbsolutePath()}").use { connection ->
             connection.createStatement().use { statement ->
                 statement.execute("PRAGMA foreign_keys = ON;")
+                statement.execute("PRAGMA busy_timeout = $SQLITE_BUSY_TIMEOUT_MS;")
+                if (!readOnly) {
+                    statement.execute("PRAGMA journal_mode = WAL;")
+                    statement.execute("PRAGMA synchronous = NORMAL;")
+                }
                 if (readOnly) {
                     statement.execute("PRAGMA query_only = ON;")
                 } else {
