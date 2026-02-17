@@ -167,7 +167,7 @@ class InMemoryDatabase(
             ?.part_item_defect_stats
             .orEmpty()
             .forEach { row ->
-                val normalizedCode = normalizeName(row.defect_name_norm.ifBlank { row.defect_name })
+                val normalizedCode = normalizeDefectKey(row.defect_name_norm.ifBlank { row.defect_name })
                 if (normalizedCode.isBlank()) return@forEach
                 byCode.putIfAbsent(
                     normalizedCode,
@@ -180,7 +180,7 @@ class InMemoryDatabase(
             }
 
         mapping.qa.defect_types.forEach { row ->
-            val normalizedCode = normalizeName(row.name_norm.ifBlank { row.name })
+            val normalizedCode = normalizeDefectKey(row.name_norm.ifBlank { row.name })
             if (normalizedCode.isBlank()) return@forEach
             byCode.putIfAbsent(
                 normalizedCode,
@@ -203,7 +203,7 @@ class InMemoryDatabase(
             .mapValues { (_, rows) ->
                 rows
                     .sortedByDescending { it.occurrence_qty }
-                    .map { normalizeName(it.defect_name_norm.ifBlank { it.defect_name }) }
+                    .map { normalizeDefectKey(it.defect_name_norm.ifBlank { it.defect_name }) }
                     .filter { it.isNotBlank() }
                     .distinct()
             }
@@ -212,7 +212,7 @@ class InMemoryDatabase(
         screening
             ?.part_item_defect_stats
             .orEmpty()
-            .groupBy { normalizeName(it.defect_name_norm.ifBlank { it.defect_name }) }
+            .groupBy { normalizeDefectKey(it.defect_name_norm.ifBlank { it.defect_name }) }
             .mapValues { (_, rows) -> rows.sumOf { it.occurrence_qty } }
 
     private fun buildMaterialRiskCodesByMaterialNorm(): Map<String, List<String>> =
@@ -223,7 +223,7 @@ class InMemoryDatabase(
             .mapValues { (_, rows) ->
                 rows
                     .sortedByDescending { it.risk_score }
-                    .map { normalizeName(it.defect_name_norm.ifBlank { it.defect_name }) }
+                    .map { normalizeDefectKey(it.defect_name_norm.ifBlank { it.defect_name }) }
                     .filter { it.isNotBlank() }
                     .distinct()
             }
@@ -236,7 +236,7 @@ class InMemoryDatabase(
         val grouped =
             screening.part_item_defect_stats.groupBy { normalizeLine(it.line) }.mapValues { (_, rows) ->
                 rows
-                    .map { normalizeName(it.defect_name_norm.ifBlank { it.defect_name }) }
+                    .map { normalizeDefectKey(it.defect_name_norm.ifBlank { it.defect_name }) }
                     .filter { it.isNotBlank() }
                     .toSet()
             }
@@ -283,7 +283,7 @@ class InMemoryDatabase(
         name: String,
         lineCode: LineCode,
     ): DefectType {
-        val normalizedCode = normalizeName(name)
+        val normalizedCode = normalizeDefectKey(name)
         require(normalizedCode.isNotBlank()) { "Defect name cannot be blank" }
 
         val existing = defectTypes.firstOrNull { it.code == normalizedCode || it.name.equals(normalizedCode, true) }
@@ -320,7 +320,7 @@ class InMemoryDatabase(
         materialNorms: List<String>,
         defectCode: String,
     ): Boolean {
-        val normalizedDefect = normalizeName(defectCode)
+        val normalizedDefect = normalizeDefectKey(defectCode)
         if (normalizedDefect.isBlank()) return false
 
         val declaredLine = baseDefectLineByCode[normalizedDefect]
@@ -377,6 +377,8 @@ class InMemoryDatabase(
             .replace("[^A-Z0-9]".toRegex(), "")
 
     private fun normalizeName(value: String): String = value.trim().uppercase().replace("\\s+".toRegex(), " ")
+
+    private fun normalizeDefectKey(value: String): String = DefectNameSanitizer.canonicalKey(value)
 
     private fun normalizeLine(value: String): String {
         val text = value.trim().lowercase()

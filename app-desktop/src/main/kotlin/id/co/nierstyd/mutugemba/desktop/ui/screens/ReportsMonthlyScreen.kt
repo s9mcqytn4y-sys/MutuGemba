@@ -1364,7 +1364,7 @@ private fun formatProblemItems(items: List<String>): String {
     if (items.isEmpty()) return AppStrings.Common.Placeholder
     return items
         .flatMap { DefectNameSanitizer.expandProblemItems(it) }
-        .ifEmpty { items.map(DefectNameSanitizer::normalizeDisplay) }
+        .ifEmpty { items.map(DefectNameSanitizer::canonicalKey) }
         .filter { it.isNotBlank() }
         .distinct()
         .joinToString(separator = "\n") { "- $it" }

@@ -40,4 +40,14 @@ class InMemoryDatabaseTest {
         assertEquals(LineCode.PRESS, first.lineCode)
         assertTrue(db.defectTypes.any { it.id == first.id && it.category == "CUSTOM" })
     }
+
+    @Test
+    fun upsertDefectType_normalizesExcelAliasNames() {
+        val db = InMemoryDatabase(Files.createTempFile("mutugemba-test", ".db"))
+
+        val first = db.upsertDefectType("SPUNBOUND TDK MEREKAT", LineCode.SEWING)
+        val second = db.upsertDefectType("SPOUNDBOUND TIDAK MEREKAT", LineCode.SEWING)
+
+        assertEquals(first.id, second.id)
+    }
 }

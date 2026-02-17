@@ -76,6 +76,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
@@ -538,10 +539,26 @@ private class InspectionFormState(
 
     fun defectTypesForPart(partId: Long): List<DefectType> {
         val part = parts.firstOrNull { it.id == partId } ?: return defectTypes
-        val mapped =
+        val defectByCanonicalCode =
+            defectTypes.associateBy { defect ->
+                DefectNameSanitizer.canonicalKey(defect.code)
+            }
+        val defectByCanonicalName =
+            defectTypes.groupBy { defect ->
+                DefectNameSanitizer.canonicalKey(defect.name)
+            }
+        val mappedCandidates =
             part.recommendedDefectCodes
-                .mapNotNull { code -> defectTypes.firstOrNull { it.code == code } }
-                .distinctBy { it.id }
+                .flatMap { code ->
+                    val canonical = DefectNameSanitizer.canonicalKey(code)
+                    val matchByCode = defectByCanonicalCode[canonical]
+                    if (matchByCode != null) {
+                        listOf(matchByCode)
+                    } else {
+                        defectByCanonicalName[canonical].orEmpty()
+                    }
+                }
+        val mapped = mappedCandidates.distinctBy { it.id }
         val customForLine =
             defectTypes
                 .filter { it.category == "CUSTOM" }

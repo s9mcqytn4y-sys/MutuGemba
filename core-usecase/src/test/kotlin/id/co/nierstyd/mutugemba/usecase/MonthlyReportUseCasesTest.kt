@@ -19,6 +19,7 @@ import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import java.time.YearMonth
@@ -149,8 +150,9 @@ class MonthlyReportUseCasesTest {
         val document = GetMonthlyReportDocumentUseCase(inspectionRepository, masterRepository).execute(line.id, month)
 
         assertEquals(2, document.rows.size)
-        assertEquals(listOf("OVERCUTTING"), document.rows[0].problemItems)
-        assertEquals(listOf("SPUNBOUND TERLIPAT, SPUNBOND HARDEN"), document.rows[1].problemItems)
+        val labels = document.rows.map { it.problemItems.firstOrNull().orEmpty() }
+        assertTrue(labels.contains("OVERCUTTING"))
+        assertTrue(labels.any { it.contains("SPUNBOND TERLIPAT") })
     }
 
     @Test

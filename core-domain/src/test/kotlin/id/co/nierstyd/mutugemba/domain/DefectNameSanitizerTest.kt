@@ -13,6 +13,12 @@ class DefectNameSanitizerTest {
     @Test
     fun `expand problem items splits comma separated values`() {
         val result = DefectNameSanitizer.expandProblemItems("SPUNBOUND TERLIPAT, SPUNBOND HARDEN")
-        assertEquals(listOf("SPUNBOUND TERLIPAT", "SPUNBOND HARDEN"), result)
+        assertEquals(listOf("SPUNBOND TERLIPAT", "SPUNBOND HARDEN"), result)
+    }
+
+    @Test
+    fun `canonical key normalizes common excel aliases`() {
+        val result = DefectNameSanitizer.canonicalKey("Spoundbound tdk merekat / out dimention")
+        assertEquals("SPUNBOND TIDAK MEREKAT / OUT DIMENSION", result)
     }
 }

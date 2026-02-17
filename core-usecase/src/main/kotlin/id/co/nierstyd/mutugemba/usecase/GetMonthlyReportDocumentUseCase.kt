@@ -115,7 +115,7 @@ class GetMonthlyReportDocumentUseCase(
     }
 
     private fun problemItemLabel(defect: DefectType): String =
-        DefectNameSanitizer.normalizeDisplay(defect.name).ifBlank { defect.name.trim() }
+        DefectNameSanitizer.canonicalKey(defect.name).ifBlank { defect.name.trim() }
 
     private fun buildRows(
         parts: List<id.co.nierstyd.mutugemba.domain.Part>,
