@@ -17,9 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
@@ -163,15 +161,19 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
         if (missing.isEmpty()) return@LaunchedEffect
 
         thumbnailLoading = true
-        val loaded =
-            withContext(Dispatchers.IO) {
-                missing.associate { part ->
-                    val ref = dependencies.getActiveImageRef.execute(part.uniqNo)
-                    val bytes = ref?.let { dependencies.loadImageBytes.execute(it) }
-                    part.uniqNo to decodeImageBitmap(bytes)
-                }
+        missing
+            .chunked(24)
+            .forEach { chunk ->
+                val loaded =
+                    withContext(Dispatchers.IO) {
+                        chunk.associate { part ->
+                            val ref = dependencies.getActiveImageRef.execute(part.uniqNo)
+                            val bytes = ref?.let { dependencies.loadImageBytes.execute(it) }
+                            part.uniqNo to decodeImageBitmap(bytes)
+                        }
+                    }
+                thumbnailMap.putAll(loaded)
             }
-        thumbnailMap.putAll(loaded)
         thumbnailLoading = false
     }
 
@@ -313,7 +315,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Surface(
-                modifier = Modifier.weight(0.44f).fillMaxHeight(),
+                modifier = Modifier.weight(0.46f).fillMaxHeight(),
                 color = NeutralSurface,
                 border = BorderStroke(1.dp, NeutralBorder),
                 shape = MaterialTheme.shapes.medium,
@@ -326,6 +328,11 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                     Text(
                         text = "${AppStrings.PartMapping.PartListTitle} (${filteredParts.size}/${parts.size})",
                         style = MaterialTheme.typography.subtitle1,
+                    )
+                    Text(
+                        text = "Katalog part untuk semua line produksi.",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
                     )
 
                     when {
@@ -377,7 +384,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             }
 
             Surface(
-                modifier = Modifier.weight(0.56f).fillMaxHeight(),
+                modifier = Modifier.weight(0.54f).fillMaxHeight(),
                 color = NeutralSurface,
                 border = BorderStroke(1.dp, NeutralBorder),
                 shape = MaterialTheme.shapes.medium,
@@ -403,14 +410,13 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         }
 
                         else -> {
-                            val detailScrollState = rememberScrollState()
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(detailScrollState),
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                             ) {
-                                PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
+                                item(key = partDetail!!.uniqNo) {
+                                    PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
+                                }
                             }
                         }
                     }
@@ -501,7 +507,7 @@ private fun PartCard(
             Box(
                 modifier =
                     Modifier
-                        .size(72.dp)
+                        .size(80.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .border(1.dp, NeutralBorder, RoundedCornerShape(8.dp))
                         .background(NeutralLight),
@@ -532,11 +538,6 @@ private fun PartCard(
                     text = item.lineCode.uppercase(),
                     backgroundColor = NeutralLight,
                     contentColor = NeutralText,
-                )
-                Text(
-                    text = "Klik untuk lihat profil detail part",
-                    style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
                 )
             }
         }

@@ -229,6 +229,12 @@ fun HomeScreen(
             )
         }
 
+    val topDefect =
+        remember(monthlyDefects) {
+            monthlyDefects
+                .filter { it.totalQuantity > 0 }
+                .maxByOrNull { it.totalQuantity }
+        }
     val lineComparison =
         remember(summariesForMonth, lines) {
             lines.map { line ->
@@ -254,21 +260,28 @@ fun HomeScreen(
             .groupBy { it.shiftName }
             .mapValues { (_, rows) -> rows.sumOf { it.totalDefect } }
             .maxByOrNull { it.value }
+    val trendSummary = remember(summariesForMonth, month) { buildMonthlyTrendSummary(summariesForMonth, month) }
+    val lineShiftIssue =
+        when {
+            worstLine == null && worstShift == null -> AppStrings.Common.Placeholder
+            worstLine != null && worstShift != null -> "${worstLine.lineName} / ${worstShift.key}"
+            worstLine != null -> worstLine.lineName
+            else -> worstShift?.key ?: AppStrings.Common.Placeholder
+        }
     val checksheetHighlights =
         ChecksheetHighlights(
             topNgItem =
+                topDefect?.let { "${it.defectName} (${it.totalQuantity})" }
+                    ?: AppStrings.Common.Placeholder,
+            topUniqPart =
                 topProblemItem?.let { "UNIQ ${it.uniqCode} (${it.totalDefect})" }
                     ?: AppStrings.Common.Placeholder,
             ngRatio = NumberFormats.formatPercent(monthlyTotals.ratio),
             peakDay =
                 peakDay?.let { "${DateTimeFormats.formatDate(it.date)} (${it.totalDefect})" }
                     ?: AppStrings.Common.Placeholder,
-            worstLine =
-                worstLine?.let { "${it.lineName} (${it.totalDefect})" }
-                    ?: AppStrings.Common.Placeholder,
-            worstShift =
-                worstShift?.let { "${it.key} (${it.value})" }
-                    ?: AppStrings.Common.Placeholder,
+            lineShiftIssue = lineShiftIssue,
+            trend = trendSummary,
         )
 
     val listState = rememberLazyListState()
@@ -789,10 +802,11 @@ private fun DashboardSectionHeader(
 
 private data class ChecksheetHighlights(
     val topNgItem: String,
+    val topUniqPart: String,
     val ngRatio: String,
     val peakDay: String,
-    val worstLine: String,
-    val worstShift: String,
+    val lineShiftIssue: String,
+    val trend: String,
 )
 
 @Composable
@@ -816,17 +830,46 @@ private fun ChecksheetHighlightsCard(
                 style = MaterialTheme.typography.subtitle1,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = Modifier.fillMaxWidth()) {
-                SummaryStat(title = "Top NG Item", value = highlights.topNgItem)
+                SummaryStat(title = "Top Jenis NG", value = highlights.topNgItem)
+                SummaryStat(title = "Part UNIQ Puncak", value = highlights.topUniqPart)
                 SummaryStat(title = "Rasio NG", value = highlights.ngRatio)
-                SummaryStat(title = "Hari Puncak", value = highlights.peakDay)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = Modifier.fillMaxWidth()) {
-                SummaryStat(title = "Line Bermasalah", value = highlights.worstLine)
-                SummaryStat(title = "Shift Bermasalah", value = highlights.worstShift)
-                SummaryStat(title = "Trend", value = "Lihat grafik tren di panel kiri")
+                SummaryStat(title = "Hari Puncak", value = highlights.peakDay)
+                SummaryStat(title = "Line/Shift Kritis", value = highlights.lineShiftIssue)
+                SummaryStat(title = "Trend Bulanan", value = highlights.trend)
             }
         }
     }
+}
+
+private fun buildMonthlyTrendSummary(
+    summariesForMonth: List<DailyChecksheetSummary>,
+    month: YearMonth,
+): String {
+    val summary =
+        if (summariesForMonth.isEmpty()) {
+            AppStrings.Common.Placeholder
+        } else {
+            val splitDay = (month.lengthOfMonth() / 2).coerceAtLeast(1)
+            val firstHalf = summariesForMonth.filter { it.date.dayOfMonth <= splitDay }.sumOf { it.totalDefect }
+            val secondHalf = summariesForMonth.filter { it.date.dayOfMonth > splitDay }.sumOf { it.totalDefect }
+            when {
+                firstHalf == 0 && secondHalf == 0 -> "Stabil (0 NG)"
+                firstHalf == 0 -> "Naik tajam ($secondHalf NG)"
+                else -> {
+                    val delta = secondHalf - firstHalf
+                    val deltaPct = kotlin.math.abs(delta.toDouble() / firstHalf.toDouble())
+                    val deltaLabel = NumberFormats.formatPercentNoDecimal(deltaPct)
+                    when {
+                        delta > 0 -> "Naik $deltaLabel"
+                        delta < 0 -> "Turun $deltaLabel"
+                        else -> "Stabil"
+                    }
+                }
+            }
+        }
+    return summary
 }
 
 private data class LineDailyStatus(
