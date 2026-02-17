@@ -95,10 +95,11 @@ fun HomeScreen(
                 ?.isEqual(today)
                 ?: false
         }
-    val totalToday = recordsToday.size
-    val totalPartsToday = recordsToday.map { it.partNumber }.distinct().size
-    val activeLinesToday = recordsToday.map { it.lineName }.distinct().size
-    val totalCheckToday = recordsToday.sumOf { it.totalCheck ?: 0 }
+    val summariesToday = dailySummaries.filter { it.date == today }
+    val totalToday = summariesToday.size
+    val totalPartsToday = summariesToday.sumOf { it.totalParts }
+    val activeLinesToday = summariesToday.map { it.lineId }.distinct().size
+    val totalCheckToday = summariesToday.sumOf { it.totalCheck }
     val totalLines = lines.size
     val lastInputLabel =
         recordsToday
@@ -108,14 +109,12 @@ fun HomeScreen(
     var showResetDialog by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
 
-    val summariesToday = dailySummaries.filter { it.date == today }
     val totalDefectToday = summariesToday.sumOf { it.totalDefect }
-    val totalCheckFromSummary = summariesToday.sumOf { it.totalCheck }
     val ratioToday =
-        if (totalCheckFromSummary >
+        if (totalCheckToday >
             0
         ) {
-            totalDefectToday.toDouble() / totalCheckFromSummary.toDouble()
+            totalDefectToday.toDouble() / totalCheckToday.toDouble()
         } else {
             0.0
         }
@@ -199,11 +198,16 @@ fun HomeScreen(
         topProblemLoading = false
     }
 
+    val summariesForMonth =
+        remember(dailySummaries, month) {
+            dailySummaries.filter { YearMonth.from(it.date) == month }
+        }
+
     val monthlyTotals =
-        remember(dailySummaries, month, insightLineId) {
+        remember(summariesForMonth, month, insightLineId) {
             val summariesForMonth =
-                dailySummaries.filter {
-                    YearMonth.from(it.date) == month && (insightLineId == null || it.lineId == insightLineId)
+                summariesForMonth.filter {
+                    insightLineId == null || it.lineId == insightLineId
                 }
             val totalDocs = summariesForMonth.size
             val totalCheck = summariesForMonth.sumOf { it.totalCheck }
@@ -226,11 +230,11 @@ fun HomeScreen(
         }
 
     val lineComparison =
-        remember(dailySummaries, month, lines) {
+        remember(summariesForMonth, lines) {
             lines.map { line ->
                 val summaries =
-                    dailySummaries.filter {
-                        YearMonth.from(it.date) == month && it.lineId == line.id
+                    summariesForMonth.filter {
+                        it.lineId == line.id
                     }
                 val totalDefect = summaries.sumOf { it.totalDefect }
                 val totalCheck = summaries.sumOf { it.totalCheck }
@@ -243,6 +247,29 @@ fun HomeScreen(
                 )
             }
         }
+    val peakDay = summariesForMonth.maxByOrNull { it.totalDefect }
+    val worstLine = lineComparison.maxByOrNull { it.totalDefect }
+    val worstShift =
+        summariesForMonth
+            .groupBy { it.shiftName }
+            .mapValues { (_, rows) -> rows.sumOf { it.totalDefect } }
+            .maxByOrNull { it.value }
+    val checksheetHighlights =
+        ChecksheetHighlights(
+            topNgItem =
+                topProblemItem?.let { "${it.partNumber} (${it.totalDefect})" }
+                    ?: AppStrings.Common.Placeholder,
+            ngRatio = NumberFormats.formatPercent(monthlyTotals.ratio),
+            peakDay =
+                peakDay?.let { "${DateTimeFormats.formatDate(it.date)} (${it.totalDefect})" }
+                    ?: AppStrings.Common.Placeholder,
+            worstLine =
+                worstLine?.let { "${it.lineName} (${it.totalDefect})" }
+                    ?: AppStrings.Common.Placeholder,
+            worstShift =
+                worstShift?.let { "${it.key} (${it.value})" }
+                    ?: AppStrings.Common.Placeholder,
+        )
 
     val listState = rememberLazyListState()
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -281,12 +308,26 @@ fun HomeScreen(
                 )
             }
             item {
+                ChecksheetHighlightsCard(
+                    month = month,
+                    highlights = checksheetHighlights,
+                )
+            }
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                     verticalAlignment = Alignment.Top,
                 ) {
                     Column(modifier = Modifier.weight(1.35f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        MonthlyTrendCard(
+                            month = month,
+                            dailySummaries = summariesForMonth,
+                            lineColors = lineColors,
+                            lines = lines,
+                            selectedLineId = trendLineId,
+                            onSelectedLine = { trendLineId = it },
+                        )
                         MonthlyParetoCard(
                             month = month,
                             defectSummaries = analysisDefects,
@@ -295,14 +336,6 @@ fun HomeScreen(
                             lines = lines,
                             selectedLineId = paretoLineId,
                             onSelectedLine = { paretoLineId = it },
-                        )
-                        MonthlyTrendCard(
-                            month = month,
-                            dailySummaries = dailySummaries.filter { YearMonth.from(it.date) == month },
-                            lineColors = lineColors,
-                            lines = lines,
-                            selectedLineId = trendLineId,
-                            onSelectedLine = { trendLineId = it },
                         )
                     }
                     Column(modifier = Modifier.weight(0.65f), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -751,6 +784,48 @@ private fun DashboardSectionHeader(
                     .height(1.dp)
                     .background(NeutralBorder.copy(alpha = 0.6f)),
         )
+    }
+}
+
+private data class ChecksheetHighlights(
+    val topNgItem: String,
+    val ngRatio: String,
+    val peakDay: String,
+    val worstLine: String,
+    val worstShift: String,
+)
+
+@Composable
+private fun ChecksheetHighlightsCard(
+    month: YearMonth,
+    highlights: ChecksheetHighlights,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = NeutralSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Text(
+                text = "Ringkasan Checksheet ${DateTimeFormats.formatMonth(month)}",
+                style = MaterialTheme.typography.subtitle1,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = Modifier.fillMaxWidth()) {
+                SummaryStat(title = "Top NG Item", value = highlights.topNgItem)
+                SummaryStat(title = "Rasio NG", value = highlights.ngRatio)
+                SummaryStat(title = "Hari Puncak", value = highlights.peakDay)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = Modifier.fillMaxWidth()) {
+                SummaryStat(title = "Line Bermasalah", value = highlights.worstLine)
+                SummaryStat(title = "Shift Bermasalah", value = highlights.worstShift)
+                SummaryStat(title = "Trend", value = "Lihat grafik tren di panel kiri")
+            }
+        }
     }
 }
 
