@@ -1364,6 +1364,7 @@ private fun RowScope.DocumentHeaderCell(
         modifier =
             Modifier
                 .weight(weight)
+                .heightIn(min = 34.dp)
                 .border(1.dp, NeutralBorder)
                 .background(headerBackground)
                 .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
@@ -1390,6 +1391,7 @@ private fun RowScope.DocumentBodyCell(
         modifier =
             Modifier
                 .weight(weight)
+                .heightIn(min = 38.dp)
                 .border(1.dp, NeutralBorder)
                 .background(backgroundColor)
                 .padding(Spacing.sm),
@@ -1416,6 +1418,7 @@ private fun RowScope.DocumentFooterCell(
         modifier =
             Modifier
                 .weight(weight)
+                .heightIn(min = 36.dp)
                 .border(1.dp, NeutralBorder)
                 .background(NeutralLight)
                 .padding(Spacing.sm),
