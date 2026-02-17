@@ -1,6 +1,7 @@
 package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
 import id.co.nierstyd.mutugemba.domain.MonthlyReportRow
@@ -67,21 +68,120 @@ object MonthlyReportPdfExporter {
     ): List<PageSpec> {
         val daySlices = sliceDaysForPage(document.days)
         val specs = mutableListOf<PageSpec>()
-        val rowsPerPage = calculateRowsPerPage()
+        val pagedRows = paginateRowsForPage(document.rows)
         daySlices.forEach { days ->
             val defectGroups = sliceDefectsForPage(document.defectTypes, days.size)
             defectGroups.forEach { defectGroup ->
-                val chunks = document.rows.chunked(rowsPerPage.coerceAtLeast(1))
-                if (chunks.isEmpty()) {
+                if (pagedRows.isEmpty()) {
                     specs += PageSpec(days, defectGroup, emptyList(), manualHolidays)
                 } else {
-                    chunks.forEach { chunk ->
+                    pagedRows.forEach { chunk ->
                         specs += PageSpec(days, defectGroup, chunk, manualHolidays)
                     }
                 }
             }
         }
         return specs
+    }
+
+    private fun paginateRowsForPage(rows: List<MonthlyReportRow>): List<List<MonthlyReportRow>> {
+        if (rows.isEmpty()) return emptyList()
+        val availableHeight = tableBodyHeightBudget()
+        val rowHeight = 18f
+        val subtotalHeight = 16f
+        val groupedRows =
+            rows
+                .groupBy { it.partId }
+                .toList()
+                .sortedBy { (_, partRows) -> partRows.firstOrNull()?.partNumber ?: "" }
+
+        val pages = mutableListOf<MutableList<MonthlyReportRow>>()
+        var currentPage = mutableListOf<MonthlyReportRow>()
+        var usedHeight = 0f
+
+        groupedRows.forEach { (_, partRows) ->
+            val (nextPage, nextUsedHeight) =
+                appendPartRows(
+                    currentPage = currentPage,
+                    usedHeight = usedHeight,
+                    pages = pages,
+                    partRows = partRows,
+                    availableHeight = availableHeight,
+                    rowHeight = rowHeight,
+                    subtotalHeight = subtotalHeight,
+                )
+            currentPage = nextPage
+            usedHeight = nextUsedHeight
+        }
+        if (currentPage.isNotEmpty()) {
+            pages += currentPage
+        }
+        return pages
+    }
+
+    private fun appendPartRows(
+        currentPage: MutableList<MonthlyReportRow>,
+        usedHeight: Float,
+        pages: MutableList<MutableList<MonthlyReportRow>>,
+        partRows: List<MonthlyReportRow>,
+        availableHeight: Float,
+        rowHeight: Float,
+        subtotalHeight: Float,
+    ): Pair<MutableList<MonthlyReportRow>, Float> {
+        var mutablePage = currentPage
+        var mutableUsedHeight = usedHeight
+        val partBlockHeight = partRows.size * rowHeight + subtotalHeight
+        if (partBlockHeight <= availableHeight) {
+            val (nextPage, nextUsedHeight) =
+                appendChunk(
+                    currentPage = mutablePage,
+                    usedHeight = mutableUsedHeight,
+                    pages = pages,
+                    chunkRows = partRows,
+                    chunkHeight = partBlockHeight,
+                    availableHeight = availableHeight,
+                )
+            mutablePage = nextPage
+            mutableUsedHeight = nextUsedHeight
+            return mutablePage to mutableUsedHeight
+        }
+
+        val chunkSize = ((availableHeight - subtotalHeight) / rowHeight).toInt().coerceAtLeast(1)
+        partRows.chunked(chunkSize).forEach { partChunk ->
+            val chunkHeight = partChunk.size * rowHeight + subtotalHeight
+            val (nextPage, nextUsedHeight) =
+                appendChunk(
+                    currentPage = mutablePage,
+                    usedHeight = mutableUsedHeight,
+                    pages = pages,
+                    chunkRows = partChunk,
+                    chunkHeight = chunkHeight,
+                    availableHeight = availableHeight,
+                )
+            mutablePage = nextPage
+            mutableUsedHeight = nextUsedHeight
+        }
+        return mutablePage to mutableUsedHeight
+    }
+
+    private fun appendChunk(
+        currentPage: MutableList<MonthlyReportRow>,
+        usedHeight: Float,
+        pages: MutableList<MutableList<MonthlyReportRow>>,
+        chunkRows: List<MonthlyReportRow>,
+        chunkHeight: Float,
+        availableHeight: Float,
+    ): Pair<MutableList<MonthlyReportRow>, Float> {
+        var mutablePage = currentPage
+        var mutableUsedHeight = usedHeight
+        if (mutablePage.isNotEmpty() && mutableUsedHeight + chunkHeight > availableHeight) {
+            pages += mutablePage
+            mutablePage = mutableListOf()
+            mutableUsedHeight = 0f
+        }
+        mutablePage.addAll(chunkRows)
+        mutableUsedHeight += chunkHeight
+        return mutablePage to mutableUsedHeight
     }
 
     private fun sliceDaysForPage(days: List<LocalDate>): List<List<LocalDate>> {
@@ -121,17 +221,13 @@ object MonthlyReportPdfExporter {
         return floor(available / defectWidth).toInt().coerceAtLeast(1)
     }
 
-    private fun calculateRowsPerPage(): Int {
+    private fun tableBodyHeightBudget(): Float {
         val contentHeight = pageContentHeight()
         val headerHeight = 64f
         val metaHeight = 32f
         val tableHeaderHeight = 36f
         val footerHeight = 70f
-        val rowHeight = 18f
-        val subtotalHeight = 16f
-        val available = contentHeight - headerHeight - metaHeight - tableHeaderHeight - footerHeight - 8f
-        val blockHeight = rowHeight + subtotalHeight
-        return floor(available / blockHeight).toInt().coerceAtLeast(1)
+        return (contentHeight - headerHeight - metaHeight - tableHeaderHeight - footerHeight - 8f).coerceAtLeast(34f)
     }
 
     private fun renderPage(
@@ -412,31 +508,32 @@ object MonthlyReportPdfExporter {
 
         cursorY -= subHeaderHeight
 
-        var visualIndex = 0
         val groupedRows =
             spec.rows
                 .groupBy { it.partId }
                 .toList()
                 .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber ?: "" }
-        groupedRows.forEach { (_, partRows) ->
+        groupedRows.forEachIndexed { partIndex, (_, partRows) ->
             val partDayTotals = MutableList(dayCount) { 0 }
             val partDefectTotals = MutableList(defectCount) { 0 }
             var partTotal = 0
+            val rowBackground = if (partIndex % 2 == 0) Color.WHITE else Color(250, 250, 250)
+            val sketchHeight = rowHeight * partRows.size
+
+            drawCell(
+                content,
+                left,
+                cursorY,
+                sketchWidth,
+                sketchHeight,
+                AppStrings.ReportsMonthly.TableSketch,
+                rowBackground,
+                fontRegular,
+                7f,
+                alignCenter = true,
+            )
 
             partRows.forEachIndexed { rowIndex, row ->
-                val rowBackground = if (visualIndex % 2 == 0) Color.WHITE else Color(250, 250, 250)
-                drawCell(
-                    content,
-                    left,
-                    cursorY,
-                    sketchWidth,
-                    rowHeight,
-                    if (rowIndex == 0) "-" else "",
-                    rowBackground,
-                    fontRegular,
-                    7.5f,
-                    alignCenter = true,
-                )
                 val partLabel = if (rowIndex == 0) "${row.partNumber}(${row.uniqCode})" else ""
                 drawCell(
                     content,
@@ -506,7 +603,6 @@ object MonthlyReportPdfExporter {
                 )
 
                 cursorY -= rowHeight
-                visualIndex += 1
             }
 
             drawCell(
@@ -776,8 +872,15 @@ object MonthlyReportPdfExporter {
 
     private fun formatProblemItems(items: List<String>): String {
         if (items.isEmpty()) return "-"
-        if (items.size <= 2) return items.joinToString(", ")
-        val head = items.take(2).joinToString(", ")
-        return "$head +${items.size - 2}"
+        val normalized =
+            items
+                .flatMap(DefectNameSanitizer::expandProblemItems)
+                .ifEmpty { items.map(DefectNameSanitizer::canonicalKey) }
+                .filter { it.isNotBlank() }
+                .distinct()
+        if (normalized.isEmpty()) return "-"
+        if (normalized.size <= 2) return normalized.joinToString(", ")
+        val head = normalized.take(2).joinToString(", ")
+        return "$head +${normalized.size - 2}"
     }
 }
