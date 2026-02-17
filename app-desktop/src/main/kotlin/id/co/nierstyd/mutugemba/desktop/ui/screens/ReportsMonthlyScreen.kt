@@ -86,14 +86,15 @@ private val DocumentWidth = 1120.dp
 private val DocumentMinHeight = 760.dp
 private val HeaderRowHeight = 32.dp
 private val SubHeaderRowHeight = 32.dp
-private val BodyRowHeight = 40.dp
-private val SubtotalRowHeight = 26.dp
+private val BodyRowHeight = 42.dp
+private val SubtotalRowHeight = 28.dp
 private val TotalRowHeight = 30.dp
 private val SketchColumnWidth = 96.dp
-private val PartNumberColumnWidth = 180.dp
-private val ProblemItemColumnWidth = 260.dp
+private val PartNumberColumnWidth = 200.dp
+private val ProblemItemColumnWidth = 280.dp
 private val DayColumnWidth = 32.dp
 private val TotalColumnWidth = 88.dp
+private val SectionDividerWidth = 2.dp
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
 
 private sealed class MonthlyReportUiState {
@@ -636,6 +637,7 @@ private fun MonthlyReportTable(
     searchQuery: String,
 ) {
     val keyword = searchQuery.trim().lowercase()
+    val normalizedKeyword = DefectNameSanitizer.canonicalKey(searchQuery).lowercase()
     val filteredRows =
         document.rows.filter { row ->
             if (keyword.isBlank()) {
@@ -643,7 +645,10 @@ private fun MonthlyReportTable(
             } else {
                 row.partNumber.lowercase().contains(keyword) ||
                     row.uniqCode.lowercase().contains(keyword) ||
-                    row.problemItems.any { it.lowercase().contains(keyword) }
+                    row.problemItems.any {
+                        val normalizedItem = DefectNameSanitizer.canonicalKey(it).lowercase()
+                        it.lowercase().contains(keyword) || normalizedItem.contains(normalizedKeyword)
+                    }
             }
         }
     if (filteredRows.isEmpty()) {
@@ -737,9 +742,9 @@ private fun MonthlyReportTable(
                     rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
                 }
             val partTotal = rowsForPart.sumOf { it.totalDefect }
+            val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
 
             rowsForPart.forEachIndexed { rowIndex, row ->
-                val rowBackground = if ((groupIndex + rowIndex) % 2 == 0) NeutralSurface else NeutralLight
                 val dynamicBodyHeight = BodyRowHeight
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -757,16 +762,17 @@ private fun MonthlyReportTable(
                             width = PartNumberColumnWidth,
                             height = dynamicBodyHeight,
                             backgroundColor = rowBackground,
-                            maxLines = 2,
+                            maxLines = 1,
                         )
                         TableBodyCell(
                             text = formatProblemItems(row.problemItems),
                             width = ProblemItemColumnWidth,
                             height = dynamicBodyHeight,
                             backgroundColor = rowBackground,
-                            maxLines = 3,
+                            maxLines = 1,
                         )
                     }
+                    VerticalSectionDivider(height = dynamicBodyHeight)
                     Row {
                         Row(modifier = Modifier.horizontalScroll(scrollState)) {
                             row.dayValues.forEachIndexed { index, value ->
@@ -815,6 +821,7 @@ private fun MonthlyReportTable(
                         backgroundColor = SubtotalHighlight,
                     )
                 }
+                VerticalSectionDivider(height = SubtotalRowHeight)
                 Row {
                     Row(modifier = Modifier.horizontalScroll(scrollState)) {
                         partDayTotals.forEachIndexed { index, value ->
@@ -846,7 +853,7 @@ private fun MonthlyReportTable(
                     )
                 }
             }
-            PartDivider()
+            PartDivider(thickness = 2.dp, color = NeutralBorder.copy(alpha = 0.9f))
         }
 
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -857,6 +864,7 @@ private fun MonthlyReportTable(
                     height = TotalRowHeight,
                 )
             }
+            VerticalSectionDivider(height = TotalRowHeight)
             Row {
                 Row(modifier = Modifier.horizontalScroll(scrollState)) {
                     filteredDayTotals.forEachIndexed { index, value ->
@@ -1185,13 +1193,27 @@ private fun SketchCell(
 }
 
 @Composable
-private fun PartDivider() {
+private fun PartDivider(
+    thickness: Dp = 1.dp,
+    color: Color = NeutralBorder.copy(alpha = 0.9f),
+) {
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(1.dp)
-                .background(NeutralBorder.copy(alpha = 0.9f)),
+                .height(thickness)
+                .background(color),
+    )
+}
+
+@Composable
+private fun VerticalSectionDivider(height: Dp) {
+    Box(
+        modifier =
+            Modifier
+                .width(SectionDividerWidth)
+                .height(height)
+                .background(NeutralBorder.copy(alpha = 0.95f)),
     )
 }
 
@@ -1362,12 +1384,13 @@ private fun formatPartNumber(
 
 private fun formatProblemItems(items: List<String>): String {
     if (items.isEmpty()) return AppStrings.Common.Placeholder
-    return items
-        .flatMap { DefectNameSanitizer.expandProblemItems(it) }
-        .ifEmpty { items.map(DefectNameSanitizer::canonicalKey) }
-        .filter { it.isNotBlank() }
-        .distinct()
-        .joinToString(separator = "\n") { "- $it" }
+    val normalized =
+        items
+            .flatMap { DefectNameSanitizer.expandProblemItems(it) }
+            .ifEmpty { items.map(DefectNameSanitizer::canonicalKey) }
+            .filter { it.isNotBlank() }
+            .distinct()
+    return normalized.joinToString(separator = " / ")
 }
 
 private fun loadSketchBitmap(path: String?): androidx.compose.ui.graphics.ImageBitmap? {
