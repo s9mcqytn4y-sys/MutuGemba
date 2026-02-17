@@ -420,12 +420,43 @@ object AppStrings {
 
     object Abnormal {
         const val Title = "Tiket Abnormal"
-        const val Subtitle = "Alur DETECT -> CONTAIN -> CLOSE."
-        const val Description = "Gunakan tiket abnormal untuk mencatat isu kualitas yang perlu tindakan cepat."
+        const val Subtitle = "Alur Jidoka: DETECT -> CONTAIN -> CLOSE."
+        const val Guidance =
+            "Gunakan tiket abnormal untuk stop-and-fix cepat, " +
+                "lalu tutup hanya setelah tindakan containment dinyatakan aman."
         const val CreateDummy = "Buat Tiket Dummy"
-        const val Note = "Catatan: halaman ini masih dummy untuk MVP."
+        const val ResetLocal = "Reset Daftar Lokal"
         const val DialogTitle = "Tiket Abnormal"
         const val DialogMessage = "Buat tiket abnormal dummy?"
+        const val AdvanceDialogTitle = "Lanjutkan Tahap Jidoka"
+        const val AdvanceDialogMessage = "Pastikan evidensi sudah lengkap sebelum lanjut ke tahap berikutnya."
+        const val TotalTicket = "Total Tiket"
+        const val OpenTicket = "Masih Berjalan"
+        const val ClosedTicket = "Sudah Close"
+        const val EmptyTitle = "Belum ada tiket abnormal."
+        const val EmptySubtitle = "Saat ada masalah kualitas, buat tiket agar alur DETECT -> CONTAIN -> CLOSE terekam."
+        const val ProblemLabel = "Ringkasan Masalah"
+        const val UpdatedLabel = "Update Terakhir"
+        const val StepDetect = "DETECT"
+        const val StepContain = "CONTAIN"
+        const val StepClose = "CLOSE"
+        const val MarkContain = "Tandai CONTAIN"
+        const val MarkClose = "Tandai CLOSE"
+        const val TraceabilityHint =
+            "Traceability tersimpan lokal. " +
+                "Lampiran/evidensi dapat ditambahkan di iterasi berikutnya."
+        const val DummyProblemSummary = "Ditemukan NG visual berulang pada part kritis. Perlu containment segera."
+        const val CreatedFeedback = "Tiket abnormal berhasil dibuat."
+        const val ContainFeedback = "Status tiket dipindah ke CONTAIN. Lanjutkan verifikasi countermeasure."
+        const val ClosedFeedback = "Tiket abnormal sudah CLOSE."
+        const val ResetFeedback = "Daftar tiket abnormal lokal telah direset."
+
+        fun ticketTitle(index: Int): String = "ABN-$index Masalah Kualitas"
+
+        fun ticketMeta(
+            lineName: String,
+            createdAt: String,
+        ): String = "Line $lineName | dibuat $createdAt"
     }
 
     object Settings {
