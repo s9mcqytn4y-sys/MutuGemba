@@ -93,7 +93,7 @@ private val SketchColumnWidth = 96.dp
 private val PartNumberColumnWidth = 180.dp
 private val ProblemItemColumnWidth = 260.dp
 private val DayColumnWidth = 32.dp
-private val TotalColumnWidth = 80.dp
+private val TotalColumnWidth = 88.dp
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
 
 private sealed class MonthlyReportUiState {
@@ -702,34 +702,29 @@ private fun MonthlyReportTable(
                     )
                 }
             }
-            Row(
-                modifier = Modifier.horizontalScroll(scrollState),
-            ) {
-                Column {
-                    Row {
+            Column {
+                Row {
+                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
                         TableHeaderCell(
                             text = AppStrings.ReportsMonthly.TableDates,
                             width = DayColumnWidth * days.size,
                             height = HeaderRowHeight,
                         )
-                        TableHeaderCell(
-                            text = AppStrings.ReportsMonthly.TableTotals,
-                            width = TotalColumnWidth,
-                            height = HeaderRowHeight,
-                        )
                     }
-                    Row {
+                    TableHeaderCell(
+                        text = AppStrings.ReportsMonthly.TableTotalNg,
+                        width = TotalColumnWidth,
+                        height = HeaderRowHeight + SubHeaderRowHeight,
+                    )
+                }
+                Row {
+                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
                         days.forEach { day ->
                             DayHeaderCell(
                                 day = day,
                                 style = dayStyles.getValue(day),
                             )
                         }
-                        TableHeaderCell(
-                            text = AppStrings.ReportsMonthly.TableTotalNg,
-                            width = TotalColumnWidth,
-                            height = SubHeaderRowHeight,
-                        )
                     }
                 }
             }
@@ -769,28 +764,30 @@ private fun MonthlyReportTable(
                             width = ProblemItemColumnWidth,
                             height = dynamicBodyHeight,
                             backgroundColor = rowBackground,
-                            maxLines = 2,
+                            maxLines = 3,
                         )
                     }
-                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                        row.dayValues.forEachIndexed { index, value ->
-                            val style = dayStyles.getValue(days[index])
-                            val marker =
-                                DayMarkerCellStyle.resolve(
-                                    value = value,
-                                    totalForDay = filteredDayTotals[index],
-                                    profile = markerProfile,
-                                    baseBackground = style.bodyBackground,
-                                    baseTextColor = style.bodyTextColor,
+                    Row {
+                        Row(modifier = Modifier.horizontalScroll(scrollState)) {
+                            row.dayValues.forEachIndexed { index, value ->
+                                val style = dayStyles.getValue(days[index])
+                                val marker =
+                                    DayMarkerCellStyle.resolve(
+                                        value = value,
+                                        totalForDay = filteredDayTotals[index],
+                                        profile = markerProfile,
+                                        baseBackground = style.bodyBackground,
+                                        baseTextColor = style.bodyTextColor,
+                                    )
+                                TableBodyCell(
+                                    text = value.toString(),
+                                    width = DayColumnWidth,
+                                    height = dynamicBodyHeight,
+                                    backgroundColor = marker.backgroundColor,
+                                    alignCenter = true,
+                                    textColor = marker.textColor,
                                 )
-                            TableBodyCell(
-                                text = value.toString(),
-                                width = DayColumnWidth,
-                                height = dynamicBodyHeight,
-                                backgroundColor = marker.backgroundColor,
-                                alignCenter = true,
-                                textColor = marker.textColor,
-                            )
+                            }
                         }
                         TableBodyCell(
                             text = row.totalDefect.toString(),
@@ -818,25 +815,27 @@ private fun MonthlyReportTable(
                         backgroundColor = SubtotalHighlight,
                     )
                 }
-                Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                    partDayTotals.forEachIndexed { index, value ->
-                        val style = dayStyles.getValue(days[index])
-                        val marker =
-                            DayMarkerCellStyle.resolve(
-                                value = value,
-                                totalForDay = filteredDayTotals[index],
-                                profile = markerProfile,
-                                baseBackground = style.subtotalBackground,
-                                baseTextColor = style.bodyTextColor,
+                Row {
+                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
+                        partDayTotals.forEachIndexed { index, value ->
+                            val style = dayStyles.getValue(days[index])
+                            val marker =
+                                DayMarkerCellStyle.resolve(
+                                    value = value,
+                                    totalForDay = filteredDayTotals[index],
+                                    profile = markerProfile,
+                                    baseBackground = style.subtotalBackground,
+                                    baseTextColor = style.bodyTextColor,
+                                )
+                            TableSubtotalCell(
+                                text = value.toString(),
+                                width = DayColumnWidth,
+                                height = SubtotalRowHeight,
+                                alignCenter = true,
+                                backgroundColor = marker.backgroundColor,
+                                textColor = marker.textColor,
                             )
-                        TableSubtotalCell(
-                            text = value.toString(),
-                            width = DayColumnWidth,
-                            height = SubtotalRowHeight,
-                            alignCenter = true,
-                            backgroundColor = marker.backgroundColor,
-                            textColor = marker.textColor,
-                        )
+                        }
                     }
                     TableSubtotalCell(
                         text = partTotal.toString(),
@@ -858,17 +857,19 @@ private fun MonthlyReportTable(
                     height = TotalRowHeight,
                 )
             }
-            Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                filteredDayTotals.forEachIndexed { index, value ->
-                    val style = dayStyles.getValue(days[index])
-                    TableFooterCell(
-                        text = value.toString(),
-                        width = DayColumnWidth,
-                        height = TotalRowHeight,
-                        alignCenter = true,
-                        backgroundColor = style.footerBackground,
-                        textColor = style.bodyTextColor,
-                    )
+            Row {
+                Row(modifier = Modifier.horizontalScroll(scrollState)) {
+                    filteredDayTotals.forEachIndexed { index, value ->
+                        val style = dayStyles.getValue(days[index])
+                        TableFooterCell(
+                            text = value.toString(),
+                            width = DayColumnWidth,
+                            height = TotalRowHeight,
+                            alignCenter = true,
+                            backgroundColor = style.footerBackground,
+                            textColor = style.bodyTextColor,
+                        )
+                    }
                 }
                 TableFooterCell(
                     text = filteredGrandTotal.toString(),
