@@ -19,6 +19,7 @@ import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
@@ -95,6 +96,95 @@ class GenerateHighVolumeSimulationUseCaseTest {
                 .first()
                 .defects
                 .isNotEmpty(),
+        )
+    }
+
+    @Test
+    fun `execute with seed keeps simulation deterministic`() {
+        val firstRepository = RecordingInspectionRepository()
+        val secondRepository = RecordingInspectionRepository()
+        val masterData =
+            FakeMasterDataRepository(
+                lines = listOf(Line(id = 1L, code = LineCode.PRESS, name = "Press")),
+                shifts =
+                    listOf(
+                        Shift(
+                            id = 1L,
+                            code = "S1",
+                            name = "Shift 1",
+                            startTime = "08:00",
+                            endTime = "17:00",
+                        ),
+                        Shift(
+                            id = 2L,
+                            code = "S2",
+                            name = "Shift 2",
+                            startTime = "17:00",
+                            endTime = "01:00",
+                        ),
+                    ),
+                parts =
+                    listOf(
+                        Part(
+                            id = 11L,
+                            partNumber = "PN-001",
+                            model = "M1",
+                            name = "Part A",
+                            uniqCode = "UNIQ-001",
+                            material = "Material A",
+                            picturePath = null,
+                            lineCode = LineCode.PRESS,
+                            recommendedDefectCodes = listOf("DF-A"),
+                        ),
+                    ),
+                defects =
+                    listOf(
+                        DefectType(
+                            id = 101L,
+                            code = "DF-A",
+                            name = "Scratch",
+                            category = "ITEM_DEFECT",
+                            severity = DefectSeverity.NORMAL,
+                            lineCode = LineCode.PRESS,
+                        ),
+                    ),
+            )
+
+        val firstUseCase =
+            GenerateHighVolumeSimulationUseCase(
+                inspectionRepository = firstRepository,
+                masterDataRepository = masterData,
+            )
+        val secondUseCase =
+            GenerateHighVolumeSimulationUseCase(
+                inspectionRepository = secondRepository,
+                masterDataRepository = masterData,
+            )
+
+        val firstInserted = firstUseCase.execute(days = 2, density = 2, seed = 42L)
+        val secondInserted = secondUseCase.execute(days = 2, density = 2, seed = 42L)
+
+        assertNotEquals(0, firstInserted)
+        assertEquals(firstInserted, secondInserted)
+        assertEquals(
+            firstRepository.insertedInputs.first().totalCheck,
+            secondRepository.insertedInputs.first().totalCheck,
+        )
+        val firstDefectTotal =
+            firstRepository
+                .insertedInputs
+                .first()
+                .defects
+                .sumOf { it.quantity }
+        val secondDefectTotal =
+            secondRepository
+                .insertedInputs
+                .first()
+                .defects
+                .sumOf { it.quantity }
+        assertEquals(
+            firstDefectTotal,
+            secondDefectTotal,
         )
     }
 }

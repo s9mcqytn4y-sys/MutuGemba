@@ -133,6 +133,8 @@ class AppContainer {
 
     fun clearAppCaches(): Boolean =
         runCatching {
+            inspectionRepository.clearCache()
+            masterDataRepository.clearCache()
             listOf(AppDataPaths.importLogsDir(), AppDataPaths.exportsDir()).forEach { path ->
                 if (Files.exists(path)) {
                     Files.walk(path).use { stream ->
