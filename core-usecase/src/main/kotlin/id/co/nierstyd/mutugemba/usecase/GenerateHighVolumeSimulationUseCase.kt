@@ -97,10 +97,6 @@ class GenerateHighVolumeSimulationUseCase(
             lines.forEach { line ->
                 val lineParts = parts.filter { it.lineCode == line.code }
                 if (lineParts.isEmpty()) return@forEach
-                val lineScopedDefects =
-                    defectTypes
-                        .filter { defect -> defect.lineCode == null || defect.lineCode == line.code }
-                        .sortedBy { it.name }
 
                 val minBatchSize = minOf(8, lineParts.size)
                 val loadMultiplier = if (isWeekend) 0.55 else 1.0
@@ -129,7 +125,6 @@ class GenerateHighVolumeSimulationUseCase(
                                 ),
                             random = random,
                             resolverContext = resolverContext,
-                            lineScopedDefects = lineScopedDefects,
                         )
                     inserted += lineInserted
                     insertedByLineId[line.id] = (insertedByLineId[line.id] ?: 0) + lineInserted
@@ -162,7 +157,6 @@ class GenerateHighVolumeSimulationUseCase(
         defectByCode: Map<String, DefectType>,
         defectByCanonicalName: Map<String, DefectType>,
         fallbackDefectCodesByMaterial: Map<String, List<String>>,
-        lineScopedDefects: List<DefectType>,
     ): List<DefectType> {
         val recommended =
             part.recommendedDefectCodes
@@ -183,7 +177,7 @@ class GenerateHighVolumeSimulationUseCase(
         return when {
             recommended.isNotEmpty() -> recommended
             inferredByMaterial.isNotEmpty() -> inferredByMaterial
-            else -> lineScopedDefects.take(6)
+            else -> emptyList()
         }
     }
 
@@ -208,7 +202,6 @@ class GenerateHighVolumeSimulationUseCase(
         batchContext: SimulationBatchContext,
         random: Random,
         resolverContext: DefectResolverContext,
-        lineScopedDefects: List<DefectType>,
     ): Int {
         var inserted = 0
         repeat(batchContext.density) { densityIndex ->
@@ -219,7 +212,6 @@ class GenerateHighVolumeSimulationUseCase(
                     defectByCode = resolverContext.byCode,
                     defectByCanonicalName = resolverContext.byCanonicalName,
                     fallbackDefectCodesByMaterial = resolverContext.fallbackCodesByMaterial,
-                    lineScopedDefects = lineScopedDefects,
                 )
             if (candidateDefects.isEmpty()) return@repeat
 

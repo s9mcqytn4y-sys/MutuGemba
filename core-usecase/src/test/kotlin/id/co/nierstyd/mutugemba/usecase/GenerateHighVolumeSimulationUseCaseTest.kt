@@ -335,7 +335,7 @@ class GenerateHighVolumeSimulationUseCaseTest {
     }
 
     @Test
-    fun `simulation still populates using line fallback when recommendations are empty`() {
+    fun `simulation skips parts without mapped defects`() {
         val inspectionRepository = RecordingInspectionRepository()
         val useCase =
             GenerateHighVolumeSimulationUseCase(
@@ -383,14 +383,8 @@ class GenerateHighVolumeSimulationUseCaseTest {
 
         val inserted = useCase.execute(days = 1, density = 1, seed = 123L)
 
-        assertTrue(inserted > 0)
-        assertTrue(inspectionRepository.insertedInputs.isNotEmpty())
-        val pickedDefectIds =
-            inspectionRepository.insertedInputs
-                .flatMap { it.defects }
-                .map { it.defectTypeId }
-                .toSet()
-        assertEquals(setOf(101L), pickedDefectIds)
+        assertEquals(0, inserted)
+        assertTrue(inspectionRepository.insertedInputs.isEmpty())
     }
 
     @Test
