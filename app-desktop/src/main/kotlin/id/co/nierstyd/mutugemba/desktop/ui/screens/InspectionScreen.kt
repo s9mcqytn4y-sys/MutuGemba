@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -1434,18 +1433,19 @@ private fun InspectionActionsBar(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SecondaryButton(
             text = AppStrings.Actions.ClearAll,
             onClick = onClearAll,
+            modifier = Modifier.width(176.dp),
         )
-        Spacer(modifier = Modifier.weight(1f))
         PrimaryButton(
             text = AppStrings.Actions.ConfirmSave,
             onClick = onSaveRequest,
             enabled = canSave,
+            modifier = Modifier.width(244.dp),
         )
     }
 }

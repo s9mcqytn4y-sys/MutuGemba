@@ -333,6 +333,65 @@ class GenerateHighVolumeSimulationUseCaseTest {
             assertTrue(ratio in 0.01..0.2, "Rasio NG simulasi harus realistis (1%-20%).")
         }
     }
+
+    @Test
+    fun `simulation still populates using line fallback when recommendations are empty`() {
+        val inspectionRepository = RecordingInspectionRepository()
+        val useCase =
+            GenerateHighVolumeSimulationUseCase(
+                inspectionRepository = inspectionRepository,
+                masterDataRepository =
+                    FakeMasterDataRepository(
+                        lines = listOf(Line(id = 1L, code = LineCode.PRESS, name = "Press")),
+                        shifts =
+                            listOf(
+                                Shift(
+                                    id = 1L,
+                                    code = "S1",
+                                    name = "Shift 1",
+                                    startTime = "08:00",
+                                    endTime = "17:00",
+                                ),
+                            ),
+                        parts =
+                            listOf(
+                                Part(
+                                    id = 11L,
+                                    partNumber = "PN-001",
+                                    model = "M1",
+                                    name = "Part A",
+                                    uniqCode = "U-1",
+                                    material = "UNKNOWN-MAT",
+                                    picturePath = null,
+                                    lineCode = LineCode.PRESS,
+                                    recommendedDefectCodes = emptyList(),
+                                ),
+                            ),
+                        defects =
+                            listOf(
+                                DefectType(
+                                    id = 101L,
+                                    code = "D-101",
+                                    name = "SEWING MIRING",
+                                    category = "ITEM_DEFECT",
+                                    severity = DefectSeverity.NORMAL,
+                                    lineCode = LineCode.PRESS,
+                                ),
+                            ),
+                    ),
+            )
+
+        val inserted = useCase.execute(days = 1, density = 1, seed = 123L)
+
+        assertTrue(inserted > 0)
+        assertTrue(inspectionRepository.insertedInputs.isNotEmpty())
+        val pickedDefectIds =
+            inspectionRepository.insertedInputs
+                .flatMap { it.defects }
+                .map { it.defectTypeId }
+                .toSet()
+        assertEquals(setOf(101L), pickedDefectIds)
+    }
 }
 
 private class RecordingInspectionRepository : InspectionRepository {

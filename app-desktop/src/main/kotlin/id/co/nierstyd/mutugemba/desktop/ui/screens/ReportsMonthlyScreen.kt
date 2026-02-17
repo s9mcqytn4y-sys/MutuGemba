@@ -61,7 +61,6 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
-import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
@@ -687,7 +686,6 @@ private fun MonthlyReportTable(
             }
         }
     val filteredGrandTotal = remember(filteredRows) { filteredRows.sumOf { it.totalDefect } }
-    val markerProfile = remember(filteredDayTotals) { DayMarkerProfile.from(filteredDayTotals) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
@@ -791,21 +789,13 @@ private fun MonthlyReportTable(
                             Row(modifier = Modifier.horizontalScroll(scrollState)) {
                                 row.dayValues.forEachIndexed { index, value ->
                                     val style = dayStyles.getValue(days[index])
-                                    val marker =
-                                        DayMarkerCellStyle.resolve(
-                                            value = value,
-                                            totalForDay = filteredDayTotals[index],
-                                            profile = markerProfile,
-                                            baseBackground = style.bodyBackground,
-                                            baseTextColor = style.bodyTextColor,
-                                        )
                                     TableBodyCell(
                                         text = value.toString(),
                                         width = DayColumnWidth,
                                         height = BodyRowHeight,
-                                        backgroundColor = marker.backgroundColor,
+                                        backgroundColor = style.bodyBackground,
                                         alignCenter = true,
-                                        textColor = marker.textColor,
+                                        textColor = style.bodyTextColor,
                                     )
                                 }
                             }
@@ -841,21 +831,13 @@ private fun MonthlyReportTable(
                     Row(modifier = Modifier.horizontalScroll(scrollState)) {
                         partDayTotals.forEachIndexed { index, value ->
                             val style = dayStyles.getValue(days[index])
-                            val marker =
-                                DayMarkerCellStyle.resolve(
-                                    value = value,
-                                    totalForDay = filteredDayTotals[index],
-                                    profile = markerProfile,
-                                    baseBackground = style.subtotalBackground,
-                                    baseTextColor = style.bodyTextColor,
-                                )
                             TableSubtotalCell(
                                 text = value.toString(),
                                 width = DayColumnWidth,
                                 height = SubtotalRowHeight,
                                 alignCenter = true,
-                                backgroundColor = marker.backgroundColor,
-                                textColor = marker.textColor,
+                                backgroundColor = style.subtotalBackground,
+                                textColor = style.bodyTextColor,
                             )
                         }
                     }
@@ -1042,57 +1024,6 @@ private fun RowScope.TableFooterCell(
     }
 }
 
-private data class DayMarkerProfile(
-    val peakTotal: Int,
-    val alertThreshold: Int,
-) {
-    companion object {
-        fun from(dayTotals: List<Int>): DayMarkerProfile {
-            val peak = dayTotals.maxOrNull() ?: 0
-            if (peak <= 0) {
-                return DayMarkerProfile(peakTotal = 0, alertThreshold = 0)
-            }
-            val average = dayTotals.average()
-            val threshold =
-                kotlin.math
-                    .ceil(average * 1.35)
-                    .toInt()
-                    .coerceAtLeast(1)
-            return DayMarkerProfile(peakTotal = peak, alertThreshold = threshold)
-        }
-    }
-}
-
-private data class DayMarkerCellStyle(
-    val backgroundColor: Color,
-    val textColor: Color,
-) {
-    companion object {
-        fun resolve(
-            value: Int,
-            totalForDay: Int,
-            profile: DayMarkerProfile,
-            baseBackground: Color,
-            baseTextColor: Color,
-        ): DayMarkerCellStyle =
-            when {
-                value <= 0 || totalForDay <= 0 ->
-                    DayMarkerCellStyle(baseBackground, baseTextColor)
-                totalForDay == profile.peakTotal ->
-                    DayMarkerCellStyle(
-                        backgroundColor = StatusError.copy(alpha = 0.14f),
-                        textColor = StatusError,
-                    )
-                totalForDay >= profile.alertThreshold ->
-                    DayMarkerCellStyle(
-                        backgroundColor = BrandBlue.copy(alpha = 0.12f),
-                        textColor = BrandBlue,
-                    )
-                else -> DayMarkerCellStyle(baseBackground, baseTextColor)
-            }
-    }
-}
-
 private data class DayCellStyle(
     val hasInput: Boolean,
     val headerBackground: Color,
@@ -1248,9 +1179,8 @@ private fun MonthlyReportLegend() {
             LegendChip(label = "Terisi", color = StatusSuccess)
             LegendChip(label = "Libur/Weekend", color = StatusWarning)
             LegendChip(label = "Belum Input", color = NeutralTextMuted)
-            LegendChip(label = "Hari Puncak NG", color = StatusError)
-            LegendChip(label = "Hari Waspada", color = BrandBlue)
             LegendChip(label = "Sub-total", color = BrandBlue.copy(alpha = 0.4f))
+            LegendChip(label = "Total", color = BrandBlue)
         }
     }
 }

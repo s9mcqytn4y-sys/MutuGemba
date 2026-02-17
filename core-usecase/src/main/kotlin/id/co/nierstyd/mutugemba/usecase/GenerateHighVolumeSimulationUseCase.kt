@@ -1,5 +1,6 @@
 package id.co.nierstyd.mutugemba.usecase
 
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
@@ -18,6 +19,22 @@ class GenerateHighVolumeSimulationUseCase(
     private val inspectionRepository: InspectionRepository,
     private val masterDataRepository: MasterDataRepository,
 ) {
+    private data class DefectResolverContext(
+        val byCode: Map<String, DefectType>,
+        val byCanonicalName: Map<String, DefectType>,
+        val fallbackCodesByMaterial: Map<String, List<String>>,
+    )
+
+    private data class SimulationBatchContext(
+        val lineId: Long,
+        val lineName: String,
+        val shiftId: Long,
+        val date: LocalDate,
+        val slotIndex: Int,
+        val density: Int,
+        val formatter: DateTimeFormatter,
+    )
+
     fun execute(
         days: Int = 45,
         density: Int = 4,
@@ -34,8 +51,12 @@ class GenerateHighVolumeSimulationUseCase(
         val random = seed?.let { Random(it) } ?: Random(System.currentTimeMillis())
         val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
         var inserted = 0
-        val fallbackDefectCodesByMaterial = buildFallbackDefectCodesByMaterial(parts)
-        val defectByCode = defectTypes.associateBy { it.code }
+        val resolverContext =
+            DefectResolverContext(
+                byCode = defectTypes.associateBy { it.code.trim().uppercase() },
+                byCanonicalName = defectTypes.associateBy { DefectNameSanitizer.canonicalKey(it.name) },
+                fallbackCodesByMaterial = buildFallbackDefectCodesByMaterial(parts),
+            )
 
         repeat(days.coerceAtLeast(1)) { dayOffset ->
             val date = now.minusDays(dayOffset.toLong())
@@ -43,6 +64,10 @@ class GenerateHighVolumeSimulationUseCase(
             lines.forEach { line ->
                 val lineParts = parts.filter { it.lineCode == line.code }
                 if (lineParts.isEmpty()) return@forEach
+                val lineScopedDefects =
+                    defectTypes
+                        .filter { defect -> defect.lineCode == null || defect.lineCode == line.code }
+                        .sortedBy { it.name }
 
                 val minBatchSize = minOf(8, lineParts.size)
                 val loadMultiplier = if (isWeekend) 0.55 else 1.0
@@ -55,57 +80,24 @@ class GenerateHighVolumeSimulationUseCase(
                         (density.coerceAtLeast(1).toDouble() * weekendMultiplier)
                             .toInt()
                             .coerceAtLeast(1)
-                    repeat(dailyDensity) { densityIndex ->
-                        val candidateDefects =
-                            resolveCandidateDefects(
-                                part = part,
-                                lineCode = line.code,
-                                defectByCode = defectByCode,
-                                fallbackDefectCodesByMaterial = fallbackDefectCodesByMaterial,
-                            )
-                        if (candidateDefects.isEmpty()) return@repeat
-
-                        val picked =
-                            candidateDefects
-                                .shuffled(random)
-                                .take((1 + random.nextInt(2)).coerceAtMost(candidateDefects.size))
-                        val entries =
-                            picked.map { defect ->
-                                val base = random.nextInt(0, 4)
-                                val extra = if (random.nextInt(100) < 18) random.nextInt(2, 7) else 0
-                                val total = base + extra
-                                InspectionDefectEntry(
-                                    defectTypeId = defect.id,
-                                    quantity = total.coerceAtLeast(1),
-                                    slots = emptyList(),
-                                )
-                            }
-                        val totalDefect = entries.sumOf { it.quantity }.coerceAtLeast(1)
-                        val targetRatio = random.nextDouble(0.015, 0.16)
-                        val expectedCheckFromRatio = (totalDefect.toDouble() / targetRatio).toInt()
-                        val totalCheck =
-                            maxOf(
-                                totalDefect + random.nextInt(15, 70),
-                                expectedCheckFromRatio,
-                            )
-                        val clock = LocalTime.of((8 + (slotIndex % 8)).coerceAtMost(16), random.nextInt(0, 59))
-                        val createdAt = LocalDateTime.of(date, clock).plusMinutes((densityIndex * 7).toLong())
-                        inspectionRepository.insert(
-                            InspectionInput(
-                                kind = InspectionKind.DEFECT,
-                                lineId = line.id,
-                                shiftId = shiftId,
-                                partId = part.id,
-                                totalCheck = totalCheck,
-                                defectTypeId = null,
-                                defectQuantity = null,
-                                defects = entries,
-                                picName = "Simulasi-${line.name}",
-                                createdAt = createdAt.format(formatter),
-                            ),
+                    inserted +=
+                        insertPartSimulation(
+                            part = part,
+                            lineCode = line.code,
+                            batchContext =
+                                SimulationBatchContext(
+                                    lineId = line.id,
+                                    lineName = line.name,
+                                    shiftId = shiftId,
+                                    date = date,
+                                    slotIndex = slotIndex,
+                                    density = dailyDensity,
+                                    formatter = formatter,
+                                ),
+                            random = random,
+                            resolverContext = resolverContext,
+                            lineScopedDefects = lineScopedDefects,
                         )
-                        inserted += 1
-                    }
                 }
             }
         }
@@ -117,24 +109,30 @@ class GenerateHighVolumeSimulationUseCase(
         part: Part,
         lineCode: LineCode,
         defectByCode: Map<String, DefectType>,
+        defectByCanonicalName: Map<String, DefectType>,
         fallbackDefectCodesByMaterial: Map<String, List<String>>,
+        lineScopedDefects: List<DefectType>,
     ): List<DefectType> {
         val recommended =
             part.recommendedDefectCodes
-                .mapNotNull { code -> defectByCode[code] }
-                .filter { defect -> defect.lineCode == null || defect.lineCode == lineCode }
+                .mapNotNull { raw ->
+                    defectByCode[raw.trim().uppercase()]
+                        ?: defectByCanonicalName[DefectNameSanitizer.canonicalKey(raw)]
+                }.filter { defect -> defect.lineCode == null || defect.lineCode == lineCode }
                 .distinctBy { it.id }
         val materialKey = part.material.trim().uppercase()
         val inferredByMaterial =
             fallbackDefectCodesByMaterial[materialKey]
                 .orEmpty()
-                .mapNotNull { code -> defectByCode[code] }
-                .filter { defect -> defect.lineCode == null || defect.lineCode == lineCode }
+                .mapNotNull { code ->
+                    defectByCode[code.trim().uppercase()]
+                        ?: defectByCanonicalName[DefectNameSanitizer.canonicalKey(code)]
+                }.filter { defect -> defect.lineCode == null || defect.lineCode == lineCode }
                 .distinctBy { it.id }
         return when {
             recommended.isNotEmpty() -> recommended
             inferredByMaterial.isNotEmpty() -> inferredByMaterial
-            else -> emptyList()
+            else -> lineScopedDefects.take(6)
         }
     }
 
@@ -144,10 +142,77 @@ class GenerateHighVolumeSimulationUseCase(
             .mapValues { (_, groupedParts) ->
                 groupedParts
                     .flatMap { it.recommendedDefectCodes }
+                    .map { it.trim().uppercase() }
+                    .filter { it.isNotBlank() }
                     .groupingBy { it }
                     .eachCount()
                     .entries
                     .sortedByDescending { it.value }
                     .map { it.key }
             }
+
+    private fun insertPartSimulation(
+        part: Part,
+        lineCode: LineCode,
+        batchContext: SimulationBatchContext,
+        random: Random,
+        resolverContext: DefectResolverContext,
+        lineScopedDefects: List<DefectType>,
+    ): Int {
+        var inserted = 0
+        repeat(batchContext.density) { densityIndex ->
+            val candidateDefects =
+                resolveCandidateDefects(
+                    part = part,
+                    lineCode = lineCode,
+                    defectByCode = resolverContext.byCode,
+                    defectByCanonicalName = resolverContext.byCanonicalName,
+                    fallbackDefectCodesByMaterial = resolverContext.fallbackCodesByMaterial,
+                    lineScopedDefects = lineScopedDefects,
+                )
+            if (candidateDefects.isEmpty()) return@repeat
+
+            val picked =
+                candidateDefects
+                    .shuffled(random)
+                    .take((1 + random.nextInt(2)).coerceAtMost(candidateDefects.size))
+            val entries =
+                picked.map { defect ->
+                    val base = random.nextInt(0, 4)
+                    val extra = if (random.nextInt(100) < 18) random.nextInt(2, 7) else 0
+                    val total = base + extra
+                    InspectionDefectEntry(
+                        defectTypeId = defect.id,
+                        quantity = total.coerceAtLeast(1),
+                        slots = emptyList(),
+                    )
+                }
+            val totalDefect = entries.sumOf { it.quantity }.coerceAtLeast(1)
+            val targetRatio = random.nextDouble(0.015, 0.16)
+            val expectedCheckFromRatio = (totalDefect.toDouble() / targetRatio).toInt()
+            val totalCheck =
+                maxOf(
+                    totalDefect + random.nextInt(15, 70),
+                    expectedCheckFromRatio,
+                )
+            val clock = LocalTime.of((8 + (batchContext.slotIndex % 8)).coerceAtMost(16), random.nextInt(0, 59))
+            val createdAt = LocalDateTime.of(batchContext.date, clock).plusMinutes((densityIndex * 7).toLong())
+            inspectionRepository.insert(
+                InspectionInput(
+                    kind = InspectionKind.DEFECT,
+                    lineId = batchContext.lineId,
+                    shiftId = batchContext.shiftId,
+                    partId = part.id,
+                    totalCheck = totalCheck,
+                    defectTypeId = null,
+                    defectQuantity = null,
+                    defects = entries,
+                    picName = "Simulasi-${batchContext.lineName}",
+                    createdAt = createdAt.format(batchContext.formatter),
+                ),
+            )
+            inserted += 1
+        }
+        return inserted
+    }
 }
