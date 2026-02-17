@@ -59,7 +59,7 @@ class GenerateHighVolumeSimulationUseCase(
             seed = seed,
         ).insertedRecords
 
-    @Suppress("LongMethod")
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun executeWithSummary(
         days: Int = 45,
         density: Int = 4,

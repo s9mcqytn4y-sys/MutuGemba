@@ -80,6 +80,8 @@ import kotlinx.coroutines.withContext
 import java.awt.Desktop
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -93,6 +95,7 @@ private val PartSectionHeaderHeight = 32.dp
 private val BodyRowHeight = 50.dp
 private val SubtotalRowHeight = 36.dp
 private val TotalRowHeight = 38.dp
+private val NoColumnWidth = 54.dp
 private val SketchColumnWidth = 164.dp
 private val PartNumberColumnWidth = 176.dp
 private val ProblemItemColumnWidth = 276.dp
@@ -102,6 +105,16 @@ private val SectionDividerWidth = 2.dp
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
 private const val PREVIEW_PART_LIMIT = 6
 private const val FULL_DOCUMENT_PAGE_PART_LIMIT = 14
+private const val SKETCH_SEARCH_DEPTH = 6
+
+private data class SketchRequest(
+    val sketchPath: String?,
+    val uniqCode: String,
+    val partNumber: String,
+) {
+    val cacheKey: String
+        get() = "${sketchPath.orEmpty()}|$uniqCode|$partNumber"
+}
 
 private sealed class MonthlyReportUiState {
     data object Loading : MonthlyReportUiState()
@@ -760,10 +773,19 @@ private fun MonthlyReportTable(
             }
         }
     LaunchedEffect(visibleGroupedRows) {
-        val paths =
+        val requests =
             visibleGroupedRows
-                .mapNotNull { rows -> rows.firstOrNull()?.sketchPath?.takeIf { it.isNotBlank() } }
-                .distinct()
+                .mapNotNull { rows ->
+                    rows.firstOrNull()?.let { row ->
+                        SketchRequest(
+                            sketchPath = row.sketchPath,
+                            uniqCode = row.uniqCode,
+                            partNumber = row.partNumber,
+                        )
+                    }
+                }.filter {
+                    it.sketchPath?.isNotBlank() == true || it.uniqCode.isNotBlank() || it.partNumber.isNotBlank()
+                }.distinct()
                 .let { candidates ->
                     if (documentMode == MonthlyDocumentMode.PREVIEW) {
                         candidates.take(4)
@@ -771,11 +793,13 @@ private fun MonthlyReportTable(
                         candidates
                     }
                 }
-        val missingPaths = paths.filterNot { sketchCache.containsKey(it) }
-        if (missingPaths.isEmpty()) return@LaunchedEffect
+        val missingRequests = requests.filterNot { sketchCache.containsKey(it.cacheKey) }
+        if (missingRequests.isEmpty()) return@LaunchedEffect
         val loaded =
             withContext(Dispatchers.IO) {
-                missingPaths.associateWith { sketchPath -> loadSketchBitmap(sketchPath) }
+                missingRequests.associate { request ->
+                    request.cacheKey to loadSketchBitmap(request)
+                }
             }
         sketchCache.putAll(loaded)
     }
@@ -864,17 +888,23 @@ private fun MonthlyReportTable(
             }
         }
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val defaultLeftColumnsWidth = SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth
+            val tableWidth = maxWidth
+            val defaultLeftColumnsWidth =
+                NoColumnWidth + SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth
             val fullDaySectionWidth = DayColumnWidth * days.size
             val minDayViewportWidth = (DayColumnWidth * 4).coerceAtMost(fullDaySectionWidth)
             val reservedWidth = TotalColumnWidth + SectionDividerWidth + minDayViewportWidth
             val safeLeftBudget = (maxWidth - reservedWidth).coerceAtLeast(360.dp)
             val adaptiveScale = (safeLeftBudget / defaultLeftColumnsWidth).coerceIn(0.72f, 1f)
+            val adaptiveNoColumnWidth = NoColumnWidth * adaptiveScale
             val adaptiveSketchColumnWidth = SketchColumnWidth * adaptiveScale
             val adaptivePartNumberColumnWidth = PartNumberColumnWidth * adaptiveScale
             val adaptiveProblemItemColumnWidth = ProblemItemColumnWidth * adaptiveScale
             val leftColumnsWidth =
-                adaptiveSketchColumnWidth + adaptivePartNumberColumnWidth + adaptiveProblemItemColumnWidth
+                adaptiveNoColumnWidth +
+                    adaptiveSketchColumnWidth +
+                    adaptivePartNumberColumnWidth +
+                    adaptiveProblemItemColumnWidth
             val dayViewportWidth =
                 (maxWidth - leftColumnsWidth - TotalColumnWidth - SectionDividerWidth)
                     .coerceIn(minDayViewportWidth, fullDaySectionWidth)
@@ -885,6 +915,11 @@ private fun MonthlyReportTable(
             ) {
                 Column(modifier = Modifier.width(leftColumnsWidth)) {
                     Row {
+                        TableHeaderCell(
+                            text = "No",
+                            width = adaptiveNoColumnWidth,
+                            height = HeaderRowHeight + SubHeaderRowHeight,
+                        )
                         TableHeaderCell(
                             text = AppStrings.ReportsMonthly.TableSketch,
                             width = adaptiveSketchColumnWidth,
@@ -956,23 +991,34 @@ private fun MonthlyReportTable(
                     }
                 val partTotal = partDayTotals.sum()
                 val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
+                val sketchKey =
+                    SketchRequest(
+                        sketchPath = partSample.sketchPath,
+                        uniqCode = partSample.uniqCode,
+                        partNumber = partSample.partNumber,
+                    ).cacheKey
                 val sketchBitmap =
-                    partSample.sketchPath
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { sketchPath -> sketchCache[sketchPath] }
+                    sketchCache[sketchKey]
 
                 Row(modifier = Modifier.fillMaxWidth()) {
                     TablePartSectionHeader(
                         text =
                             "Part ${partSample.uniqCode} - ${partSample.partNumber} " +
-                                "(${rowsForPart.size} jenis NG | Total $partTotal)",
-                        width = leftColumnsWidth + SectionDividerWidth + rightSectionWidth,
+                                "(${rowsForPart.size} jenis NG | Jumlah NG: $partTotal)",
+                        width = tableWidth,
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.width(leftColumnsWidth),
                     ) {
+                        TableBodyCell(
+                            text = (groupIndex + 1).toString(),
+                            width = adaptiveNoColumnWidth,
+                            height = groupHeight,
+                            backgroundColor = rowBackground,
+                            alignCenter = true,
+                        )
                         SketchCell(
                             sketchPath = partSample.sketchPath,
                             bitmap = sketchBitmap,
@@ -990,13 +1036,14 @@ private fun MonthlyReportTable(
                         )
                         Column {
                             rowsForPart.forEach { row ->
+                                val rowTotal = row.dayValues.sum()
                                 Row {
                                     TableBodyCell(
-                                        text = formatProblemItems(row.problemItems),
+                                        text = "${formatProblemItems(row.problemItems)}\nJumlah NG: $rowTotal",
                                         width = adaptiveProblemItemColumnWidth,
                                         height = BodyRowHeight,
                                         backgroundColor = rowBackground,
-                                        maxLines = 1,
+                                        maxLines = 2,
                                     )
                                 }
                             }
@@ -1045,7 +1092,7 @@ private fun MonthlyReportTable(
                     Row(modifier = Modifier.width(leftColumnsWidth)) {
                         TableSubtotalCell(
                             text = "",
-                            width = adaptiveSketchColumnWidth + adaptivePartNumberColumnWidth,
+                            width = adaptiveNoColumnWidth + adaptiveSketchColumnWidth + adaptivePartNumberColumnWidth,
                             height = SubtotalRowHeight,
                             backgroundColor = SubtotalHighlight,
                         )
@@ -1684,26 +1731,98 @@ private fun formatProblemItems(items: List<String>): String {
     return normalized.joinToString(separator = " / ")
 }
 
-private fun loadSketchBitmap(path: String?): androidx.compose.ui.graphics.ImageBitmap? {
-    if (path.isNullOrBlank()) return null
-    val candidate = resolveSketchFile(path) ?: return null
+private fun loadSketchBitmap(request: SketchRequest): androidx.compose.ui.graphics.ImageBitmap? {
+    val candidate = resolveSketchFile(request) ?: return null
     return runCatching {
         SkiaImage.makeFromEncoded(candidate.readBytes()).toComposeImageBitmap()
     }.getOrNull()
 }
 
-private fun resolveSketchFile(path: String): File? {
-    val normalized = path.replace('\\', '/')
-    val direct = File(normalized)
-    if (direct.exists()) return direct
-    if (direct.isAbsolute) return null
-    val attachmentCandidate = AppDataPaths.attachmentsDir().resolve(normalized).toFile()
-    if (attachmentCandidate.exists()) return attachmentCandidate
-    val assetStoreCandidate = AppDataPaths.assetsStoreDir().resolve(normalized).toFile()
-    if (assetStoreCandidate.exists()) return assetStoreCandidate
-    val dataCandidate = AppDataPaths.dataDir().resolve(normalized).toFile()
-    if (dataCandidate.exists()) return dataCandidate
-    val cwdCandidate = File(System.getProperty("user.dir", ".")).resolve(normalized)
-    if (cwdCandidate.exists()) return cwdCandidate
-    return null
+private fun resolveSketchFile(request: SketchRequest): File? {
+    val normalizedPath =
+        request.sketchPath
+            ?.replace('\\', '/')
+            ?.trim()
+            .orEmpty()
+    val directPath =
+        normalizedPath
+            .takeIf { it.isNotBlank() }
+            ?.let { path ->
+                runCatching { Paths.get(path) }.getOrNull()
+            }
+    val cwd = Paths.get(System.getProperty("user.dir", ".")).toAbsolutePath().normalize()
+    val extractedRoot = AppDataPaths.defaultPartAssetsExtractedDir()
+    val projectExtractedRoot = AppDataPaths.projectPartAssetsDir().resolve("extracted")
+    val pathCandidates =
+        listOfNotNull(
+            directPath?.takeIf { it.isAbsolute },
+            normalizedPath
+                .takeIf { it.isNotBlank() }
+                ?.let { AppDataPaths.attachmentsDir().resolve(it) },
+            normalizedPath
+                .takeIf { it.isNotBlank() }
+                ?.let { AppDataPaths.assetsStoreDir().resolve(it) },
+            normalizedPath
+                .takeIf { it.isNotBlank() }
+                ?.let { AppDataPaths.dataDir().resolve(it) },
+            normalizedPath
+                .takeIf { it.isNotBlank() }
+                ?.let { extractedRoot.resolve(it) },
+            normalizedPath
+                .takeIf { it.isNotBlank() }
+                ?.let { projectExtractedRoot.resolve(it) },
+            normalizedPath
+                .takeIf { it.isNotBlank() }
+                ?.let { cwd.resolve(it).normalize() },
+        ).distinct()
+
+    val existingFromPath =
+        pathCandidates.firstOrNull { candidate ->
+            Files.exists(candidate) && Files.isRegularFile(candidate)
+        }
+    if (existingFromPath != null) return existingFromPath.toFile()
+
+    val tokenCandidates =
+        listOf(
+            extractedRoot.resolve("assets").resolve("images"),
+            projectExtractedRoot.resolve("assets").resolve("images"),
+            AppDataPaths.assetsStoreDir(),
+            AppDataPaths.attachmentsDir(),
+        )
+    val tokenResolved =
+        tokenCandidates.firstNotNullOfOrNull { root ->
+            findSketchByTokens(root = root, uniqCode = request.uniqCode, partNumber = request.partNumber)
+        }
+    return tokenResolved?.toFile()
+}
+
+private fun findSketchByTokens(
+    root: Path,
+    uniqCode: String,
+    partNumber: String,
+): Path? {
+    if (!Files.exists(root)) return null
+    val uniqToken = uniqCode.trim().uppercase()
+    val partToken = partNumber.trim().uppercase()
+    val hasSearchToken = uniqToken.isNotBlank() || partToken.isNotBlank()
+    return if (!hasSearchToken) {
+        null
+    } else {
+        Files.walk(root, SKETCH_SEARCH_DEPTH).use { stream ->
+            stream
+                .filter { candidate -> Files.isRegularFile(candidate) }
+                .filter { candidate ->
+                    val filename = candidate.fileName.toString().uppercase()
+                    val imageExt =
+                        filename.endsWith(".PNG") ||
+                            filename.endsWith(".JPG") ||
+                            filename.endsWith(".JPEG")
+                    val matchToken =
+                        (uniqToken.isNotBlank() && filename.contains(uniqToken)) ||
+                            (partToken.isNotBlank() && filename.contains(partToken))
+                    imageExt && matchToken
+                }.findFirst()
+                .orElse(null)
+        }
+    }
 }
