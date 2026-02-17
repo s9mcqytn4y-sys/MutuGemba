@@ -169,7 +169,7 @@ class PartZipBootstrapper(
                             statement.executeUpdate()
                         }
                 }
-                mapping.qa.observations.forEach { observation ->
+                normalizeQaObservations(mapping.qa.observations).forEach { observation ->
                     val reportId = reportIdByCode[observation.report_id] ?: return@forEach
                     val partId = partIdByUniq[observation.uniq_no] ?: return@forEach
                     val defectId = defectIdByCode[observation.defect_type_id] ?: return@forEach
@@ -232,6 +232,39 @@ class PartZipBootstrapper(
             summary.importedReports,
         )
         return summary
+    }
+
+    private fun normalizeQaObservations(observations: List<QaObservationDto>): List<QaObservationDto> {
+        val normalizedByKey = linkedMapOf<ObservationNormalizeKey, QaObservationDto>()
+        observations.forEach { observation ->
+            val qty = observation.qty.coerceAtLeast(0)
+            if (qty <= 0) return@forEach
+
+            val cleanedDefectName =
+                observation.defect_name
+                    ?.let(DefectNameSanitizer::normalizeDisplay)
+                    ?.ifBlank { null }
+            val key =
+                ObservationNormalizeKey(
+                    reportId = observation.report_id.trim(),
+                    uniqNo = observation.uniq_no.trim(),
+                    partNumberInReport = observation.part_number_in_report?.trim().orEmpty(),
+                    defectTypeId = observation.defect_type_id.trim(),
+                    defectName = cleanedDefectName.orEmpty(),
+                    source = observation.source?.trim().orEmpty(),
+                )
+            val existing = normalizedByKey[key]
+            normalizedByKey[key] =
+                if (existing == null) {
+                    observation.copy(
+                        defect_name = cleanedDefectName,
+                        qty = qty,
+                    )
+                } else {
+                    existing.copy(qty = existing.qty + qty)
+                }
+        }
+        return normalizedByKey.values.toList()
     }
 
     private fun isPartTableEmpty(): Boolean =
@@ -821,6 +854,15 @@ private fun normalizeLine(value: String): String {
         else -> "mixed"
     }
 }
+
+private data class ObservationNormalizeKey(
+    val reportId: String,
+    val uniqNo: String,
+    val partNumberInReport: String,
+    val defectTypeId: String,
+    val defectName: String,
+    val source: String,
+)
 
 private fun transparentPngPlaceholder(): ByteArray {
     val image = java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB)
