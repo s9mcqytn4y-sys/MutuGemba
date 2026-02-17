@@ -186,8 +186,41 @@ private fun InspectionScreenContent(
                 .focusRequester(focusRequester)
                 .focusable()
                 .onPreviewKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown && event.isCtrlPressed && event.key == Key.K) {
+                    val isKeyDown = event.type == KeyEventType.KeyDown
+                    val isEscapePressed = isKeyDown && event.key == Key.Escape
+                    val shouldSaveFromConfirm =
+                        isKeyDown &&
+                            event.key == Key.Enter &&
+                            state.showConfirmDialog &&
+                            !state.isSaving
+                    val shouldOpenSaveReview =
+                        isKeyDown &&
+                            event.key == Key.Enter &&
+                            state.canSave &&
+                            !showSearchModal &&
+                            !state.showConfirmDialog
+                    if (isKeyDown && event.isCtrlPressed && event.key == Key.K) {
                         showSearchModal = true
+                        true
+                    } else if (isEscapePressed) {
+                        when {
+                            showSearchModal -> {
+                                showSearchModal = false
+                                true
+                            }
+                            state.showConfirmDialog -> {
+                                state.dismissConfirm()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else if (shouldSaveFromConfirm) {
+                        scope.launch {
+                            state.onConfirmSave(onRecordsSaved)
+                        }
+                        true
+                    } else if (shouldOpenSaveReview) {
+                        state.onSaveRequested()
                         true
                     } else if (event.type == KeyEventType.KeyDown && showSearchModal && event.key == Key.Enter) {
                         focusFirstResult()
@@ -343,8 +376,11 @@ private fun InspectionScreenContent(
         open = state.showConfirmDialog,
         defectSummaries = state.filledPartSummaries,
         summaryTotals = state.summaryTotals,
+        isSaving = state.isSaving,
         onConfirm = {
-            state.onConfirmSave(onRecordsSaved)
+            scope.launch {
+                state.onConfirmSave(onRecordsSaved)
+            }
         },
         onDismiss = { state.dismissConfirm() },
     )
@@ -373,6 +409,8 @@ private class InspectionFormState(
     var feedback by mutableStateOf<UserFeedback?>(null)
         private set
     var showConfirmDialog by mutableStateOf(false)
+        private set
+    var isSaving by mutableStateOf(false)
         private set
 
     val defectSlotInputs = mutableStateMapOf<PartDefectSlotKey, String>()
@@ -621,43 +659,53 @@ private class InspectionFormState(
         feedback = null
     }
 
-    fun onConfirmSave(onRecordsSaved: (List<InspectionRecord>) -> Unit) {
-        val inputs = buildInputs()
-        val allowDuplicate = dependencies.policies.getAllowDuplicate.execute()
-        val result =
-            dependencies.createBatchInspectionUseCase.execute(
-                inputs = inputs,
-                allowDuplicateSameDay = allowDuplicate,
-            )
-        val failedDetails =
-            result.failedParts.mapNotNull { failed ->
-                val part = partsForLine().firstOrNull { it.id == failed.partId } ?: return@mapNotNull null
-                val reason = failed.feedback.message
-                AppStrings.Inspection.failedPartLine(part.partNumber, part.name, reason)
-            }
-        feedback =
-            if (failedDetails.isNotEmpty()) {
-                val type =
-                    if (result.feedback.type == FeedbackType.ERROR) {
-                        FeedbackType.ERROR
-                    } else {
-                        FeedbackType.WARNING
-                    }
-                UserFeedback(
-                    type,
-                    AppStrings.Inspection.partialSaveFailed(failedDetails.joinToString("\n")),
-                )
-            } else {
-                result.feedback
-            }
-        showConfirmDialog = false
-        if (result.savedRecords.isNotEmpty()) {
-            onRecordsSaved(result.savedRecords)
+    suspend fun onConfirmSave(onRecordsSaved: (List<InspectionRecord>) -> Unit) {
+        if (isSaving) {
+            return
         }
-        if (result.feedback.type == FeedbackType.SUCCESS) {
-            clearAllInputs()
+        isSaving = true
+        try {
+            val inputs = buildInputs()
+            val allowDuplicate = dependencies.policies.getAllowDuplicate.execute()
+            val result =
+                withContext(Dispatchers.IO) {
+                    dependencies.createBatchInspectionUseCase.execute(
+                        inputs = inputs,
+                        allowDuplicateSameDay = allowDuplicate,
+                    )
+                }
+            val failedDetails =
+                result.failedParts.mapNotNull { failed ->
+                    val part = partsForLine().firstOrNull { it.id == failed.partId } ?: return@mapNotNull null
+                    val reason = failed.feedback.message
+                    AppStrings.Inspection.failedPartLine(part.partNumber, part.name, reason)
+                }
+            feedback =
+                if (failedDetails.isNotEmpty()) {
+                    val type =
+                        if (result.feedback.type == FeedbackType.ERROR) {
+                            FeedbackType.ERROR
+                        } else {
+                            FeedbackType.WARNING
+                        }
+                    UserFeedback(
+                        type,
+                        AppStrings.Inspection.partialSaveFailed(failedDetails.joinToString("\n")),
+                    )
+                } else {
+                    result.feedback
+                }
+            showConfirmDialog = false
+            if (result.savedRecords.isNotEmpty()) {
+                onRecordsSaved(result.savedRecords)
+            }
+            if (result.feedback.type == FeedbackType.SUCCESS) {
+                clearAllInputs()
+            }
+            saveDefaults()
+        } finally {
+            isSaving = false
         }
-        saveDefaults()
     }
 
     fun clearAllInputs() {
@@ -1390,6 +1438,7 @@ private fun InspectionConfirmDialog(
     open: Boolean,
     defectSummaries: List<PartSummaryRow>,
     summaryTotals: SummaryTotals,
+    isSaving: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -1431,10 +1480,18 @@ private fun InspectionConfirmDialog(
             }
         },
         confirmButton = {
-            PrimaryButton(text = AppStrings.Actions.SaveNow, onClick = onConfirm)
+            PrimaryButton(
+                text = if (isSaving) "Menyimpan..." else AppStrings.Actions.SaveNow,
+                onClick = onConfirm,
+                enabled = !isSaving,
+            )
         },
         dismissButton = {
-            SecondaryButton(text = AppStrings.Actions.Cancel, onClick = onDismiss)
+            SecondaryButton(
+                text = AppStrings.Actions.Cancel,
+                onClick = onDismiss,
+                enabled = !isSaving,
+            )
         },
     )
 }
