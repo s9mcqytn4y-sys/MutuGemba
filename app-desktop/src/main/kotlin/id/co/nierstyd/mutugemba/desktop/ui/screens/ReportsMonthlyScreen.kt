@@ -86,16 +86,16 @@ import org.jetbrains.skia.Image as SkiaImage
 
 private val DocumentWidth = 1140.dp
 private val DocumentMinHeight = 760.dp
-private val HeaderRowHeight = 32.dp
-private val SubHeaderRowHeight = 32.dp
-private val PartSectionHeaderHeight = 28.dp
-private val BodyRowHeight = 42.dp
-private val SubtotalRowHeight = 28.dp
-private val TotalRowHeight = 30.dp
+private val HeaderRowHeight = 34.dp
+private val SubHeaderRowHeight = 34.dp
+private val PartSectionHeaderHeight = 30.dp
+private val BodyRowHeight = 46.dp
+private val SubtotalRowHeight = 32.dp
+private val TotalRowHeight = 34.dp
 private val SketchColumnWidth = 132.dp
 private val PartNumberColumnWidth = 148.dp
 private val ProblemItemColumnWidth = 246.dp
-private val DayColumnWidth = 32.dp
+private val DayColumnWidth = 40.dp
 private val TotalColumnWidth = 88.dp
 private val SectionDividerWidth = 2.dp
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
