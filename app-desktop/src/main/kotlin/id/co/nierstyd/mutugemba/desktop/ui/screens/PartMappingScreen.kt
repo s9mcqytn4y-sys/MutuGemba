@@ -40,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
+import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
@@ -77,6 +79,12 @@ data class PartMappingScreenDependencies(
     val loadImageBytes: LoadImageBytesUseCase,
 )
 
+private enum class PartSortMode {
+    PART_NUMBER,
+    PART_NAME,
+    UNIQ,
+}
+
 @Composable
 fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     val period = remember { YearMonth.now() }
@@ -92,6 +100,31 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     val thumbnailMap = remember { mutableStateMapOf<String, ImageBitmap?>() }
     var thumbnailLoading by remember { mutableStateOf(false) }
     var detailBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var searchKeyword by rememberSaveable { mutableStateOf("") }
+    var sortMode by rememberSaveable { mutableStateOf(PartSortMode.PART_NUMBER) }
+    val filteredParts =
+        remember(parts, searchKeyword, sortMode) {
+            val keyword = searchKeyword.trim().lowercase()
+            val base =
+                if (keyword.isBlank()) {
+                    parts
+                } else {
+                    parts.filter { item ->
+                        item.partNumber.lowercase().contains(keyword) ||
+                            item.partName.lowercase().contains(keyword) ||
+                            item.uniqNo.lowercase().contains(keyword)
+                    }
+                }
+            when (sortMode) {
+                PartSortMode.PART_NUMBER -> base.sortedBy { it.partNumber }
+                PartSortMode.PART_NAME -> base.sortedBy { it.partName }
+                PartSortMode.UNIQ -> base.sortedBy { it.uniqNo }
+            }
+        }
+    val groupedFilteredParts =
+        remember(filteredParts) {
+            filteredParts.groupBy { it.lineCode.uppercase() }.toSortedMap()
+        }
 
     LaunchedEffect(Unit) {
         partsLoading = true
@@ -230,6 +263,42 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             )
         }
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            AppTextField(
+                spec =
+                    FieldSpec(
+                        label = "Cari Part",
+                        placeholder = "Cari part number, nama, atau UNIQ",
+                        helperText = "Filter instan untuk operator.",
+                    ),
+                value = searchKeyword,
+                onValueChange = { searchKeyword = it.take(80) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                SortChip(
+                    label = "Part No",
+                    selected = sortMode == PartSortMode.PART_NUMBER,
+                    onClick = { sortMode = PartSortMode.PART_NUMBER },
+                )
+                SortChip(
+                    label = "Nama",
+                    selected = sortMode == PartSortMode.PART_NAME,
+                    onClick = { sortMode = PartSortMode.PART_NAME },
+                )
+                SortChip(
+                    label = "UNIQ",
+                    selected = sortMode == PartSortMode.UNIQ,
+                    onClick = { sortMode = PartSortMode.UNIQ },
+                )
+            }
+        }
+
         loadError?.let { message ->
             StatusBanner(
                 feedback = UserFeedback(FeedbackType.ERROR, "Gagal memuat part: $message"),
@@ -253,7 +322,7 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                     verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
                     Text(
-                        text = "${AppStrings.PartMapping.PartListTitle} (${parts.size})",
+                        text = "${AppStrings.PartMapping.PartListTitle} (${filteredParts.size}/${parts.size})",
                         style = MaterialTheme.typography.subtitle1,
                     )
 
@@ -266,9 +335,9 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                             }
                         }
 
-                        parts.isEmpty() -> {
+                        filteredParts.isEmpty() -> {
                             Text(
-                                text = AppStrings.PartMapping.EmptyParts,
+                                text = "Tidak ada part yang cocok dengan pencarian.",
                                 style = MaterialTheme.typography.body2,
                                 color = NeutralTextMuted,
                             )
@@ -279,14 +348,25 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                                 modifier = Modifier.fillMaxWidth().weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                             ) {
-                                items(parts, key = { it.partId }) { item ->
-                                    PartCard(
-                                        item = item,
-                                        thumbnail = thumbnailMap[item.uniqNo],
-                                        thumbnailLoading = thumbnailLoading && !thumbnailMap.containsKey(item.uniqNo),
-                                        selected = item.uniqNo == selectedUniqNo,
-                                        onClick = { selectedUniqNo = item.uniqNo },
-                                    )
+                                groupedFilteredParts.forEach { (lineCode, lineParts) ->
+                                    item(key = "line-$lineCode") {
+                                        Text(
+                                            text = "Line $lineCode (${lineParts.size})",
+                                            style = MaterialTheme.typography.caption,
+                                            color = NeutralTextMuted,
+                                        )
+                                    }
+                                    items(lineParts, key = { it.partId }) { item ->
+                                        PartCard(
+                                            item = item,
+                                            thumbnail = thumbnailMap[item.uniqNo],
+                                            thumbnailLoading =
+                                                thumbnailLoading &&
+                                                    !thumbnailMap.containsKey(item.uniqNo),
+                                            selected = item.uniqNo == selectedUniqNo,
+                                            onClick = { selectedUniqNo = item.uniqNo },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -352,6 +432,35 @@ private fun PartContextCard(
             Text(text = value, style = MaterialTheme.typography.subtitle2, color = NeutralText)
             Text(text = hint, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         }
+    }
+}
+
+@Composable
+private fun SortChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val background = if (selected) MaterialTheme.colors.primary.copy(alpha = 0.12f) else NeutralLight
+    val contentColor = if (selected) MaterialTheme.colors.primary else NeutralTextMuted
+    Surface(
+        modifier =
+            Modifier
+                .clip(MaterialTheme.shapes.small)
+                .pointerInput(onClick) {
+                    detectTapGestures(onTap = { onClick() })
+                },
+        color = background,
+        border = BorderStroke(1.dp, NeutralBorder),
+        shape = MaterialTheme.shapes.small,
+        elevation = 0.dp,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.caption,
+            color = contentColor,
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+        )
     }
 }
 
