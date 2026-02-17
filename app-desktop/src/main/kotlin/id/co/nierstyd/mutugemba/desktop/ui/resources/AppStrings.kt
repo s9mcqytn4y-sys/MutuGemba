@@ -547,7 +547,7 @@ object AppStrings {
         const val ParetoSubtitle = "Kontribusi NG terbesar & kumulatif."
         const val TrendTitle = "Trend NG Harian"
         const val TrendSubtitle = "Pergerakan NG harian untuk monitoring stabilitas proses."
-        const val TopProblemTitle = "Problem Item Teratas"
+        const val TopProblemTitle = "Jenis NG Teratas"
         const val TopProblemSubtitle = "Part dengan NG tertinggi bulan ini."
         const val LineCompareTitle = "Perbandingan Line"
         const val LineCompareSubtitle = "Total NG dan rasio NG per line."

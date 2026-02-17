@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -29,8 +30,8 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -50,6 +51,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
+import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
 import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -89,14 +91,15 @@ private val SubHeaderRowHeight = 32.dp
 private val BodyRowHeight = 42.dp
 private val SubtotalRowHeight = 28.dp
 private val TotalRowHeight = 30.dp
-private val SketchColumnWidth = 116.dp
-private val PartNumberColumnWidth = 168.dp
-private val ProblemItemColumnWidth = 256.dp
+private val SketchColumnWidth = 132.dp
+private val PartNumberColumnWidth = 148.dp
+private val ProblemItemColumnWidth = 246.dp
 private val DayColumnWidth = 32.dp
 private val TotalColumnWidth = 88.dp
 private val SectionDividerWidth = 2.dp
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
 private const val PREVIEW_PART_LIMIT = 8
+private const val FULL_DOCUMENT_PAGE_PART_LIMIT = 14
 
 private sealed class MonthlyReportUiState {
     data object Loading : MonthlyReportUiState()
@@ -678,18 +681,37 @@ private fun MonthlyReportTable(
                     rows.sortedBy { row -> row.problemItems.firstOrNull().orEmpty() }
                 }
         }
-    val visibleGroupedRows =
+    var currentPage by remember(documentMode, groupedRows.size) { mutableStateOf(0) }
+    val pageCount =
         remember(groupedRows, documentMode) {
+            if (groupedRows.isEmpty()) {
+                1
+            } else if (documentMode == MonthlyDocumentMode.PREVIEW) {
+                1
+            } else {
+                ((groupedRows.size - 1) / FULL_DOCUMENT_PAGE_PART_LIMIT) + 1
+            }
+        }
+    LaunchedEffect(pageCount) {
+        if (currentPage >= pageCount) {
+            currentPage = (pageCount - 1).coerceAtLeast(0)
+        }
+    }
+    val visibleGroupedRows =
+        remember(groupedRows, documentMode, currentPage) {
             if (documentMode == MonthlyDocumentMode.PREVIEW) {
                 groupedRows.take(PREVIEW_PART_LIMIT)
             } else {
                 groupedRows
+                    .drop(currentPage * FULL_DOCUMENT_PAGE_PART_LIMIT)
+                    .take(FULL_DOCUMENT_PAGE_PART_LIMIT)
             }
         }
     val visibleRows = remember(visibleGroupedRows) { visibleGroupedRows.flatten() }
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
+    val sketchCache = remember { mutableStateMapOf<String, androidx.compose.ui.graphics.ImageBitmap?>() }
     val days = document.days
     val dayStyles =
         remember(days, summaryByDate, manualHolidays) {
@@ -700,6 +722,19 @@ private fun MonthlyReportTable(
                 DayCellStyle.from(hasInput = hasInput, isHoliday = isHoliday)
             }
         }
+    LaunchedEffect(visibleGroupedRows) {
+        val paths =
+            visibleGroupedRows
+                .mapNotNull { rows -> rows.firstOrNull()?.sketchPath?.takeIf { it.isNotBlank() } }
+                .distinct()
+        val missingPaths = paths.filterNot { sketchCache.containsKey(it) }
+        if (missingPaths.isEmpty()) return@LaunchedEffect
+        val loaded =
+            withContext(Dispatchers.IO) {
+                missingPaths.associateWith { sketchPath -> loadSketchBitmap(sketchPath) }
+            }
+        sketchCache.putAll(loaded)
+    }
     val filteredDayTotals =
         remember(visibleRows, days) {
             days.mapIndexed { index, _ ->
@@ -725,11 +760,18 @@ private fun MonthlyReportTable(
                             if (documentMode == MonthlyDocumentMode.PREVIEW) {
                                 "Pratinjau ${visibleGroupedRows.size}/${groupedRows.size} part"
                             } else {
-                                "Dokumen penuh ${visibleGroupedRows.size} part"
+                                "Dokumen penuh ${visibleGroupedRows.size} part/halaman"
                             },
                         backgroundColor = NeutralLight,
                         contentColor = NeutralTextMuted,
                     )
+                    if (documentMode == MonthlyDocumentMode.FULL && pageCount > 1) {
+                        AppBadge(
+                            text = "Halaman ${currentPage + 1}/$pageCount",
+                            backgroundColor = BrandBlue.copy(alpha = 0.1f),
+                            contentColor = BrandBlue,
+                        )
+                    }
                     PagerNavButton(
                         enabled = scrollState.value > 0,
                         icon = AppIcons.ChevronLeft,
@@ -753,213 +795,247 @@ private fun MonthlyReportTable(
                             }
                         },
                     )
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
-                Row {
-                    TableHeaderCell(
-                        text = AppStrings.ReportsMonthly.TableSketch,
-                        width = SketchColumnWidth,
-                        height = HeaderRowHeight + SubHeaderRowHeight,
-                    )
-                    TableHeaderCell(
-                        text = AppStrings.ReportsMonthly.TablePartNumber,
-                        width = PartNumberColumnWidth,
-                        height = HeaderRowHeight + SubHeaderRowHeight,
-                    )
-                    TableHeaderCell(
-                        text = AppStrings.ReportsMonthly.TableProblemItem,
-                        width = ProblemItemColumnWidth,
-                        height = HeaderRowHeight + SubHeaderRowHeight,
-                    )
-                }
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Row {
-                    Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
-                        Row {
-                            TableHeaderCell(
-                                text = AppStrings.ReportsMonthly.TableDates,
-                                width = DayColumnWidth * days.size,
-                                height = HeaderRowHeight,
-                            )
-                        }
-                    }
-                    TableHeaderCell(
-                        text = AppStrings.ReportsMonthly.TableTotalNg,
-                        width = TotalColumnWidth,
-                        height = HeaderRowHeight + SubHeaderRowHeight,
-                    )
-                }
-                Row {
-                    Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
-                        Row {
-                            days.forEach { day ->
-                                DayHeaderCell(
-                                    day = day,
-                                    style = dayStyles.getValue(day),
-                                )
-                            }
-                        }
+                    if (documentMode == MonthlyDocumentMode.FULL && pageCount > 1) {
+                        PagerNavButton(
+                            enabled = currentPage > 0,
+                            icon = AppIcons.ChevronLeft,
+                            label = "Halaman sebelumnya",
+                            onClick = {
+                                currentPage = (currentPage - 1).coerceAtLeast(0)
+                                scope.launch { scrollState.scrollTo(0) }
+                            },
+                        )
+                        PagerNavButton(
+                            enabled = currentPage + 1 < pageCount,
+                            icon = AppIcons.ChevronRight,
+                            label = "Halaman berikutnya",
+                            iconOnRight = true,
+                            onClick = {
+                                currentPage = (currentPage + 1).coerceAtMost(pageCount - 1)
+                                scope.launch { scrollState.scrollTo(0) }
+                            },
+                        )
                     }
                 }
             }
         }
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val leftColumnsWidth = SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth
+            val dayViewportWidth =
+                (maxWidth - leftColumnsWidth - TotalColumnWidth - SectionDividerWidth).coerceAtLeast(180.dp)
+            val rightSectionWidth = dayViewportWidth + TotalColumnWidth
 
-        visibleGroupedRows.forEachIndexed { groupIndex, rowsForPart ->
-            val partSample = rowsForPart.first()
-            val groupHeight = BodyRowHeight * rowsForPart.size
-            val partDayTotals =
-                days.mapIndexed { index, _ ->
-                    rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.width(leftColumnsWidth)) {
+                    Row {
+                        TableHeaderCell(
+                            text = AppStrings.ReportsMonthly.TableSketch,
+                            width = SketchColumnWidth,
+                            height = HeaderRowHeight + SubHeaderRowHeight,
+                        )
+                        TableHeaderCell(
+                            text = AppStrings.ReportsMonthly.TablePartNumber,
+                            width = PartNumberColumnWidth,
+                            height = HeaderRowHeight + SubHeaderRowHeight,
+                        )
+                        TableHeaderCell(
+                            text = AppStrings.ReportsMonthly.TableProblemItem,
+                            width = ProblemItemColumnWidth,
+                            height = HeaderRowHeight + SubHeaderRowHeight,
+                        )
+                    }
                 }
-            val partTotal = rowsForPart.sumOf { it.totalDefect }
-            val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth),
-                ) {
-                    SketchCell(
-                        sketchPath = partSample.sketchPath,
-                        width = SketchColumnWidth,
-                        height = groupHeight,
-                        backgroundColor = rowBackground,
-                        showPlaceholder = true,
-                    )
-                    TableBodyCell(
-                        text = formatPartNumber(partSample.partNumber, partSample.uniqCode),
-                        width = PartNumberColumnWidth,
-                        height = groupHeight,
-                        backgroundColor = rowBackground,
-                        maxLines = 2,
-                    )
-                    Column {
-                        rowsForPart.forEach { row ->
+                VerticalSectionDivider(height = HeaderRowHeight + SubHeaderRowHeight)
+                Column(modifier = Modifier.width(rightSectionWidth)) {
+                    Row {
+                        Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
                             Row {
-                                TableBodyCell(
-                                    text = formatProblemItems(row.problemItems),
-                                    width = ProblemItemColumnWidth,
-                                    height = BodyRowHeight,
-                                    backgroundColor = rowBackground,
-                                    maxLines = 1,
+                                TableHeaderCell(
+                                    text = AppStrings.ReportsMonthly.TableDates,
+                                    width = DayColumnWidth * days.size,
+                                    height = HeaderRowHeight,
                                 )
                             }
                         }
+                        TableHeaderCell(
+                            text = AppStrings.ReportsMonthly.TableTotalNg,
+                            width = TotalColumnWidth,
+                            height = HeaderRowHeight + SubHeaderRowHeight,
+                        )
                     }
-                }
-                VerticalSectionDivider(height = groupHeight)
-                Column(modifier = Modifier.weight(1f)) {
-                    rowsForPart.forEach { row ->
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
-                                Row {
-                                    row.dayValues.forEachIndexed { index, value ->
-                                        val style = dayStyles.getValue(days[index])
-                                        TableBodyCell(
-                                            text = value.toString(),
-                                            width = DayColumnWidth,
-                                            height = BodyRowHeight,
-                                            backgroundColor = style.bodyBackground,
-                                            alignCenter = true,
-                                            textColor = style.bodyTextColor,
-                                        )
-                                    }
+                    Row {
+                        Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
+                            Row {
+                                days.forEach { day ->
+                                    DayHeaderCell(
+                                        day = day,
+                                        style = dayStyles.getValue(day),
+                                    )
                                 }
                             }
-                            TableBodyCell(
-                                text = row.totalDefect.toString(),
-                                width = TotalColumnWidth,
-                                height = BodyRowHeight,
-                                backgroundColor = rowBackground,
-                                alignCenter = true,
-                            )
                         }
                     }
                 }
             }
 
+            visibleGroupedRows.forEachIndexed { groupIndex, rowsForPart ->
+                val partSample = rowsForPart.first()
+                val groupHeight = BodyRowHeight * rowsForPart.size
+                val partDayTotals =
+                    days.mapIndexed { index, _ ->
+                        rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
+                    }
+                val partTotal = rowsForPart.sumOf { it.totalDefect }
+                val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
+                val sketchBitmap =
+                    partSample.sketchPath
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { sketchPath -> sketchCache[sketchPath] }
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.width(leftColumnsWidth),
+                    ) {
+                        SketchCell(
+                            sketchPath = partSample.sketchPath,
+                            bitmap = sketchBitmap,
+                            width = SketchColumnWidth,
+                            height = groupHeight,
+                            backgroundColor = rowBackground,
+                            showPlaceholder = true,
+                        )
+                        TableBodyCell(
+                            text = formatPartNumber(partSample.partNumber, partSample.uniqCode),
+                            width = PartNumberColumnWidth,
+                            height = groupHeight,
+                            backgroundColor = rowBackground,
+                            maxLines = 2,
+                        )
+                        Column {
+                            rowsForPart.forEach { row ->
+                                Row {
+                                    TableBodyCell(
+                                        text = formatProblemItems(row.problemItems),
+                                        width = ProblemItemColumnWidth,
+                                        height = BodyRowHeight,
+                                        backgroundColor = rowBackground,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    VerticalSectionDivider(height = groupHeight)
+                    Column(modifier = Modifier.width(rightSectionWidth)) {
+                        rowsForPart.forEach { row ->
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
+                                    Row {
+                                        row.dayValues.forEachIndexed { index, value ->
+                                            val style = dayStyles.getValue(days[index])
+                                            TableBodyCell(
+                                                text = value.toString(),
+                                                width = DayColumnWidth,
+                                                height = BodyRowHeight,
+                                                backgroundColor = style.bodyBackground,
+                                                alignCenter = true,
+                                                textColor = style.bodyTextColor,
+                                            )
+                                        }
+                                    }
+                                }
+                                TableBodyCell(
+                                    text = row.totalDefect.toString(),
+                                    width = TotalColumnWidth,
+                                    height = BodyRowHeight,
+                                    backgroundColor = rowBackground,
+                                    alignCenter = true,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.width(leftColumnsWidth)) {
+                        TableSubtotalCell(
+                            text = "",
+                            width = SketchColumnWidth + PartNumberColumnWidth,
+                            height = SubtotalRowHeight,
+                            backgroundColor = SubtotalHighlight,
+                        )
+                        TableSubtotalCell(
+                            text = AppStrings.ReportsMonthly.TableSubtotal,
+                            width = ProblemItemColumnWidth,
+                            height = SubtotalRowHeight,
+                            backgroundColor = SubtotalHighlight,
+                        )
+                    }
+                    VerticalSectionDivider(height = SubtotalRowHeight)
+                    Row(modifier = Modifier.width(rightSectionWidth)) {
+                        Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
+                            Row {
+                                partDayTotals.forEachIndexed { index, value ->
+                                    val style = dayStyles.getValue(days[index])
+                                    TableSubtotalCell(
+                                        text = value.toString(),
+                                        width = DayColumnWidth,
+                                        height = SubtotalRowHeight,
+                                        alignCenter = true,
+                                        backgroundColor = style.subtotalBackground,
+                                        textColor = style.bodyTextColor,
+                                    )
+                                }
+                            }
+                        }
+                        TableSubtotalCell(
+                            text = partTotal.toString(),
+                            width = TotalColumnWidth,
+                            height = SubtotalRowHeight,
+                            alignCenter = true,
+                            backgroundColor = SubtotalHighlight,
+                        )
+                    }
+                }
+                PartDivider(thickness = 2.dp, color = NeutralBorder.copy(alpha = 0.9f))
+            }
+
             Row(modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
-                    TableSubtotalCell(
-                        text = "",
-                        width = SketchColumnWidth + PartNumberColumnWidth,
-                        height = SubtotalRowHeight,
-                        backgroundColor = SubtotalHighlight,
-                    )
-                    TableSubtotalCell(
-                        text = AppStrings.ReportsMonthly.TableSubtotal,
-                        width = ProblemItemColumnWidth,
-                        height = SubtotalRowHeight,
-                        backgroundColor = SubtotalHighlight,
+                Row(modifier = Modifier.width(leftColumnsWidth)) {
+                    TableFooterCell(
+                        text = AppStrings.ReportsMonthly.TableGrandTotal,
+                        width = leftColumnsWidth,
+                        height = TotalRowHeight,
                     )
                 }
-                VerticalSectionDivider(height = SubtotalRowHeight)
-                Row(modifier = Modifier.weight(1f)) {
-                    Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
+                VerticalSectionDivider(height = TotalRowHeight)
+                Row(modifier = Modifier.width(rightSectionWidth)) {
+                    Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
                         Row {
-                            partDayTotals.forEachIndexed { index, value ->
+                            filteredDayTotals.forEachIndexed { index, value ->
                                 val style = dayStyles.getValue(days[index])
-                                TableSubtotalCell(
+                                TableFooterCell(
                                     text = value.toString(),
                                     width = DayColumnWidth,
-                                    height = SubtotalRowHeight,
+                                    height = TotalRowHeight,
                                     alignCenter = true,
-                                    backgroundColor = style.subtotalBackground,
+                                    backgroundColor = style.footerBackground,
                                     textColor = style.bodyTextColor,
                                 )
                             }
                         }
                     }
-                    TableSubtotalCell(
-                        text = partTotal.toString(),
+                    TableFooterCell(
+                        text = filteredGrandTotal.toString(),
                         width = TotalColumnWidth,
-                        height = SubtotalRowHeight,
+                        height = TotalRowHeight,
                         alignCenter = true,
-                        backgroundColor = SubtotalHighlight,
+                        backgroundColor = BrandBlue.copy(alpha = 0.12f),
+                        textColor = BrandBlue,
                     )
                 }
-            }
-            PartDivider(thickness = 2.dp, color = NeutralBorder.copy(alpha = 0.9f))
-        }
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Row(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
-                TableFooterCell(
-                    text = AppStrings.ReportsMonthly.TableGrandTotal,
-                    width = SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth,
-                    height = TotalRowHeight,
-                )
-            }
-            VerticalSectionDivider(height = TotalRowHeight)
-            Row(modifier = Modifier.weight(1f)) {
-                Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
-                    Row {
-                        filteredDayTotals.forEachIndexed { index, value ->
-                            val style = dayStyles.getValue(days[index])
-                            TableFooterCell(
-                                text = value.toString(),
-                                width = DayColumnWidth,
-                                height = TotalRowHeight,
-                                alignCenter = true,
-                                backgroundColor = style.footerBackground,
-                                textColor = style.bodyTextColor,
-                            )
-                        }
-                    }
-                }
-                TableFooterCell(
-                    text = filteredGrandTotal.toString(),
-                    width = TotalColumnWidth,
-                    height = TotalRowHeight,
-                    alignCenter = true,
-                    backgroundColor = BrandBlue.copy(alpha = 0.12f),
-                    textColor = BrandBlue,
-                )
             }
         }
     }
@@ -1227,6 +1303,7 @@ private fun dayFooterBackground(kind: DayCellKind): Color =
 @Composable
 private fun SketchCell(
     sketchPath: String?,
+    bitmap: androidx.compose.ui.graphics.ImageBitmap?,
     width: Dp,
     height: Dp,
     backgroundColor: Color,
@@ -1242,15 +1319,18 @@ private fun SketchCell(
                 .padding(2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(initialValue = null, key1 = sketchPath) {
-            value = withContext(Dispatchers.IO) { loadSketchBitmap(sketchPath) }
-        }
         if (bitmap != null) {
             Image(
-                bitmap = bitmap!!,
+                bitmap = bitmap,
                 contentDescription = AppStrings.Inspection.PartImageDescription,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxWidth().height(height - 6.dp),
+            )
+        } else if (!sketchPath.isNullOrBlank()) {
+            SkeletonBlock(
+                width = width - 12.dp,
+                height = (height - 10.dp).coerceAtLeast(28.dp),
+                color = NeutralBorder.copy(alpha = 0.35f),
             )
         } else if (showPlaceholder) {
             Text(
