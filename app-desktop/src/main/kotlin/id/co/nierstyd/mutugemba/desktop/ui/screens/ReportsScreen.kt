@@ -99,6 +99,14 @@ private data class DocumentTotals(
     val ratio: Double,
 )
 
+private fun calculateDocumentTotals(entries: List<ChecksheetEntry>): DocumentTotals {
+    val totalCheck = entries.sumOf { it.totalCheck }
+    val totalDefect = entries.sumOf { it.totalDefect }
+    val totalOk = (totalCheck - totalDefect).coerceAtLeast(0)
+    val ratio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
+    return DocumentTotals(totalCheck = totalCheck, totalDefect = totalDefect, totalOk = totalOk, ratio = ratio)
+}
+
 @Composable
 fun ReportsScreen(
     lines: List<Line>,
@@ -988,13 +996,7 @@ private fun EmptyHistoryState(selectedDate: LocalDate) {
 
 @Composable
 private fun DailyDocumentCard(detail: DailyChecksheetDetail) {
-    val totals =
-        DocumentTotals(
-            totalCheck = detail.totalCheck,
-            totalDefect = detail.totalDefect,
-            totalOk = detail.totalOk,
-            ratio = if (detail.totalCheck > 0) detail.totalDefect.toDouble() / detail.totalCheck.toDouble() else 0.0,
-        )
+    val totals = calculateDocumentTotals(detail.entries)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1039,14 +1041,9 @@ private fun DocumentPreviewCard(
     detail: DailyChecksheetDetail,
     onExpand: () -> Unit,
 ) {
-    val totals =
-        DocumentTotals(
-            totalCheck = detail.totalCheck,
-            totalDefect = detail.totalDefect,
-            totalOk = detail.totalOk,
-            ratio = if (detail.totalCheck > 0) detail.totalDefect.toDouble() / detail.totalCheck.toDouble() else 0.0,
-        )
     val previewRows = detail.entries.take(4)
+    val previewTotals = calculateDocumentTotals(previewRows)
+    val overallTotals = calculateDocumentTotals(detail.entries)
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralSurface,
@@ -1070,12 +1067,28 @@ private fun DocumentPreviewCard(
                 )
             }
             DailyDocumentMiniHeader(detail = detail)
-            DocumentTotalsRow(totals = totals)
-            DocumentEntryTable(entries = previewRows, totals = totals)
+            DocumentTotalsRow(totals = previewTotals)
+            DocumentEntryTable(entries = previewRows, totals = previewTotals)
             Text(
                 text = AppStrings.Reports.previewCount(previewRows.size, detail.entries.size),
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
+            )
+            Text(
+                text = AppStrings.Reports.previewScopeLabel(previewRows.size),
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            Text(
+                text =
+                    AppStrings.Reports.allPartTotalsLabel(
+                        totalParts = detail.entries.size,
+                        totalCheck = overallTotals.totalCheck,
+                        totalDefect = overallTotals.totalDefect,
+                        totalOk = overallTotals.totalOk,
+                    ),
+                style = MaterialTheme.typography.caption,
+                color = BrandBlue,
             )
         }
     }

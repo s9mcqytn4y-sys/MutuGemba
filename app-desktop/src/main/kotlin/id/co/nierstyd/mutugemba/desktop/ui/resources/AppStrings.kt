@@ -364,6 +364,15 @@ object AppStrings {
             total: Int,
         ): String = "Menampilkan $shown dari $total part."
 
+        fun previewScopeLabel(shown: Int): String = "Total ringkas dihitung dari $shown part yang sedang tampil."
+
+        fun allPartTotalsLabel(
+            totalParts: Int,
+            totalCheck: Int,
+            totalDefect: Int,
+            totalOk: Int,
+        ): String = "Total semua $totalParts part: Periksa $totalCheck | NG $totalDefect | OK $totalOk"
+
         fun dailyDocumentLabel(dateLabel: String): String = "Rincian dokumen untuk $dateLabel."
 
         fun documentNotFound(dateLabel: String): String = "Tidak ditemukan data checksheet untuk $dateLabel."
