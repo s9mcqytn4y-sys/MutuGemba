@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
@@ -336,24 +336,29 @@ private fun InspectionScreenContent(
             }
 
             item {
-                state.feedback?.let { StatusBanner(feedback = it) }
-            }
-
-            item {
-                InspectionActionsBar(
-                    canSave = state.canSave,
-                    onSaveRequest = { state.onSaveRequested() },
-                    onClearAll = { state.clearAllInputs() },
-                )
+                Spacer(modifier = Modifier.height(120.dp))
             }
         }
 
         InspectionFloatingActions(
             showSummaryPanel = showSummaryPanel,
             summary = state.summaryTotals,
+            canSave = state.canSave,
             onToggleSummary = { showSummaryPanel = !showSummaryPanel },
             onOpenSearch = { showSearchModal = true },
+            onClearAll = { state.clearAllInputs() },
+            onSaveRequest = { state.onSaveRequested() },
         )
+        state.feedback?.let { currentFeedback ->
+            InspectionFeedbackToast(
+                feedback = currentFeedback,
+                onDismiss = { state.clearFeedback() },
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = Spacing.md, end = Spacing.md),
+            )
+        }
     }
 
     InspectionSearchModal(
@@ -387,6 +392,21 @@ private fun InspectionScreenContent(
         },
         onDismiss = { state.dismissConfirm() },
     )
+}
+
+@Composable
+private fun InspectionFeedbackToast(
+    feedback: UserFeedback,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.width(460.dp)) {
+        StatusBanner(
+            feedback = feedback,
+            onDismiss = onDismiss,
+            dense = false,
+        )
+    }
 }
 
 private class InspectionFormState(
@@ -1035,8 +1055,11 @@ private fun sanitizeCountInput(raw: String): String {
 private fun BoxScope.InspectionFloatingActions(
     showSummaryPanel: Boolean,
     summary: SummaryTotals,
+    canSave: Boolean,
     onToggleSummary: () -> Unit,
     onOpenSearch: () -> Unit,
+    onClearAll: () -> Unit,
+    onSaveRequest: () -> Unit,
 ) {
     Column(
         modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = Spacing.lg, end = Spacing.lg),
@@ -1050,21 +1073,34 @@ private fun BoxScope.InspectionFloatingActions(
         ) {
             SummaryCompactPanel(summary = summary)
         }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            FloatingActionButton(
-                onClick = onToggleSummary,
-                backgroundColor = MaterialTheme.colors.primary,
-                contentColor = NeutralSurface,
+        Surface(
+            color = NeutralSurface,
+            shape = MaterialTheme.shapes.medium,
+            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+            elevation = 8.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(imageVector = AppIcons.Assignment, contentDescription = AppStrings.Inspection.SummaryTitle)
-            }
-            FloatingActionButton(
-                onClick = onOpenSearch,
-                backgroundColor = MaterialTheme.colors.primary,
-                contentColor = NeutralSurface,
-            ) {
-                Icon(imageVector = AppIcons.Search, contentDescription = AppStrings.Inspection.SearchPartLabel)
+                SecondaryButton(
+                    text = AppStrings.Inspection.SummaryTitle,
+                    onClick = onToggleSummary,
+                )
+                SecondaryButton(
+                    text = AppStrings.Inspection.SearchPartLabel,
+                    onClick = onOpenSearch,
+                )
+                SecondaryButton(
+                    text = AppStrings.Actions.ClearAll,
+                    onClick = onClearAll,
+                )
+                PrimaryButton(
+                    text = AppStrings.Actions.ConfirmSave,
+                    onClick = onSaveRequest,
+                    enabled = canSave,
+                )
             }
         }
     }
@@ -1466,31 +1502,6 @@ private fun InspectionLoadingState() {
             SkeletonBlock(width = 320.dp, height = 14.dp, color = NeutralLight)
             SkeletonBlock(width = 280.dp, height = 14.dp, color = NeutralLight)
         }
-    }
-}
-
-@Composable
-private fun InspectionActionsBar(
-    canSave: Boolean,
-    onSaveRequest: () -> Unit,
-    onClearAll: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.End),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SecondaryButton(
-            text = AppStrings.Actions.ClearAll,
-            onClick = onClearAll,
-            modifier = Modifier.width(176.dp),
-        )
-        PrimaryButton(
-            text = AppStrings.Actions.ConfirmSave,
-            onClick = onSaveRequest,
-            enabled = canSave,
-            modifier = Modifier.width(244.dp),
-        )
     }
 }
 
