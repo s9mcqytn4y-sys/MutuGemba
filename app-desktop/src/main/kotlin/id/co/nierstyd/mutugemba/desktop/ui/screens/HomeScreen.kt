@@ -179,14 +179,14 @@ fun HomeScreen(
             }
         topProblemItem =
             entries
-                .groupBy { it.partNumber }
+                .groupBy { it.uniqCode }
                 .map { (_, items) ->
                     val totalDefect = items.sumOf { it.totalDefect }
                     val totalCheck = items.sumOf { it.totalCheck }
                     val ratio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
                     val sample = items.first()
                     TopProblemItemUi(
-                        partNumber = sample.partNumber,
+                        uniqCode = sample.uniqCode,
                         partName = sample.partName,
                         totalDefect = totalDefect,
                         totalCheck = totalCheck,
@@ -257,7 +257,7 @@ fun HomeScreen(
     val checksheetHighlights =
         ChecksheetHighlights(
             topNgItem =
-                topProblemItem?.let { "${it.partNumber} (${it.totalDefect})" }
+                topProblemItem?.let { "UNIQ ${it.uniqCode} (${it.totalDefect})" }
                     ?: AppStrings.Common.Placeholder,
             ngRatio = NumberFormats.formatPercent(monthlyTotals.ratio),
             peakDay =
@@ -636,7 +636,7 @@ private fun QcActivityCard(
                 Text(
                     text =
                         listOfNotNull(mostCheckedPartNumber, mostCheckedPart)
-                            .joinToString(" • ")
+                            .joinToString(" | ")
                             .ifBlank { AppStrings.Common.Placeholder },
                     style = MaterialTheme.typography.body2,
                 )

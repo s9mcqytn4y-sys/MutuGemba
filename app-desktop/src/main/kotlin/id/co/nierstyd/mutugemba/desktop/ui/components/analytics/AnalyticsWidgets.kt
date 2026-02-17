@@ -63,7 +63,7 @@ data class MonthlyTotalsUi(
 )
 
 data class TopProblemItemUi(
-    val partNumber: String,
+    val uniqCode: String,
     val partName: String,
     val totalDefect: Int,
     val totalCheck: Int,
@@ -608,7 +608,7 @@ fun TopProblemItemCard(
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     val ratioLabel = NumberFormats.formatPercentNoDecimal(item.ratio)
                     Text(
-                        text = "${item.partNumber} • ${item.partName}",
+                        text = "UNIQ ${item.uniqCode} | ${item.partName}",
                         style = MaterialTheme.typography.subtitle1,
                         color = NeutralText,
                     )
