@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
@@ -401,7 +403,15 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         }
 
                         else -> {
-                            PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
+                            val detailScrollState = rememberScrollState()
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(detailScrollState),
+                            ) {
+                                PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
+                            }
                         }
                     }
                 }
@@ -542,7 +552,7 @@ private fun PartDetailContent(
     val requirementTotal = detail.requirements.sumOf { it.qtyKbn }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         Text("Profil Detail Part", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
@@ -655,7 +665,7 @@ private fun PartDetailContent(
                 } else {
                     detail.models.sorted().forEach { model ->
                         Text(
-                            text = "• $model",
+                            text = "- $model",
                             style = MaterialTheme.typography.caption,
                             color = NeutralTextMuted,
                         )
