@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -75,6 +76,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
+import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
@@ -1062,8 +1064,12 @@ private fun BoxScope.InspectionFloatingActions(
     onSaveRequest: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = Spacing.lg, end = Spacing.lg),
-        horizontalAlignment = Alignment.End,
+        modifier =
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = Spacing.lg, start = Spacing.md, end = Spacing.md),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         AnimatedVisibility(
@@ -1074,35 +1080,85 @@ private fun BoxScope.InspectionFloatingActions(
             SummaryCompactPanel(summary = summary)
         }
         Surface(
+            modifier = Modifier.fillMaxWidth(0.96f).widthIn(max = 1080.dp),
             color = NeutralSurface,
             shape = MaterialTheme.shapes.medium,
             border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
             elevation = 8.dp,
         ) {
             Row(
-                modifier = Modifier.padding(Spacing.sm),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.sm),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SecondaryButton(
-                    text = AppStrings.Inspection.SummaryTitle,
-                    onClick = onToggleSummary,
+                DockedSummarySnapshot(
+                    summary = summary,
+                    modifier = Modifier.weight(1f),
                 )
-                SecondaryButton(
-                    text = AppStrings.Inspection.SearchPartLabel,
-                    onClick = onOpenSearch,
-                )
-                SecondaryButton(
-                    text = AppStrings.Actions.ClearAll,
-                    onClick = onClearAll,
-                )
-                PrimaryButton(
-                    text = AppStrings.Actions.ConfirmSave,
-                    onClick = onSaveRequest,
-                    enabled = canSave,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SecondaryButton(
+                        text = AppStrings.Inspection.SummaryTitle,
+                        onClick = onToggleSummary,
+                    )
+                    SecondaryButton(
+                        text = AppStrings.Inspection.SearchPartLabel,
+                        onClick = onOpenSearch,
+                    )
+                    SecondaryButton(
+                        text = AppStrings.Actions.ClearAll,
+                        onClick = onClearAll,
+                    )
+                    PrimaryButton(
+                        text = AppStrings.Actions.ConfirmSave,
+                        onClick = onSaveRequest,
+                        enabled = canSave,
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun DockedSummarySnapshot(
+    summary: SummaryTotals,
+    modifier: Modifier = Modifier,
+) {
+    val ratioLabel =
+        if (summary.totalCheck > 0) {
+            val ratio = summary.totalDefect.toDouble() / summary.totalCheck.toDouble()
+            "${AppStrings.Inspection.SummaryRatioNg} ${NumberFormats.formatPercentNoDecimal(ratio)}"
+        } else {
+            "${AppStrings.Inspection.SummaryRatioNg} 0%"
+        }
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppBadge(
+            text = "Periksa ${summary.totalCheck}",
+            backgroundColor = NeutralLight,
+            contentColor = NeutralText,
+        )
+        AppBadge(
+            text = "NG ${summary.totalDefect}",
+            backgroundColor = StatusWarning.copy(alpha = 0.15f),
+            contentColor = StatusWarning,
+        )
+        AppBadge(
+            text = "OK ${summary.totalOk}",
+            backgroundColor = StatusSuccess.copy(alpha = 0.15f),
+            contentColor = StatusSuccess,
+        )
+        Text(
+            text = ratioLabel,
+            style = MaterialTheme.typography.caption,
+            color = NeutralTextMuted,
+        )
     }
 }
 
