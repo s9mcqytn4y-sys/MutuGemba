@@ -2,9 +2,105 @@
 <SmellBaseline>
   <ManuallySuppressedIssues></ManuallySuppressedIssues>
   <CurrentIssues>
-    <ID>LongMethod:SampleData.kt$SampleData$fun buildDemoPack(today: LocalDate = LocalDate.now()): DemoPack</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$DefectScreeningDto$val generated_at: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$DefectScreeningDto$val material_item_defect_risk: List&lt;MaterialItemDefectRiskDto&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$DefectScreeningDto$val part_item_defect_stats: List&lt;PartItemDefectStatDto&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$DefectScreeningSummaryDto$val distinct_material_defect_risk: Int = 0</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$DefectScreeningSummaryDto$val distinct_part_defect_pairs: Int = 0</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$DefectScreeningSummaryDto$val total_observations: Int = 0</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$ImageDto$val height_px: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$ImageDto$val transparent_background: Boolean? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$ImageDto$val width_px: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$ImageQcDto$val alpha_border_ratio: Double? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$ImageQcDto$val content_empty: Boolean? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$ImageQcDto$val rendered_page_size_px: List&lt;Int&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$IndexesDto$val material_tags: List&lt;String&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$MappingRootDto$val generated_at: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$MaterialItemDefectRiskDto$val affected_parts: Int</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$MaterialItemDefectRiskDto$val defect_name: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$MaterialItemDefectRiskDto$val defect_name_norm: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$MaterialItemDefectRiskDto$val material_name: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$MaterialItemDefectRiskDto$val material_name_norm: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$MaterialItemDefectRiskDto$val risk_score: Double</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$MaterialItemDefectRiskDto$val sample_size: Int</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val material_note: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val material_raw: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val material_tags: List&lt;String&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val models_inferred: Boolean = false</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val models_source: String = ""</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val part_name: String = ""</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val part_name_partlist: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val part_number: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val part_number_partlist: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val production_line: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val qty_kbn: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val qty_kbn_inconsistent: Boolean = false</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val requirements_raw: List&lt;PartRequirementRawDto&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartDto$val uniq_no: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartItemDefectStatDto$val affected_days: Int</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartItemDefectStatDto$val defect_name: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartItemDefectStatDto$val defect_name_norm: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartItemDefectStatDto$val last_seen_sheet: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartItemDefectStatDto$val occurrence_qty: Int</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartItemDefectStatDto$val part_number: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartItemDefectStatDto$val part_number_norm: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartMaterialLayerDto$val basis_weight_gsm: Double? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartMaterialLayerDto$val layer_order: Int</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartMaterialLayerDto$val layer_tags: List&lt;String&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartMaterialLayerDto$val material_name: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartMaterialLayerDto$val weight_g: Double? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartNoteDto$val missing_image_in_part_list_pdf: Boolean = false</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartNoteDto$val missing_in_part_requirement_list: Boolean = false</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartRequirementRawDto$val part_name: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartRequirementRawDto$val part_number: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartRequirementRawDto$val qty_kbn: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$PartRequirementRawDto$val source_page: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaDefectTypeDto$val defect_type_id: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaDefectTypeDto$val name_norm: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaDto$val defect_types: List&lt;QaDefectTypeDto&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaDto$val part_summaries: List&lt;QaPartSummaryDto&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaDto$val report_legends: List&lt;QaReportLegendDto&gt; = emptyList()</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaObservationDto$val defect_name: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaObservationDto$val defect_type_id: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaObservationDto$val observation_id: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaObservationDto$val part_number_in_report: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaObservationDto$val report_id: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaObservationDto$val uniq_no: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaPartSummaryDto$val report_id: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaPartSummaryDto$val summary_id: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaPartSummaryDto$val total_check: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaPartSummaryDto$val total_defect: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaPartSummaryDto$val total_ok: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaPartSummaryDto$val uniq_no: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaReportDto$val period_month: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaReportDto$val period_year: Int? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaReportDto$val report_date: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaReportDto$val report_id: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaReportDto$val source_file: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaReportLegendDto$val defect_name: String? = null</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaReportLegendDto$val defect_type_id: String</ID>
+    <ID>ConstructorParameterNaming:PartZipDtos.kt$QaReportLegendDto$val report_id: String</ID>
+    <ID>CyclomaticComplexMethod:PartZipBootstrapper.kt$PartZipBootstrapper$private fun bootstrapIfPartEmpty( sourceLabel: String, mappingBytes: ByteArray, screeningBytes: ByteArray? = null, force: Boolean, readImageBytes: (String) -&gt; ByteArray?, ): BootstrapSummary?</ID>
+    <ID>CyclomaticComplexMethod:SqlitePartRepository.kt$SqlitePartRepository$override suspend fun getPartDetail( uniqNo: String, year: Int, month: Int, ): PartDetail?</ID>
+    <ID>LargeClass:PartZipBootstrapper.kt$PartZipBootstrapper</ID>
+    <ID>LongMethod:PartZipBootstrapper.kt$PartZipBootstrapper$private fun bootstrapIfPartEmpty( sourceLabel: String, mappingBytes: ByteArray, screeningBytes: ByteArray? = null, force: Boolean, readImageBytes: (String) -&gt; ByteArray?, ): BootstrapSummary?</ID>
+    <ID>LongMethod:SqlitePartRepository.kt$SqlitePartRepository$override fun observeParts(filter: PartFilter): Flow&lt;List&lt;PartListItem&gt;&gt;</ID>
+    <ID>LongMethod:SqlitePartRepository.kt$SqlitePartRepository$override suspend fun getPartDetail( uniqNo: String, year: Int, month: Int, ): PartDetail?</ID>
+    <ID>MaxLineLength:PartZipBootstrapper.kt$PartZipBootstrapper$"DELETE FROM part_material_layer_tag WHERE part_material_layer_id IN (SELECT part_material_layer_id FROM part_material_layer WHERE part_id = ?)"</ID>
+    <ID>MaxLineLength:PartZipBootstrapper.kt$PartZipBootstrapper$"INSERT INTO part_material_layer(part_id, material_id, layer_order, weight_g, basis_weight_gsm, unit) VALUES(?, ?, ?, ?, ?, ?)"</ID>
+    <ID>MaxLineLength:PartZipBootstrapper.kt$PartZipBootstrapper$"INSERT OR IGNORE INTO part_material_layer_tag(part_material_layer_id, material_tag_id) VALUES(?, ?)"</ID>
+    <ID>MaxLineLength:PartZipBootstrapper.kt$PartZipBootstrapper$"INSERT OR IGNORE INTO production_line(production_line_id, code, display_name) VALUES (1, 'press', 'Press')"</ID>
+    <ID>MaxLineLength:PartZipBootstrapper.kt$PartZipBootstrapper$"INSERT OR IGNORE INTO production_line(production_line_id, code, display_name) VALUES (2, 'sewing', 'Sewing')"</ID>
+    <ID>NestedBlockDepth:SqliteDatabase.kt$SqliteDatabase$private fun hasColumn( connection: Connection, table: String, column: String, ): Boolean</ID>
+    <ID>NestedBlockDepth:SqliteDatabase.kt$private fun String.statements(): List&lt;String&gt;</ID>
+    <ID>ReturnCount:InMemoryDatabase.kt$InMemoryDatabase$private fun isDefectCompatible( lineCode: LineCode, materialNorms: List&lt;String&gt;, defectCode: String, ): Boolean</ID>
+    <ID>ReturnCount:InMemoryDatabase.kt$InMemoryDatabase$private fun resolvePartImagePath( sha256: String, mappingImagePath: String, ): String?</ID>
+    <ID>ReturnCount:PartZipBootstrapper.kt$PartZipBootstrapper$fun bootstrapFromExtractedDir( extractedRoot: Path, force: Boolean, ): BootstrapSummary?</ID>
     <ID>ReturnCount:SettingsSessionRepository.kt$SettingsSessionRepository$override fun getActiveSession(): UserSession?</ID>
-    <ID>ReturnCount:SqlDelightInspectionRepository.kt$SqlDelightInspectionRepository$override fun getDailyChecksheetDetail( lineId: Long, date: LocalDate, ): DailyChecksheetDetail?</ID>
+    <ID>TooManyFunctions:AppDataPaths.kt$AppDataPaths</ID>
+    <ID>TooManyFunctions:InMemoryDatabase.kt$InMemoryDatabase</ID>
+    <ID>TooManyFunctions:PartZipBootstrapper.kt$PartZipBootstrapper</ID>
     <ID>TooManyFunctions:SqlDelightInspectionRepository.kt$SqlDelightInspectionRepository : InspectionRepositoryCacheInvalidator</ID>
+    <ID>UnusedParameter:PartZipBootstrapper.kt$PartZipBootstrapper$force: Boolean</ID>
   </CurrentIssues>
 </SmellBaseline>

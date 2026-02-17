@@ -1,14 +1,17 @@
 {
   "recommendations": [
-    "fwcd.kotlin",
-    "rnoro.vscode-ktlint-formatter",
+    "openai.chatgpt",
     "vscjava.vscode-java-pack",
     "vscjava.vscode-gradle",
+    "fwcd.kotlin",
+    "rnoro.vscode-ktlint-formatter",
     "eamodio.gitlens",
     "usernamehw.errorlens",
-    "shardulm94.trailing-spaces",
     "streetsidesoftware.code-spell-checker",
+    "shardulm94.trailing-spaces",
+    "PKief.material-icon-theme",
     "catppuccin.catppuccin-vsc",
+    "christian-kohler.path-intellisense",
     "miguelsolorio.symbols"
   ]
 }

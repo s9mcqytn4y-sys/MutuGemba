@@ -82,10 +82,10 @@ class SqliteDatabase(
 
     private fun loadSchemaSql(): String =
         javaClass.classLoader
-            .getResourceAsStream("db/schema_v10.sql")
+            .getResourceAsStream("db/schema_v11.sql")
             ?.bufferedReader(Charsets.UTF_8)
             ?.use { it.readText() }
-            ?: error("Missing schema resource: db/schema_v10.sql")
+            ?: error("Missing schema resource: db/schema_v11.sql")
 
     private fun hasColumn(
         connection: Connection,

@@ -8,17 +8,17 @@ Dokumen ini merangkum cara menjalankan aplikasi, lokasi data, dan prosedur pemel
 ```
 
 ## Lokasi Data Lokal
-- Database SQLite: `data/mutugemba.db`
-- Lampiran: `data/attachments/`
-- Preferensi: `data/settings.properties`
-- Ekspor PDF: `data/exports/`
-- Backup: `data/backup/backup-YYYYMMDD-HHmmss/`
-
-Direktori `data/` berada di root project (working directory aplikasi).
+- Root data runtime: `~/.mutugemba/data/`
+- Database SQLite: `~/.mutugemba/data/mutugemba.db`
+- Lampiran: `~/.mutugemba/data/attachments/`
+- Preferensi: `~/.mutugemba/data/settings.properties`
+- Ekspor PDF: `~/.mutugemba/data/exports/`
+- Backup: `~/.mutugemba/data/backup/backup-YYYYMMDD-HHmmss/`
+- Asset hash-store: `~/.mutugemba/data/assets_store/images/sha256/<2-char>/<sha256>.png`
 
 ## Backup & Restore
 - Backup/restore dilakukan dari menu **Pengaturan**.
-- Backup akan menyalin database, preferensi, dan lampiran ke `data/backup/`.
+- Backup akan menyalin database, preferensi, lampiran, dan asset hash-store ke folder backup.
 - Restore akan mengambil backup terbaru dan menimpa data aktif.
 - Setelah restore, aplikasi akan dimuat ulang agar data terbaru terbaca.
 
@@ -32,8 +32,8 @@ Direktori `data/` berada di root project (working directory aplikasi).
 
 ## Ekspor Laporan Bulanan
 - Ekspor/print dilakukan dari layar **Laporan Bulanan** (read-only).
-- File PDF tersimpan di `data/exports/` dengan format nama `MonthlyReport-<LINE>-YYYY-MM.pdf`.
+- File PDF tersimpan di `~/.mutugemba/data/exports/` dengan format nama `MonthlyReport-<LINE>-YYYY-MM.pdf`.
 
 ## Upgrade & Migrasi
-- Skema database dimigrasikan otomatis menggunakan SQLDelight (`core-data`).
-- Pastikan folder `data/` tetap tersedia saat upgrade versi.
+- Skema database dimigrasikan otomatis saat startup dari resource schema lokal (`core-data`).
+- Pastikan direktori `~/.mutugemba/data/` tetap tersedia saat upgrade versi.

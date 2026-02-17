@@ -2,58 +2,172 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "MutuGemba: Run Desktop",
+      "label": "MutuGemba: Compile Desktop",
       "type": "shell",
-      "command": "./gradlew :app-desktop:run --console=plain",
+      "command": "./gradlew",
+      "args": [
+        ":app-desktop:compileKotlin",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "build",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: Rebuild Desktop",
       "type": "shell",
-      "command": "./gradlew clean :app-desktop:build --console=plain",
+      "command": "./gradlew",
+      "args": [
+        "clean",
+        ":app-desktop:build",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "build",
       "problemMatcher": []
     },
     {
-      "label": "MutuGemba: Compile Desktop",
+      "label": "MutuGemba: Run Desktop",
       "type": "shell",
-      "command": "./gradlew :app-desktop:compileKotlin --console=plain",
+      "command": "./gradlew",
+      "args": [
+        ":app-desktop:run",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": [
+        "MutuGemba: Compile Desktop"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "MutuGemba: Run Desktop (Continuous)",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [
+        ":app-desktop:run",
+        "--continuous",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": [
+        "MutuGemba: Compile Desktop"
+      ],
+      "isBackground": true,
       "group": "build",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: Format",
       "type": "shell",
-      "command": "./gradlew ktlintFormat --console=plain",
+      "command": "./gradlew",
+      "args": [
+        "ktlintFormat",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "test",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: Lint",
       "type": "shell",
-      "command": "./gradlew ktlintCheck detektAll --console=plain",
+      "command": "./gradlew",
+      "args": [
+        "ktlintCheck",
+        "detektAll",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "test",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: Test",
       "type": "shell",
-      "command": "./gradlew test --console=plain",
+      "command": "./gradlew",
+      "args": [
+        "test",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "test",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: Verify Fast",
       "type": "shell",
-      "command": "./gradlew ktlintCheck :app-desktop:compileKotlin test --console=plain",
+      "command": "./gradlew",
+      "args": [
+        "ktlintCheck",
+        ":app-desktop:compileKotlin",
+        "test",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "test",
       "problemMatcher": []
     },
     {
       "label": "MutuGemba: CI Verify",
       "type": "shell",
-      "command": "./gradlew --no-daemon clean ktlintCheck detektAll test :app-desktop:build --console=plain",
+      "command": "./gradlew",
+      "args": [
+        "--no-daemon",
+        "clean",
+        "ktlintCheck",
+        "detektAll",
+        "test",
+        ":app-desktop:build",
+        "--console=plain"
+      ],
+      "windows": {
+        "command": ".\\gradlew.bat"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "group": "test",
       "problemMatcher": []
     }
