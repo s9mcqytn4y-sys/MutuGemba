@@ -392,6 +392,84 @@ class GenerateHighVolumeSimulationUseCaseTest {
                 .toSet()
         assertEquals(setOf(101L), pickedDefectIds)
     }
+
+    @Test
+    fun `executeWithSummary returns date range and line breakdown`() {
+        val inspectionRepository = RecordingInspectionRepository()
+        val useCase =
+            GenerateHighVolumeSimulationUseCase(
+                inspectionRepository = inspectionRepository,
+                masterDataRepository =
+                    FakeMasterDataRepository(
+                        lines =
+                            listOf(
+                                Line(id = 1L, code = LineCode.PRESS, name = "Press"),
+                                Line(id = 2L, code = LineCode.SEWING, name = "Sewing"),
+                            ),
+                        shifts =
+                            listOf(
+                                Shift(
+                                    id = 1L,
+                                    code = "S1",
+                                    name = "Shift 1",
+                                    startTime = "08:00",
+                                    endTime = "17:00",
+                                ),
+                            ),
+                        parts =
+                            listOf(
+                                Part(
+                                    id = 11L,
+                                    partNumber = "PN-001",
+                                    model = "M1",
+                                    name = "Part A",
+                                    uniqCode = "U-1",
+                                    material = "FELT",
+                                    picturePath = null,
+                                    lineCode = LineCode.PRESS,
+                                    recommendedDefectCodes = listOf("DF-A"),
+                                ),
+                                Part(
+                                    id = 12L,
+                                    partNumber = "PN-002",
+                                    model = "M2",
+                                    name = "Part B",
+                                    uniqCode = "U-2",
+                                    material = "FELT",
+                                    picturePath = null,
+                                    lineCode = LineCode.SEWING,
+                                    recommendedDefectCodes = listOf("DF-B"),
+                                ),
+                            ),
+                        defects =
+                            listOf(
+                                DefectType(
+                                    id = 101L,
+                                    code = "DF-A",
+                                    name = "Scratch",
+                                    category = "ITEM_DEFECT",
+                                    severity = DefectSeverity.NORMAL,
+                                    lineCode = LineCode.PRESS,
+                                ),
+                                DefectType(
+                                    id = 102L,
+                                    code = "DF-B",
+                                    name = "Sewing Miring",
+                                    category = "ITEM_DEFECT",
+                                    severity = DefectSeverity.NORMAL,
+                                    lineCode = LineCode.SEWING,
+                                ),
+                            ),
+                    ),
+            )
+
+        val summary = useCase.executeWithSummary(days = 2, density = 1, seed = 77L)
+
+        assertTrue(summary.insertedRecords > 0)
+        assertEquals(LocalDate.now().minusDays(1), summary.startDate)
+        assertEquals(LocalDate.now(), summary.endDate)
+        assertEquals(summary.insertedRecords, summary.lineBreakdown.sumOf { it.insertedRecords })
+    }
 }
 
 private class RecordingInspectionRepository : InspectionRepository {

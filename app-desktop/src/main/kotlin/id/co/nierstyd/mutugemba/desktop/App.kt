@@ -245,7 +245,9 @@ fun MutuGembaApp() {
                                         setDevQcLine = container.setDevQcLineUseCase,
                                         backupDatabase = container.backupDatabaseUseCase,
                                         restoreDatabase = container.restoreDatabaseUseCase,
-                                        runLoadSimulation = { container.generateHighVolumeSimulationUseCase.execute() },
+                                        runLoadSimulation = {
+                                            container.generateHighVolumeSimulationUseCase.executeWithSummary()
+                                        },
                                         clearCaches = { container.clearAppCaches() },
                                         onResetCompleted = refreshData,
                                         onRestoreCompleted = {

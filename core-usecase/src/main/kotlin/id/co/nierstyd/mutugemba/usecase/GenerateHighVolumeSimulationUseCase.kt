@@ -15,6 +15,18 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 
+data class SimulationLineSummary(
+    val lineName: String,
+    val insertedRecords: Int,
+)
+
+data class HighVolumeSimulationSummary(
+    val insertedRecords: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val lineBreakdown: List<SimulationLineSummary>,
+)
+
 class GenerateHighVolumeSimulationUseCase(
     private val inspectionRepository: InspectionRepository,
     private val masterDataRepository: MasterDataRepository,
@@ -39,18 +51,39 @@ class GenerateHighVolumeSimulationUseCase(
         days: Int = 45,
         density: Int = 4,
         seed: Long? = null,
-    ): Int {
+    ): Int =
+        executeWithSummary(
+            days = days,
+            density = density,
+            seed = seed,
+        ).insertedRecords
+
+    fun executeWithSummary(
+        days: Int = 45,
+        density: Int = 4,
+        seed: Long? = null,
+    ): HighVolumeSimulationSummary {
         val lines = masterDataRepository.getLines()
         val shifts = masterDataRepository.getShifts()
         val parts = masterDataRepository.getParts()
         val defectTypes = masterDataRepository.getDefectTypes()
         val hasMissingMasterData = listOf(lines, shifts, parts, defectTypes).any { it.isEmpty() }
-        if (hasMissingMasterData) return 0
-
+        val safeDays = days.coerceAtLeast(1)
         val now = LocalDate.now()
+        val startDate = now.minusDays((safeDays - 1).toLong())
+        if (hasMissingMasterData) {
+            return HighVolumeSimulationSummary(
+                insertedRecords = 0,
+                startDate = startDate,
+                endDate = now,
+                lineBreakdown = emptyList(),
+            )
+        }
+
         val random = seed?.let { Random(it) } ?: Random(System.currentTimeMillis())
         val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
         var inserted = 0
+        val insertedByLineId = mutableMapOf<Long, Int>()
         val resolverContext =
             DefectResolverContext(
                 byCode = defectTypes.associateBy { it.code.trim().uppercase() },
@@ -58,7 +91,7 @@ class GenerateHighVolumeSimulationUseCase(
                 fallbackCodesByMaterial = buildFallbackDefectCodesByMaterial(parts),
             )
 
-        repeat(days.coerceAtLeast(1)) { dayOffset ->
+        repeat(safeDays) { dayOffset ->
             val date = now.minusDays(dayOffset.toLong())
             val isWeekend = date.dayOfWeek.value >= 6
             lines.forEach { line ->
@@ -80,7 +113,7 @@ class GenerateHighVolumeSimulationUseCase(
                         (density.coerceAtLeast(1).toDouble() * weekendMultiplier)
                             .toInt()
                             .coerceAtLeast(1)
-                    inserted +=
+                    val lineInserted =
                         insertPartSimulation(
                             part = part,
                             lineCode = line.code,
@@ -98,11 +131,29 @@ class GenerateHighVolumeSimulationUseCase(
                             resolverContext = resolverContext,
                             lineScopedDefects = lineScopedDefects,
                         )
+                    inserted += lineInserted
+                    insertedByLineId[line.id] = (insertedByLineId[line.id] ?: 0) + lineInserted
                 }
             }
         }
 
-        return inserted
+        val lineBreakdown =
+            lines
+                .mapNotNull { line ->
+                    val count = insertedByLineId[line.id] ?: return@mapNotNull null
+                    if (count <= 0) return@mapNotNull null
+                    SimulationLineSummary(
+                        lineName = line.name,
+                        insertedRecords = count,
+                    )
+                }.sortedByDescending { it.insertedRecords }
+
+        return HighVolumeSimulationSummary(
+            insertedRecords = inserted,
+            startDate = startDate,
+            endDate = now,
+            lineBreakdown = lineBreakdown,
+        )
     }
 
     private fun resolveCandidateDefects(

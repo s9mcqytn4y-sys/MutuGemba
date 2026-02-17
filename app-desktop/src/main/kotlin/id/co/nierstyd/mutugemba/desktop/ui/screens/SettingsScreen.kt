@@ -38,12 +38,14 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.usecase.BackupDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
+import id.co.nierstyd.mutugemba.usecase.HighVolumeSimulationSummary
 import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
 import id.co.nierstyd.mutugemba.usecase.RestoreDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.SetAllowDuplicateInspectionUseCase
@@ -63,7 +65,7 @@ data class SettingsScreenDependencies(
     val setDevQcLine: SetDevQcLineUseCase,
     val backupDatabase: BackupDatabaseUseCase,
     val restoreDatabase: RestoreDatabaseUseCase,
-    val runLoadSimulation: () -> Int,
+    val runLoadSimulation: () -> HighVolumeSimulationSummary,
     val clearCaches: () -> Boolean,
     val onResetCompleted: () -> Unit,
     val onRestoreCompleted: () -> Unit,
@@ -78,6 +80,7 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
     var lines by remember { mutableStateOf<List<Line>>(emptyList()) }
     var selectedDevLineId by remember { mutableStateOf<Long?>(dependencies.getDevQcLine.execute()) }
     var loadingMessage by remember { mutableStateOf<String?>(null) }
+    var simulationSummary by remember { mutableStateOf<HighVolumeSimulationSummary?>(null) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(feedback) {
@@ -244,17 +247,18 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                         onClick = {
                             scope.launch {
                                 loadingMessage = AppStrings.Settings.LoadSimulationBusy
-                                val inserted =
+                                val summary =
                                     withContext(Dispatchers.IO) {
                                         dependencies.runLoadSimulation()
                                     }
                                 loadingMessage = null
+                                simulationSummary = summary.takeIf { it.insertedRecords > 0 }
                                 feedback =
-                                    if (inserted > 0) {
+                                    if (summary.insertedRecords > 0) {
                                         dependencies.onResetCompleted()
                                         UserFeedback(
                                             FeedbackType.SUCCESS,
-                                            AppStrings.Feedback.simulationInserted(inserted),
+                                            AppStrings.Feedback.simulationInserted(summary.insertedRecords),
                                         )
                                     } else {
                                         UserFeedback(
@@ -287,6 +291,9 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                             }
                         },
                     )
+                }
+                simulationSummary?.let { summary ->
+                    SimulationSummaryCard(summary = summary)
                 }
             }
         }
@@ -358,6 +365,63 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
             },
             onDismiss = { showRestoreDialog = false },
         )
+    }
+}
+
+@Composable
+private fun SimulationSummaryCard(summary: HighVolumeSimulationSummary) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralLight,
+        shape = MaterialTheme.shapes.medium,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppBadge(
+                    text = "DEV MODE",
+                    backgroundColor = Color(0xFFEFF6FF),
+                    contentColor = Color(0xFF1D4ED8),
+                )
+                Text(
+                    text = "Hasil simulasi terakhir",
+                    style = MaterialTheme.typography.subtitle2,
+                )
+            }
+            Text(
+                text =
+                    "Rentang data: ${DateTimeFormats.formatDate(summary.startDate)} - " +
+                        "${DateTimeFormats.formatDate(summary.endDate)}",
+                style = MaterialTheme.typography.body2,
+                color = NeutralTextMuted,
+            )
+            Text(
+                text = "Total record inspeksi: ${summary.insertedRecords}",
+                style = MaterialTheme.typography.body2,
+            )
+            if (summary.lineBreakdown.isEmpty()) {
+                Text(
+                    text = "Breakdown line belum tersedia.",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+            } else {
+                summary.lineBreakdown.forEach { line ->
+                    Text(
+                        text = "- ${line.lineName}: ${line.insertedRecords} record",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                }
+            }
+        }
     }
 }
 
