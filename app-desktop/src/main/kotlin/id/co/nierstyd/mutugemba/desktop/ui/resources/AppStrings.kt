@@ -202,7 +202,7 @@ object AppStrings {
         const val DuplicateHintOn = "Aturan input ulang hari yang sama tidak aktif."
         const val DuplicateHintOff = "Aturan input ulang hari yang sama aktif."
         const val MasterDataHintTitle = "INFO"
-        const val MasterDataHint = "Part, material, dan item defect divalidasi dari data real (mapping + Daily NG)."
+        const val MasterDataHint = "Part, material, dan jenis NG divalidasi dari data real (mapping + Daily NG)."
         const val LineHintDefault = "Part akan muncul otomatis sesuai line."
 
         fun lineHintQc(lineName: String): String = "Line QC otomatis: $lineName (dikunci dari Pengaturan)."
@@ -413,7 +413,7 @@ object AppStrings {
         const val DocumentMultiplePic = "PIC Lebih dari 1"
         const val TableSketch = "Sketch"
         const val TablePartNumber = "Part Number"
-        const val TableProblemItem = "Problem Item"
+        const val TableProblemItem = "Jenis NG"
         const val TableDates = "Tanggal"
         const val TableTotals = "Total"
         const val TableSubtotal = "Sub-total"

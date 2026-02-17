@@ -82,20 +82,21 @@ import java.time.LocalDateTime
 import java.time.YearMonth
 import org.jetbrains.skia.Image as SkiaImage
 
-private val DocumentWidth = 1120.dp
+private val DocumentWidth = 1140.dp
 private val DocumentMinHeight = 760.dp
 private val HeaderRowHeight = 32.dp
 private val SubHeaderRowHeight = 32.dp
 private val BodyRowHeight = 42.dp
 private val SubtotalRowHeight = 28.dp
 private val TotalRowHeight = 30.dp
-private val SketchColumnWidth = 96.dp
-private val PartNumberColumnWidth = 200.dp
-private val ProblemItemColumnWidth = 280.dp
+private val SketchColumnWidth = 116.dp
+private val PartNumberColumnWidth = 168.dp
+private val ProblemItemColumnWidth = 256.dp
 private val DayColumnWidth = 32.dp
 private val TotalColumnWidth = 88.dp
 private val SectionDividerWidth = 2.dp
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
+private const val PREVIEW_PART_LIMIT = 8
 
 private sealed class MonthlyReportUiState {
     data object Loading : MonthlyReportUiState()
@@ -129,6 +130,7 @@ fun ReportsMonthlyScreen(
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var documentMode by remember { mutableStateOf(MonthlyDocumentMode.PREVIEW) }
     val scope = rememberCoroutineScope()
     val summaryByDate =
         remember(dailySummaries, month, selectedLineId) {
@@ -234,12 +236,16 @@ fun ReportsMonthlyScreen(
             spec =
                 FieldSpec(
                     label = "Cari Part / Jenis NG",
-                    placeholder = "Cari part number, UNIQ, atau item defect",
+                    placeholder = "Cari part number, UNIQ, atau jenis NG",
                     helperText = "Filter reaktif untuk membantu audit bulanan lebih cepat.",
                 ),
             value = searchQuery,
             onValueChange = { searchQuery = it.take(80) },
             singleLine = true,
+        )
+        MonthlyDocumentModeSwitch(
+            mode = documentMode,
+            onModeChange = { documentMode = it },
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -271,6 +277,7 @@ fun ReportsMonthlyScreen(
                     manualHolidays = manualHolidays,
                     summaryByDate = summaryByDate,
                     searchQuery = searchQuery,
+                    documentMode = documentMode,
                 )
         }
     }
@@ -503,6 +510,7 @@ private fun MonthlyReportDocumentCard(
     manualHolidays: Set<LocalDate>,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
     searchQuery: String,
+    documentMode: MonthlyDocumentMode,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -534,6 +542,7 @@ private fun MonthlyReportDocumentCard(
                         manualHolidays = manualHolidays,
                         summaryByDate = summaryByDate,
                         searchQuery = searchQuery,
+                        documentMode = documentMode,
                     )
                     MonthlyReportLegend()
                     MonthlyReportSignature()
@@ -630,11 +639,13 @@ private fun MetaItem(
 }
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 private fun MonthlyReportTable(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
     searchQuery: String,
+    documentMode: MonthlyDocumentMode,
 ) {
     val keyword = searchQuery.trim().lowercase()
     val normalizedKeyword = DefectNameSanitizer.canonicalKey(searchQuery).lowercase()
@@ -667,8 +678,18 @@ private fun MonthlyReportTable(
                     rows.sortedBy { row -> row.problemItems.firstOrNull().orEmpty() }
                 }
         }
+    val visibleGroupedRows =
+        remember(groupedRows, documentMode) {
+            if (documentMode == MonthlyDocumentMode.PREVIEW) {
+                groupedRows.take(PREVIEW_PART_LIMIT)
+            } else {
+                groupedRows
+            }
+        }
+    val visibleRows = remember(visibleGroupedRows) { visibleGroupedRows.flatten() }
 
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
     val days = document.days
     val dayStyles =
         remember(days, summaryByDate, manualHolidays) {
@@ -680,16 +701,61 @@ private fun MonthlyReportTable(
             }
         }
     val filteredDayTotals =
-        remember(filteredRows, days) {
+        remember(visibleRows, days) {
             days.mapIndexed { index, _ ->
-                filteredRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
+                visibleRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
             }
         }
-    val filteredGrandTotal = remember(filteredRows) { filteredRows.sumOf { it.totalDefect } }
+    val filteredGrandTotal = remember(visibleRows) { visibleRows.sumOf { it.totalDefect } }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
+        if (days.size > 7) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AppBadge(
+                        text =
+                            if (documentMode == MonthlyDocumentMode.PREVIEW) {
+                                "Pratinjau ${visibleGroupedRows.size}/${groupedRows.size} part"
+                            } else {
+                                "Dokumen penuh ${visibleGroupedRows.size} part"
+                            },
+                        backgroundColor = NeutralLight,
+                        contentColor = NeutralTextMuted,
+                    )
+                    PagerNavButton(
+                        enabled = scrollState.value > 0,
+                        icon = AppIcons.ChevronLeft,
+                        label = "Geser kiri",
+                        onClick = {
+                            scope.launch {
+                                val next = (scrollState.value - 220).coerceAtLeast(0)
+                                scrollState.animateScrollTo(next)
+                            }
+                        },
+                    )
+                    PagerNavButton(
+                        enabled = scrollState.maxValue > 0 && scrollState.value < scrollState.maxValue,
+                        icon = AppIcons.ChevronRight,
+                        label = "Geser kanan",
+                        iconOnRight = true,
+                        onClick = {
+                            scope.launch {
+                                val next = (scrollState.value + 220).coerceAtMost(scrollState.maxValue)
+                                scrollState.animateScrollTo(next)
+                            }
+                        },
+                    )
+                }
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -712,14 +778,16 @@ private fun MonthlyReportTable(
                     )
                 }
             }
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Row {
-                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                        TableHeaderCell(
-                            text = AppStrings.ReportsMonthly.TableDates,
-                            width = DayColumnWidth * days.size,
-                            height = HeaderRowHeight,
-                        )
+                    Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
+                        Row {
+                            TableHeaderCell(
+                                text = AppStrings.ReportsMonthly.TableDates,
+                                width = DayColumnWidth * days.size,
+                                height = HeaderRowHeight,
+                            )
+                        }
                     }
                     TableHeaderCell(
                         text = AppStrings.ReportsMonthly.TableTotalNg,
@@ -728,19 +796,21 @@ private fun MonthlyReportTable(
                     )
                 }
                 Row {
-                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                        days.forEach { day ->
-                            DayHeaderCell(
-                                day = day,
-                                style = dayStyles.getValue(day),
-                            )
+                    Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
+                        Row {
+                            days.forEach { day ->
+                                DayHeaderCell(
+                                    day = day,
+                                    style = dayStyles.getValue(day),
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        groupedRows.forEachIndexed { groupIndex, rowsForPart ->
+        visibleGroupedRows.forEachIndexed { groupIndex, rowsForPart ->
             val partSample = rowsForPart.first()
             val groupHeight = BodyRowHeight * rowsForPart.size
             val partDayTotals =
@@ -783,20 +853,22 @@ private fun MonthlyReportTable(
                     }
                 }
                 VerticalSectionDivider(height = groupHeight)
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     rowsForPart.forEach { row ->
-                        Row {
-                            Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                                row.dayValues.forEachIndexed { index, value ->
-                                    val style = dayStyles.getValue(days[index])
-                                    TableBodyCell(
-                                        text = value.toString(),
-                                        width = DayColumnWidth,
-                                        height = BodyRowHeight,
-                                        backgroundColor = style.bodyBackground,
-                                        alignCenter = true,
-                                        textColor = style.bodyTextColor,
-                                    )
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
+                                Row {
+                                    row.dayValues.forEachIndexed { index, value ->
+                                        val style = dayStyles.getValue(days[index])
+                                        TableBodyCell(
+                                            text = value.toString(),
+                                            width = DayColumnWidth,
+                                            height = BodyRowHeight,
+                                            backgroundColor = style.bodyBackground,
+                                            alignCenter = true,
+                                            textColor = style.bodyTextColor,
+                                        )
+                                    }
                                 }
                             }
                             TableBodyCell(
@@ -827,18 +899,20 @@ private fun MonthlyReportTable(
                     )
                 }
                 VerticalSectionDivider(height = SubtotalRowHeight)
-                Row {
-                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                        partDayTotals.forEachIndexed { index, value ->
-                            val style = dayStyles.getValue(days[index])
-                            TableSubtotalCell(
-                                text = value.toString(),
-                                width = DayColumnWidth,
-                                height = SubtotalRowHeight,
-                                alignCenter = true,
-                                backgroundColor = style.subtotalBackground,
-                                textColor = style.bodyTextColor,
-                            )
+                Row(modifier = Modifier.weight(1f)) {
+                    Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
+                        Row {
+                            partDayTotals.forEachIndexed { index, value ->
+                                val style = dayStyles.getValue(days[index])
+                                TableSubtotalCell(
+                                    text = value.toString(),
+                                    width = DayColumnWidth,
+                                    height = SubtotalRowHeight,
+                                    alignCenter = true,
+                                    backgroundColor = style.subtotalBackground,
+                                    textColor = style.bodyTextColor,
+                                )
+                            }
                         }
                     }
                     TableSubtotalCell(
@@ -862,18 +936,20 @@ private fun MonthlyReportTable(
                 )
             }
             VerticalSectionDivider(height = TotalRowHeight)
-            Row {
-                Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                    filteredDayTotals.forEachIndexed { index, value ->
-                        val style = dayStyles.getValue(days[index])
-                        TableFooterCell(
-                            text = value.toString(),
-                            width = DayColumnWidth,
-                            height = TotalRowHeight,
-                            alignCenter = true,
-                            backgroundColor = style.footerBackground,
-                            textColor = style.bodyTextColor,
-                        )
+            Row(modifier = Modifier.weight(1f)) {
+                Box(modifier = Modifier.weight(1f).horizontalScroll(scrollState)) {
+                    Row {
+                        filteredDayTotals.forEachIndexed { index, value ->
+                            val style = dayStyles.getValue(days[index])
+                            TableFooterCell(
+                                text = value.toString(),
+                                width = DayColumnWidth,
+                                height = TotalRowHeight,
+                                alignCenter = true,
+                                backgroundColor = style.footerBackground,
+                                textColor = style.bodyTextColor,
+                            )
+                        }
                     }
                 }
                 TableFooterCell(
@@ -1022,6 +1098,53 @@ private fun RowScope.TableFooterCell(
     ) {
         Text(text = text, style = MaterialTheme.typography.body2, color = textColor)
     }
+}
+
+@Composable
+private fun MonthlyDocumentModeSwitch(
+    mode: MonthlyDocumentMode,
+    onModeChange: (MonthlyDocumentMode) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.small,
+        color = NeutralSurface,
+        border = BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppBadge(
+                text = "Mode Tampilan",
+                backgroundColor = NeutralLight,
+                contentColor = NeutralTextMuted,
+            )
+            LineChip(
+                label = "Pratinjau Cepat",
+                selected = mode == MonthlyDocumentMode.PREVIEW,
+                onClick = { onModeChange(MonthlyDocumentMode.PREVIEW) },
+            )
+            LineChip(
+                label = "Dokumen Penuh",
+                selected = mode == MonthlyDocumentMode.FULL,
+                onClick = { onModeChange(MonthlyDocumentMode.FULL) },
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "Pratinjau dipercepat saat data bulanan besar.",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+        }
+    }
+}
+
+private enum class MonthlyDocumentMode {
+    PREVIEW,
+    FULL,
 }
 
 private data class DayCellStyle(
