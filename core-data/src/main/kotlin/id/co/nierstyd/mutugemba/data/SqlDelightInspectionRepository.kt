@@ -58,17 +58,17 @@ class SqlDelightInspectionRepository(
         lineId: Long,
         date: LocalDate,
     ): List<ChecksheetEntry> =
-        database.inspections
-            .filter { it.input.lineId == lineId && it.createdDate == date }
-            .map { it.toChecksheetEntry(database.parts) }
+        aggregateEntriesByPartAndDate(
+            database.inspections.filter { it.input.lineId == lineId && it.createdDate == date },
+        )
 
     override fun getChecksheetEntriesForMonth(
         lineId: Long,
         month: YearMonth,
     ): List<ChecksheetEntry> =
-        database.inspections
-            .filter { it.input.lineId == lineId && YearMonth.from(it.createdDate) == month }
-            .map { it.toChecksheetEntry(database.parts) }
+        aggregateEntriesByPartAndDate(
+            database.inspections.filter { it.input.lineId == lineId && YearMonth.from(it.createdDate) == month },
+        )
 
     override fun getDailyChecksheetSummaries(month: YearMonth): List<DailyChecksheetSummary> =
         database.inspections
@@ -102,7 +102,7 @@ class SqlDelightInspectionRepository(
         val rows = database.inspections.filter { it.input.lineId == lineId && it.createdDate == date }
         if (rows.isEmpty()) return null
         val line = database.lines.firstOrNull { it.id == lineId }
-        val entries = rows.map { it.toChecksheetEntry(database.parts) }
+        val entries = aggregateEntriesByPartAndDate(rows)
         val defectSummaries =
             rows
                 .flatMap { row ->
@@ -121,7 +121,7 @@ class SqlDelightInspectionRepository(
                 .sortedByDescending { it.totalQuantity }
 
         val totalCheck = entries.sumOf { it.totalCheck }
-        val totalDefect = defectSummaries.sumOf { it.totalQuantity }
+        val totalDefect = entries.sumOf { it.totalDefect }
         return DailyChecksheetDetail(
             checksheetId = rows.first().record.id,
             docNumber = ChecksheetDocumentNumber.generate(line?.code?.name ?: "PRESS", date),
@@ -234,4 +234,26 @@ class SqlDelightInspectionRepository(
             totalDefect = defects.sumOf(InspectionDefectEntry::totalQuantity),
         )
     }
+
+    private fun aggregateEntriesByPartAndDate(rows: List<StoredInspection>): List<ChecksheetEntry> =
+        rows
+            .groupBy { it.input.partId to it.createdDate }
+            .map { (key, items) ->
+                val sample = items.first()
+                val base = sample.toChecksheetEntry(database.parts)
+                ChecksheetEntry(
+                    inspectionId = items.minOf { it.record.id },
+                    date = key.second,
+                    partNumber = base.partNumber,
+                    uniqCode = base.uniqCode,
+                    partName = base.partName,
+                    material = base.material,
+                    totalCheck = items.sumOf { it.input.totalCheck ?: 0 },
+                    totalDefect = items.sumOf { it.defects.sumOf(InspectionDefectEntry::totalQuantity) },
+                )
+            }.sortedWith(
+                compareBy<ChecksheetEntry> { it.date }
+                    .thenBy { it.partNumber }
+                    .thenBy { it.uniqCode },
+            )
 }
