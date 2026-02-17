@@ -431,4 +431,9 @@ private class FakeMasterRepository(
             category = "CUSTOM",
             severity = DefectSeverity.NORMAL,
         )
+
+    override fun deleteDefectType(
+        defectTypeId: Long,
+        lineCode: LineCode,
+    ): Boolean = throw UnsupportedOperationException("Tidak dipakai pada test ini.")
 }

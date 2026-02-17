@@ -13,4 +13,9 @@ interface MasterDataRepository {
         name: String,
         lineCode: LineCode,
     ): DefectType
+
+    fun deleteDefectType(
+        defectTypeId: Long,
+        lineCode: LineCode,
+    ): Boolean
 }

@@ -26,6 +26,11 @@ class SqlDelightMasterDataRepository(
         lineCode: LineCode,
     ): DefectType = database.upsertDefectType(name, lineCode)
 
+    override fun deleteDefectType(
+        defectTypeId: Long,
+        lineCode: LineCode,
+    ): Boolean = database.deleteDefectType(defectTypeId, lineCode)
+
     override fun clearCache() {
         // In-memory data is static for current fallback implementation.
     }

@@ -17,6 +17,7 @@ import id.co.nierstyd.mutugemba.data.local.db.SqliteQaRepository
 import id.co.nierstyd.mutugemba.usecase.BackupDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
+import id.co.nierstyd.mutugemba.usecase.DeleteDefectTypeUseCase
 import id.co.nierstyd.mutugemba.usecase.GenerateHighVolumeSimulationUseCase
 import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDailyChecksheetDetailUseCase
@@ -103,6 +104,7 @@ class AppContainer {
     val getPartsUseCase = GetPartsUseCase(masterDataRepository)
     val getDefectTypesUseCase = GetDefectTypesUseCase(masterDataRepository)
     val upsertDefectTypeUseCase = UpsertDefectTypeUseCase(masterDataRepository)
+    val deleteDefectTypeUseCase = DeleteDefectTypeUseCase(masterDataRepository)
     val resetDataUseCase =
         ResetDataUseCase(
             dataResetter,

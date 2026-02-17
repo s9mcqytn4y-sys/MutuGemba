@@ -2,6 +2,7 @@ package id.co.nierstyd.mutugemba.data.db
 
 import id.co.nierstyd.mutugemba.domain.LineCode
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
@@ -49,5 +50,29 @@ class InMemoryDatabaseTest {
         val second = db.upsertDefectType("SPOUNDBOUND TIDAK MEREKAT", LineCode.SEWING)
 
         assertEquals(first.id, second.id)
+    }
+
+    @Test
+    fun customDefect_isPersistedAcrossAppRestart() {
+        val dbFile = Files.createTempFile("mutugemba-custom-defect", ".db")
+        val first = InMemoryDatabase(dbFile)
+        val created = first.upsertDefectType("KERUTAN SISI KANAN", LineCode.PRESS)
+
+        val reloaded = InMemoryDatabase(dbFile)
+        assertTrue(reloaded.defectTypes.any { it.id == created.id && it.category == "CUSTOM" })
+    }
+
+    @Test
+    fun deleteDefectType_removesPersistedCustomDefect() {
+        val dbFile = Files.createTempFile("mutugemba-delete-defect", ".db")
+        val first = InMemoryDatabase(dbFile)
+        val created = first.upsertDefectType("GORESAN OVAL", LineCode.SEWING)
+
+        val deleted = first.deleteDefectType(created.id, LineCode.SEWING)
+        assertTrue(deleted)
+        assertFalse(first.defectTypes.any { it.id == created.id })
+
+        val reloaded = InMemoryDatabase(dbFile)
+        assertFalse(reloaded.defectTypes.any { it.id == created.id })
     }
 }

@@ -17,6 +17,7 @@ import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDate
+import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 
 data class StoredInspection(
@@ -71,12 +72,17 @@ class InMemoryDatabase(
         }
     private val customDefectTypes = mutableListOf<DefectType>()
     private val nextDefectId = AtomicLong((baseDefectTypes.maxOfOrNull { it.id } ?: 0L) + 1L)
+    private val customDefectsFile = databaseFile.resolveSibling("${databaseFile.fileName}.custom-defects.properties")
 
     val defectTypes: List<DefectType>
         get() = baseDefectTypes + customDefectTypes
 
     private val customDefectCodesByLine = mutableMapOf<LineCode, MutableSet<String>>()
     private val baseDefectLineByCode = baseDefectTypes.associate { it.code to it.lineCode }
+
+    init {
+        loadPersistedCustomDefects()
+    }
 
     private fun defectCodeToIdMap(): Map<String, Long> = defectTypes.associateBy({ it.code }, { it.id })
 
@@ -302,7 +308,97 @@ class InMemoryDatabase(
             )
         customDefectTypes += created
         customDefectCodesByLine.getOrPut(lineCode) { linkedSetOf() }.add(created.code)
+        persistCustomDefects()
         return created
+    }
+
+    @Synchronized
+    fun deleteDefectType(
+        defectTypeId: Long,
+        lineCode: LineCode,
+    ): Boolean {
+        val index =
+            customDefectTypes.indexOfFirst { defect ->
+                defect.id == defectTypeId && defect.lineCode == lineCode
+            }
+        if (index < 0) {
+            return false
+        }
+        val removed = customDefectTypes.removeAt(index)
+        customDefectCodesByLine[removed.lineCode]?.remove(removed.code)
+        if (customDefectCodesByLine[removed.lineCode].isNullOrEmpty()) {
+            customDefectCodesByLine.remove(removed.lineCode)
+        }
+        persistCustomDefects()
+        return true
+    }
+
+    private fun loadPersistedCustomDefects() {
+        if (!Files.exists(customDefectsFile)) {
+            return
+        }
+        val props = Properties()
+        runCatching {
+            Files.newInputStream(customDefectsFile).use { props.load(it) }
+            val loaded =
+                props
+                    .stringPropertyNames()
+                    .filter { it.startsWith("defect.") }
+                    .mapNotNull { key ->
+                        val id = key.removePrefix("defect.").toLongOrNull() ?: return@mapNotNull null
+                        val value = props.getProperty(key).orEmpty()
+                        val segments = value.split('|')
+                        val line =
+                            segments
+                                .getOrNull(0)
+                                ?.trim()
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { raw -> runCatching { LineCode.valueOf(raw) }.getOrNull() }
+                                ?: return@mapNotNull null
+                        val code = segments.getOrNull(1)?.trim().orEmpty()
+                        val name = segments.getOrNull(2)?.trim().orEmpty()
+                        if (code.isBlank() || name.isBlank()) {
+                            return@mapNotNull null
+                        }
+                        DefectType(
+                            id = id,
+                            code = code,
+                            name = name,
+                            category = "CUSTOM",
+                            severity = DefectSeverity.NORMAL,
+                            lineCode = line,
+                        )
+                    }.sortedBy { it.id }
+            customDefectTypes.clear()
+            customDefectTypes += loaded
+            customDefectCodesByLine.clear()
+            loaded.forEach { defect ->
+                val line = defect.lineCode ?: return@forEach
+                customDefectCodesByLine.getOrPut(line) { linkedSetOf() }.add(defect.code)
+            }
+            val maxPersistedId = loaded.maxOfOrNull { it.id } ?: 0L
+            val minNext = (baseDefectTypes.maxOfOrNull { it.id } ?: 0L) + 1L
+            nextDefectId.set(maxOf(minNext, maxPersistedId + 1L))
+        }
+    }
+
+    private fun persistCustomDefects() {
+        runCatching {
+            Files.createDirectories(customDefectsFile.parent)
+            val props = Properties()
+            customDefectTypes
+                .sortedBy { it.id }
+                .forEach { defect ->
+                    val line = defect.lineCode?.name.orEmpty()
+                    props.setProperty(
+                        "defect.${defect.id}",
+                        "$line|${defect.code}|${defect.name}",
+                    )
+                }
+            Files.newOutputStream(customDefectsFile).use { stream ->
+                props.store(stream, "MutuGemba custom defect types")
+            }
+        }
     }
 
     private fun sortDefectCodesSmart(codes: List<String>): List<String> =

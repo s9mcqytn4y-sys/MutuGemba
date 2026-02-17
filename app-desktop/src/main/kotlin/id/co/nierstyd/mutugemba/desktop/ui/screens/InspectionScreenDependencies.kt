@@ -2,6 +2,7 @@
 
 import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
+import id.co.nierstyd.mutugemba.usecase.DeleteDefectTypeUseCase
 import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDefectTypesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetInspectionDefaultsUseCase
@@ -26,6 +27,7 @@ data class MasterDataUseCaseBundle(
     val getParts: GetPartsUseCase,
     val getDefectTypes: GetDefectTypesUseCase,
     val upsertDefectType: UpsertDefectTypeUseCase,
+    val deleteDefectType: DeleteDefectTypeUseCase,
 )
 
 data class InspectionScreenDependencies(

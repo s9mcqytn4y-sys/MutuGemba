@@ -39,3 +39,12 @@ class UpsertDefectTypeUseCase(
         lineCode: LineCode,
     ): DefectType = repository.upsertDefectType(name, lineCode)
 }
+
+class DeleteDefectTypeUseCase(
+    private val repository: MasterDataRepository,
+) {
+    fun execute(
+        defectTypeId: Long,
+        lineCode: LineCode,
+    ): Boolean = repository.deleteDefectType(defectTypeId, lineCode)
+}

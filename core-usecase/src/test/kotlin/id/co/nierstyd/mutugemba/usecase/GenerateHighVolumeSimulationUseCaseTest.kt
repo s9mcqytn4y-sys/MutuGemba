@@ -477,4 +477,9 @@ private class FakeMasterDataRepository(
         name: String,
         lineCode: LineCode,
     ): DefectType = throw UnsupportedOperationException("Tidak dipakai pada test ini.")
+
+    override fun deleteDefectType(
+        defectTypeId: Long,
+        lineCode: LineCode,
+    ): Boolean = throw UnsupportedOperationException("Tidak dipakai pada test ini.")
 }

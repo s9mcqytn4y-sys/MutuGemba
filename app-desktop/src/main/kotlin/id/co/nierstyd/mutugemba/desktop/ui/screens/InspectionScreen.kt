@@ -323,7 +323,10 @@ private fun InspectionScreenContent(
                         onTotalCheckChanged = { state.onTotalCheckChanged(part.id, it) },
                         customDefectInput = state.customDefectInput,
                         onCustomDefectInputChanged = state::onCustomDefectInputChanged,
+                        existingDefectOptions = state.existingDefectOptions(),
+                        onSelectExistingDefect = state::onCustomDefectInputChanged,
                         onAddCustomDefect = state::addCustomDefectType,
+                        onDeleteDefect = state::deleteDefectType,
                         currentLine = state.selectedLineName,
                         onDefectSlotChanged = { defectId, slot, value ->
                             state.onDefectSlotChanged(part.id, defectId, slot, value)
@@ -534,6 +537,18 @@ private class InspectionFormState(
             }.sortedBy { it.uniqCode }
     }
 
+    fun existingDefectOptions(): List<String> {
+        val selectedCode = selectedLine?.code
+        return defectTypes
+            .asSequence()
+            .filter { defect -> selectedCode == null || defect.lineCode == null || defect.lineCode == selectedCode }
+            .map { defect -> DefectNameSanitizer.normalizeDisplay(defect.name).ifBlank { defect.name.trim() } }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+            .toList()
+    }
+
     fun totalCheckInput(partId: Long): String = totalCheckInputs[partId] ?: ""
 
     fun defectTypesForPart(partId: Long): List<DefectType> {
@@ -634,11 +649,40 @@ private class InspectionFormState(
             feedback = UserFeedback(FeedbackType.WARNING, AppStrings.Inspection.CustomDefectEmpty)
             return
         }
+        val canonical = DefectNameSanitizer.canonicalKey(normalized)
+        val alreadyExists =
+            defectTypes.any { defect ->
+                DefectNameSanitizer.canonicalKey(defect.name) == canonical
+            }
         dependencies.masterData.upsertDefectType.execute(normalized, line.code)
         defectTypes = dependencies.masterData.getDefectTypes.execute()
         ensureInputs()
         customDefectInput = ""
-        feedback = UserFeedback(FeedbackType.SUCCESS, AppStrings.Inspection.customDefectAdded(normalized))
+        feedback =
+            if (alreadyExists) {
+                UserFeedback(FeedbackType.INFO, AppStrings.Inspection.customDefectExists(normalized))
+            } else {
+                UserFeedback(FeedbackType.SUCCESS, AppStrings.Inspection.customDefectAdded(normalized))
+            }
+    }
+
+    fun deleteDefectType(defectTypeId: Long) {
+        val line = selectedLine
+        val targetDefect = defectTypes.firstOrNull { it.id == defectTypeId }
+        feedback =
+            when {
+                line == null -> UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.ErrorLineRequired)
+                targetDefect == null -> UserFeedback(FeedbackType.WARNING, AppStrings.Inspection.CustomDefectNotFound)
+                targetDefect.category != "CUSTOM" ->
+                    UserFeedback(FeedbackType.WARNING, AppStrings.Inspection.CustomDefectBaseProtected)
+                !dependencies.masterData.deleteDefectType.execute(defectTypeId, line.code) ->
+                    UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.CustomDefectDeleteFailed)
+                else -> {
+                    defectTypes = dependencies.masterData.getDefectTypes.execute()
+                    ensureInputs()
+                    UserFeedback(FeedbackType.SUCCESS, AppStrings.Inspection.customDefectDeleted(targetDefect.name))
+                }
+            }
     }
 
     fun isExpanded(partId: Long): Boolean = expandedPartIds[partId] ?: false

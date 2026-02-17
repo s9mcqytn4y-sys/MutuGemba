@@ -200,6 +200,7 @@ fun MutuGembaApp() {
                                             getParts = container.getPartsUseCase,
                                             getDefectTypes = container.getDefectTypesUseCase,
                                             upsertDefectType = container.upsertDefectTypeUseCase,
+                                            deleteDefectType = container.deleteDefectTypeUseCase,
                                         ),
                                 ),
                             onRecordsSaved = { refreshData() },

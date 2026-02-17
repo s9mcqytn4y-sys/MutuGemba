@@ -254,10 +254,18 @@ object AppStrings {
         const val CustomDefectPlaceholder = "Contoh: DIMENSI TIDAK SIMETRIS"
         const val CustomDefectAddButton = "Tambah"
         const val CustomDefectEmpty = "Isi nama Jenis NG terlebih dahulu."
+        const val CustomDefectPickExisting = "Pilih dari daftar"
+        const val CustomDefectDeleteFailed = "Gagal menghapus Jenis NG tambahan."
+        const val CustomDefectBaseProtected = "Jenis NG bawaan tidak bisa dihapus dari master."
+        const val CustomDefectNotFound = "Jenis NG tidak ditemukan."
 
         fun customDefectHint(lineName: String): String = "Jenis NG baru akan diterapkan untuk line $lineName."
 
         fun customDefectAdded(name: String): String = "Jenis NG '$name' berhasil ditambahkan."
+
+        fun customDefectDeleted(name: String): String = "Jenis NG '$name' berhasil dihapus."
+
+        fun customDefectExists(name: String): String = "Jenis NG '$name' sudah tersedia."
 
         fun failedPartLine(
             partNumber: String,

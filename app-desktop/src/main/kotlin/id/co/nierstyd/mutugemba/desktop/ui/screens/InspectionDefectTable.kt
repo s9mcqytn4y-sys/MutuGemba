@@ -21,13 +21,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -38,6 +43,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.CompactNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
+import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
@@ -59,6 +65,7 @@ import java.nio.file.Paths
 import kotlin.io.path.name
 
 @Composable
+@Suppress("LongParameterList")
 internal fun PartChecksheetCard(
     part: Part,
     defectTypes: List<DefectType>,
@@ -74,7 +81,10 @@ internal fun PartChecksheetCard(
     onTotalCheckChanged: (String) -> Unit,
     customDefectInput: String,
     onCustomDefectInputChanged: (String) -> Unit,
+    existingDefectOptions: List<String>,
+    onSelectExistingDefect: (String) -> Unit,
     onAddCustomDefect: () -> Unit,
+    onDeleteDefect: (Long) -> Unit,
     currentLine: String,
     onDefectSlotChanged: (Long, InspectionTimeSlot, String) -> Unit,
 ) {
@@ -137,11 +147,14 @@ internal fun PartChecksheetCard(
                         timeSlots = timeSlots,
                         values = defectSlotValues,
                         partId = part.id,
+                        onDeleteDefect = onDeleteDefect,
                         onValueChange = onDefectSlotChanged,
                     )
                     InlineCustomDefectRow(
                         value = customDefectInput,
                         onValueChange = onCustomDefectInputChanged,
+                        existingDefectOptions = existingDefectOptions,
+                        onSelectExistingDefect = onSelectExistingDefect,
                         onAdd = onAddCustomDefect,
                         currentLine = currentLine,
                     )
@@ -372,9 +385,12 @@ private fun PartImage(
 private fun InlineCustomDefectRow(
     value: String,
     onValueChange: (String) -> Unit,
+    existingDefectOptions: List<String>,
+    onSelectExistingDefect: (String) -> Unit,
     onAdd: () -> Unit,
     currentLine: String,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralLight,
@@ -392,6 +408,35 @@ private fun InlineCustomDefectRow(
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
+            Box {
+                SecondaryButton(
+                    text = AppStrings.Inspection.CustomDefectPickExisting,
+                    onClick = { menuExpanded = true },
+                )
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                ) {
+                    if (existingDefectOptions.isEmpty()) {
+                        DropdownMenuItem(
+                            onClick = { menuExpanded = false },
+                        ) {
+                            Text("Belum ada Jenis NG tersedia.")
+                        }
+                    } else {
+                        existingDefectOptions.forEach { option ->
+                            DropdownMenuItem(
+                                onClick = {
+                                    onSelectExistingDefect(option)
+                                    menuExpanded = false
+                                },
+                            ) {
+                                Text(option, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+            }
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -486,6 +531,7 @@ private fun DefectTableGrid(
     timeSlots: List<InspectionTimeSlot>,
     values: Map<PartDefectSlotKey, String>,
     partId: Long,
+    onDeleteDefect: (Long) -> Unit,
     onValueChange: (Long, InspectionTimeSlot, String) -> Unit,
 ) {
     fun slotValue(
@@ -517,7 +563,11 @@ private fun DefectTableGrid(
             Column(modifier = Modifier.fillMaxWidth()) {
                 defectTypes.forEach { defect ->
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        TableCell(text = normalizeDefectName(defect.name), weight = 1.4f)
+                        DefectTypeCell(
+                            defect = defect,
+                            onDeleteDefect = onDeleteDefect,
+                            weight = 1.4f,
+                        )
                         timeSlots.forEach { slot ->
                             TableInputCell(
                                 value = slotValue(defect.id, slot),
@@ -537,6 +587,47 @@ private fun DefectTableGrid(
                 TableFooterCell(text = columnTotal(slot).toString(), weight = 1f, alignCenter = true)
             }
             TableFooterCell(text = totalNg.toString(), weight = 0.7f, alignCenter = true)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.DefectTypeCell(
+    defect: DefectType,
+    onDeleteDefect: (Long) -> Unit,
+    weight: Float,
+) {
+    val isDeletable = defect.category == "CUSTOM"
+    Box(
+        modifier =
+            Modifier
+                .weight(weight)
+                .border(1.dp, NeutralBorder)
+                .background(NeutralSurface)
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppBadge(
+                text = "-",
+                backgroundColor = if (isDeletable) StatusError.copy(alpha = 0.16f) else NeutralLight,
+                contentColor = if (isDeletable) StatusError else NeutralTextMuted,
+                modifier =
+                    if (isDeletable) {
+                        Modifier.clickable { onDeleteDefect(defect.id) }
+                    } else {
+                        Modifier
+                    },
+            )
+            Text(
+                text = normalizeDefectName(defect.name),
+                color = NeutralText,
+                maxLines = 1,
+            )
         }
     }
 }
