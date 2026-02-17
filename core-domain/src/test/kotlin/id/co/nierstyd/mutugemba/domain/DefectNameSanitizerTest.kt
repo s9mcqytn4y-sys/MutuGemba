@@ -21,4 +21,16 @@ class DefectNameSanitizerTest {
         val result = DefectNameSanitizer.canonicalKey("Spoundbound tdk merekat / out dimention")
         assertEquals("SPUNBOND TIDAK MEREKAT / OUT DIMENSION", result)
     }
+
+    @Test
+    fun `canonical key removes noisy leading numeric code tokens`() {
+        val result = DefectNameSanitizer.canonicalKey("- 58815 KK010 CARPET TIPIS")
+        assertEquals("CARPET TIPIS", result)
+    }
+
+    @Test
+    fun `canonical key removes generic leading words and repeated token`() {
+        val result = DefectNameSanitizer.canonicalKey("DEFECT NG NG SEWING MIRING")
+        assertEquals("SEWING MIRING", result)
+    }
 }
