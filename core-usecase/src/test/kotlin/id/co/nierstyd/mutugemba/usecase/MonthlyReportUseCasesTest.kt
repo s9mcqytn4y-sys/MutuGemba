@@ -13,6 +13,7 @@ import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.LineCode
 import id.co.nierstyd.mutugemba.domain.MasterDataRepository
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDayDefect
+import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectDayTotal
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
@@ -25,91 +26,31 @@ import java.time.YearMonth
 class MonthlyReportUseCasesTest {
     @Test
     fun `aggregate monthly report totals`() {
-        val month = YearMonth.of(2026, 2)
-        val line =
-            Line(
-                id = 1L,
-                code = LineCode.PRESS,
-                name = "Press",
-            )
-        val parts =
-            listOf(
-                Part(
-                    id = 1L,
-                    partNumber = "PN-1001",
-                    model = "M1",
-                    name = "Part A",
-                    uniqCode = "U1",
-                    material = "Steel",
-                    picturePath = null,
-                    lineCode = line.code,
-                ),
-                Part(
-                    id = 2L,
-                    partNumber = "PN-1002",
-                    model = "M2",
-                    name = "Part B",
-                    uniqCode = "U2",
-                    material = "Steel",
-                    picturePath = null,
-                    lineCode = line.code,
-                ),
-            )
-        val defectTypes =
-            listOf(
-                DefectType(1L, "D1", "Scratch", "Surface", DefectSeverity.NORMAL),
-                DefectType(2L, "D2", "Crack", "Structure", DefectSeverity.KRITIS),
-            )
-
-        val day1 = month.atDay(1)
-        val day2 = month.atDay(2)
-        val partDayDefects =
-            listOf(
-                MonthlyPartDayDefect(1L, day1, 3),
-                MonthlyPartDayDefect(1L, day2, 1),
-                MonthlyPartDayDefect(2L, day1, 2),
-            )
-        val partDefectTotals =
-            listOf(
-                MonthlyPartDefectTotal(1L, 1L, 3),
-                MonthlyPartDefectTotal(1L, 2L, 1),
-                MonthlyPartDefectTotal(2L, 1L, 2),
-            )
-        val summaries =
-            listOf(
-                DailyChecksheetSummary(
-                    checksheetId = 1L,
-                    docNumber = "DOC-1",
-                    lineId = line.id,
-                    lineName = line.name,
-                    shiftName = "Shift 1",
-                    date = day1,
-                    picName = "Rina",
-                    totalParts = 2,
-                    totalCheck = 100,
-                    totalDefect = 5,
-                    lastInputAt = null,
-                ),
-            )
-
+        val fixture = buildAggregateFixture()
         val inspectionRepository =
             MonthlyReportFakeInspectionRepository(
-                monthlyParts = parts,
-                monthlyDayDefects = partDayDefects,
-                monthlyDefectTotals = partDefectTotals,
-                summaries = summaries,
+                monthlyParts = fixture.parts,
+                monthlyDayDefects = fixture.partDayDefects,
+                monthlyDefectTotals = fixture.partDefectTotals,
+                monthlyDefectDayTotals = fixture.defectDayTotals,
+                summaries = fixture.summaries,
             )
-        val masterRepository = FakeMasterRepository(lines = listOf(line), defectTypes = defectTypes)
+        val masterRepository =
+            FakeMasterRepository(lines = listOf(fixture.line), defectTypes = fixture.defectTypes)
 
         val useCase = GetMonthlyReportDocumentUseCase(inspectionRepository, masterRepository)
-        val document = useCase.execute(line.id, month)
+        val document = useCase.execute(fixture.line.id, fixture.month)
 
         assertNotNull(document)
-        assertEquals(2, document.rows.size)
+        assertEquals(3, document.rows.size)
         assertEquals(5, document.totals.dayTotals[0])
         assertEquals(1, document.totals.dayTotals[1])
         assertEquals(listOf(5, 1), document.totals.defectTotals)
         assertEquals(6, document.totals.totalDefect)
+        assertEquals(listOf("SCRATCH"), document.rows[0].problemItems)
+        assertEquals(3, document.rows[0].totalDefect)
+        assertEquals(listOf("CRACK"), document.rows[1].problemItems)
+        assertEquals(1, document.rows[1].totalDefect)
         assertEquals("Rina", document.header.picName)
     }
 
@@ -122,6 +63,7 @@ class MonthlyReportUseCasesTest {
                 monthlyParts = emptyList(),
                 monthlyDayDefects = emptyList(),
                 monthlyDefectTotals = emptyList(),
+                monthlyDefectDayTotals = emptyList(),
                 summaries =
                     listOf(
                         DailyChecksheetSummary(
@@ -161,7 +103,7 @@ class MonthlyReportUseCasesTest {
     }
 
     @Test
-    fun `split and normalize problem items in monthly rows`() {
+    fun `normalize problem item label per monthly row`() {
         val month = YearMonth.of(2026, 2)
         val line = Line(id = 1L, code = LineCode.PRESS, name = "Press")
         val parts =
@@ -187,26 +129,170 @@ class MonthlyReportUseCasesTest {
                 MonthlyPartDefectTotal(1L, 1L, 7),
                 MonthlyPartDefectTotal(1L, 2L, 4),
             )
+        val defectDayTotals =
+            listOf(
+                MonthlyPartDefectDayTotal(1L, 1L, month.atDay(3), 7),
+                MonthlyPartDefectDayTotal(1L, 2L, month.atDay(4), 4),
+            )
 
         val inspectionRepository =
             MonthlyReportFakeInspectionRepository(
                 monthlyParts = parts,
                 monthlyDayDefects = emptyList(),
                 monthlyDefectTotals = defectTotals,
+                monthlyDefectDayTotals = defectDayTotals,
                 summaries = emptyList(),
             )
         val masterRepository = FakeMasterRepository(lines = listOf(line), defectTypes = defectTypes)
         val document = GetMonthlyReportDocumentUseCase(inspectionRepository, masterRepository).execute(line.id, month)
 
-        val problemItems = document.rows.single().problemItems
-        assertEquals(listOf("OVERCUTTING", "SPUNBOND HARDEN", "SPUNBOUND TERLIPAT"), problemItems)
+        assertEquals(2, document.rows.size)
+        assertEquals(listOf("OVERCUTTING"), document.rows[0].problemItems)
+        assertEquals(listOf("SPUNBOUND TERLIPAT, SPUNBOND HARDEN"), document.rows[1].problemItems)
+    }
+
+    @Test
+    fun `build monthly table rows per part and problem item with stable totals`() {
+        val month = YearMonth.of(2026, 2)
+        val line = Line(id = 1L, code = LineCode.PRESS, name = "Press")
+        val parts =
+            listOf(
+                Part(
+                    id = 1L,
+                    partNumber = "PN-1001",
+                    model = "M1",
+                    name = "Part A",
+                    uniqCode = "U1",
+                    material = "Steel",
+                    picturePath = null,
+                    lineCode = line.code,
+                ),
+                Part(
+                    id = 2L,
+                    partNumber = "PN-1002",
+                    model = "M2",
+                    name = "Part B",
+                    uniqCode = "U2",
+                    material = "Steel",
+                    picturePath = null,
+                    lineCode = line.code,
+                ),
+            )
+        val defectTypes =
+            listOf(
+                DefectType(1L, "D1", "Scratch", "Surface", DefectSeverity.NORMAL),
+                DefectType(2L, "D2", "Crack", "Structure", DefectSeverity.KRITIS),
+            )
+        val defectTotals =
+            listOf(
+                MonthlyPartDefectTotal(1L, 1L, 4),
+                MonthlyPartDefectTotal(1L, 2L, 2),
+                MonthlyPartDefectTotal(2L, 1L, 3),
+            )
+        val defectDayTotals =
+            listOf(
+                MonthlyPartDefectDayTotal(1L, 1L, month.atDay(1), 3),
+                MonthlyPartDefectDayTotal(1L, 1L, month.atDay(2), 1),
+                MonthlyPartDefectDayTotal(1L, 2L, month.atDay(1), 2),
+                MonthlyPartDefectDayTotal(2L, 1L, month.atDay(1), 2),
+                MonthlyPartDefectDayTotal(2L, 1L, month.atDay(2), 1),
+            )
+        val repository =
+            MonthlyReportFakeInspectionRepository(
+                monthlyParts = parts,
+                monthlyDayDefects = emptyList(),
+                monthlyDefectTotals = defectTotals,
+                monthlyDefectDayTotals = defectDayTotals,
+                summaries = emptyList(),
+            )
+        val masterRepository = FakeMasterRepository(lines = listOf(line), defectTypes = defectTypes)
+
+        val document = GetMonthlyReportDocumentUseCase(repository, masterRepository).execute(line.id, month)
+        val firstRowDayValues = document.rows.first().dayValues
+
+        assertEquals(month.lengthOfMonth(), document.days.size)
+        assertEquals(3, document.rows.size)
+        assertEquals(4, firstRowDayValues[0] + firstRowDayValues[1])
+        assertEquals(listOf(7, 2), document.totals.dayTotals.take(2))
+        assertEquals(listOf(7, 2), document.totals.defectTotals)
+        assertEquals(9, document.totals.totalDefect)
+    }
+
+    private fun buildAggregateFixture(): AggregateFixture {
+        val month = YearMonth.of(2026, 2)
+        val line = Line(id = 1L, code = LineCode.PRESS, name = "Press")
+        val parts =
+            listOf(
+                Part(1L, "PN-1001", "M1", "Part A", "U1", "Steel", null, line.code),
+                Part(2L, "PN-1002", "M2", "Part B", "U2", "Steel", null, line.code),
+            )
+        val defectTypes =
+            listOf(
+                DefectType(1L, "D1", "Scratch", "Surface", DefectSeverity.NORMAL),
+                DefectType(2L, "D2", "Crack", "Structure", DefectSeverity.KRITIS),
+            )
+        val day1 = month.atDay(1)
+        val day2 = month.atDay(2)
+        return AggregateFixture(
+            month = month,
+            line = line,
+            parts = parts,
+            defectTypes = defectTypes,
+            partDayDefects =
+                listOf(
+                    MonthlyPartDayDefect(1L, day1, 3),
+                    MonthlyPartDayDefect(1L, day2, 1),
+                    MonthlyPartDayDefect(2L, day1, 2),
+                ),
+            defectDayTotals =
+                listOf(
+                    MonthlyPartDefectDayTotal(1L, 1L, day1, 2),
+                    MonthlyPartDefectDayTotal(1L, 1L, day2, 1),
+                    MonthlyPartDefectDayTotal(1L, 2L, day1, 1),
+                    MonthlyPartDefectDayTotal(2L, 1L, day1, 2),
+                ),
+            partDefectTotals =
+                listOf(
+                    MonthlyPartDefectTotal(1L, 1L, 3),
+                    MonthlyPartDefectTotal(1L, 2L, 1),
+                    MonthlyPartDefectTotal(2L, 1L, 2),
+                ),
+            summaries =
+                listOf(
+                    DailyChecksheetSummary(
+                        checksheetId = 1L,
+                        docNumber = "DOC-1",
+                        lineId = line.id,
+                        lineName = line.name,
+                        shiftName = "Shift 1",
+                        date = day1,
+                        picName = "Rina",
+                        totalParts = 2,
+                        totalCheck = 100,
+                        totalDefect = 5,
+                        lastInputAt = null,
+                    ),
+                ),
+        )
     }
 }
+
+private data class AggregateFixture(
+    val month: YearMonth,
+    val line: Line,
+    val parts: List<Part>,
+    val defectTypes: List<DefectType>,
+    val partDayDefects: List<MonthlyPartDayDefect>,
+    val defectDayTotals: List<MonthlyPartDefectDayTotal>,
+    val partDefectTotals: List<MonthlyPartDefectTotal>,
+    val summaries: List<DailyChecksheetSummary>,
+)
 
 private class MonthlyReportFakeInspectionRepository(
     private val monthlyParts: List<Part>,
     private val monthlyDayDefects: List<MonthlyPartDayDefect>,
     private val monthlyDefectTotals: List<MonthlyPartDefectTotal>,
+    private val monthlyDefectDayTotals: List<MonthlyPartDefectDayTotal>,
     private val summaries: List<DailyChecksheetSummary>,
 ) : InspectionRepository {
     override fun insert(input: InspectionInput): InspectionRecord = error("Not required")
@@ -247,6 +333,11 @@ private class MonthlyReportFakeInspectionRepository(
         lineId: Long,
         month: YearMonth,
     ): List<MonthlyPartDefectTotal> = monthlyDefectTotals
+
+    override fun getMonthlyPartDefectDayTotals(
+        lineId: Long,
+        month: YearMonth,
+    ): List<MonthlyPartDefectDayTotal> = monthlyDefectDayTotals
 
     override fun getMonthlyParts(
         lineId: Long,

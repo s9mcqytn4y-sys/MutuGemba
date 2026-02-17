@@ -14,6 +14,7 @@ import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.LineCode
 import id.co.nierstyd.mutugemba.domain.MasterDataRepository
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDayDefect
+import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectDayTotal
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
@@ -151,6 +152,11 @@ private class RecordingInspectionRepository : InspectionRepository {
         lineId: Long,
         month: YearMonth,
     ): List<MonthlyPartDefectTotal> = emptyList()
+
+    override fun getMonthlyPartDefectDayTotals(
+        lineId: Long,
+        month: YearMonth,
+    ): List<MonthlyPartDefectDayTotal> = emptyList()
 
     override fun getMonthlyParts(
         lineId: Long,

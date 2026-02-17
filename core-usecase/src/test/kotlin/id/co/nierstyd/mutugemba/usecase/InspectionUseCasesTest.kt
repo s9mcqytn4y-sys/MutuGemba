@@ -6,6 +6,7 @@ import id.co.nierstyd.mutugemba.domain.InspectionKind
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDayDefect
+import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectDayTotal
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.UserRole
@@ -191,6 +192,11 @@ private class FakeInspectionRepository(
         lineId: Long,
         month: java.time.YearMonth,
     ): List<MonthlyPartDefectTotal> = emptyList()
+
+    override fun getMonthlyPartDefectDayTotals(
+        lineId: Long,
+        month: java.time.YearMonth,
+    ): List<MonthlyPartDefectDayTotal> = emptyList()
 
     override fun getMonthlyParts(
         lineId: Long,

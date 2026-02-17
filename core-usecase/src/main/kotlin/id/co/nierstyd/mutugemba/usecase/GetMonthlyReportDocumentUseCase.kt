@@ -28,8 +28,8 @@ class GetMonthlyReportDocumentUseCase(
                 ?: error("Line tidak ditemukan.")
 
         val parts = inspectionRepository.getMonthlyParts(lineId, month)
-        val dayDefects = inspectionRepository.getMonthlyPartDayDefects(lineId, month)
         val defectTotals = inspectionRepository.getMonthlyPartDefectTotals(lineId, month)
+        val defectDayTotals = inspectionRepository.getMonthlyPartDefectDayTotals(lineId, month)
 
         val defectTotalsByType =
             defectTotals
@@ -42,37 +42,46 @@ class GetMonthlyReportDocumentUseCase(
                 .filter { defectTotalsByType.containsKey(it.id) }
                 .sortedWith(compareByDescending<DefectType> { defectTotalsByType[it.id] ?: 0 }.thenBy { it.name })
 
-        val partDayMap =
-            dayDefects
-                .groupBy { it.partId }
-                .mapValues { (_, items) -> items.associateBy({ it.date }, { it.totalDefect }) }
-
         val partDefectMap =
             defectTotals
                 .groupBy { it.partId }
                 .mapValues { (_, items) -> items.associateBy({ it.defectTypeId }, { it.totalDefect }) }
+        val partDefectDayMap =
+            defectDayTotals
+                .groupBy { it.partId to it.defectTypeId }
+                .mapValues { (_, items) -> items.associateBy({ it.date }, { it.totalDefect }) }
 
         val days = (1..month.lengthOfMonth()).map { month.atDay(it) }
 
         val rows =
             parts
                 .sortedBy { it.partNumber }
-                .map { part ->
-                    val dayValues = days.map { date -> partDayMap[part.id]?.get(date) ?: 0 }
-                    val perDefectTotals =
-                        defectTypes.map { defect -> partDefectMap[part.id]?.get(defect.id) ?: 0 }
-                    val totalDefect = dayValues.sum()
-                    val problemItems = buildProblemItems(defectTypes, perDefectTotals)
-                    MonthlyReportRow(
-                        partId = part.id,
-                        partNumber = part.partNumber,
-                        uniqCode = part.uniqCode,
-                        problemItems = problemItems,
-                        sketchPath = part.picturePath,
-                        dayValues = dayValues,
-                        defectTotals = perDefectTotals,
-                        totalDefect = totalDefect,
-                    )
+                .flatMap { part ->
+                    defectTypes.mapNotNull { defect ->
+                        val totalDefect = partDefectMap[part.id]?.get(defect.id) ?: 0
+                        if (totalDefect <= 0) {
+                            null
+                        } else {
+                            val dayValues =
+                                days.map { date ->
+                                    partDefectDayMap[part.id to defect.id]?.get(date) ?: 0
+                                }
+                            val perDefectTotals =
+                                defectTypes.map { candidate ->
+                                    if (candidate.id == defect.id) totalDefect else 0
+                                }
+                            MonthlyReportRow(
+                                partId = part.id,
+                                partNumber = part.partNumber,
+                                uniqCode = part.uniqCode,
+                                problemItems = listOf(problemItemLabel(defect)),
+                                sketchPath = part.picturePath,
+                                dayValues = dayValues,
+                                defectTotals = perDefectTotals,
+                                totalDefect = totalDefect,
+                            )
+                        }
+                    }
                 }
 
         val dayTotals =
@@ -135,28 +144,6 @@ class GetMonthlyReportDocumentUseCase(
         }
     }
 
-    private fun buildProblemItems(
-        defectTypes: List<DefectType>,
-        perDefectTotals: List<Int>,
-    ): List<String> {
-        val weighted = linkedMapOf<String, Int>()
-        defectTypes
-            .zip(perDefectTotals)
-            .filter { (_, total) -> total > 0 }
-            .forEach { (defect, total) ->
-                val names =
-                    DefectNameSanitizer
-                        .expandProblemItems(defect.name)
-                        .ifEmpty { listOf(DefectNameSanitizer.normalizeDisplay(defect.name)) }
-                        .filter { it.isNotBlank() }
-                names.forEach { name ->
-                    weighted[name] = (weighted[name] ?: 0) + total
-                }
-            }
-        return weighted.entries
-            .sortedWith(
-                compareByDescending<Map.Entry<String, Int>> { entry -> entry.value }
-                    .thenBy { entry -> entry.key },
-            ).map { entry -> entry.key }
-    }
+    private fun problemItemLabel(defect: DefectType): String =
+        DefectNameSanitizer.normalizeDisplay(defect.name).ifBlank { defect.name.trim() }
 }

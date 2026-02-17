@@ -43,6 +43,11 @@ interface InspectionRepository {
         month: YearMonth,
     ): List<MonthlyPartDefectTotal>
 
+    fun getMonthlyPartDefectDayTotals(
+        lineId: Long,
+        month: YearMonth,
+    ): List<MonthlyPartDefectDayTotal>
+
     fun getMonthlyParts(
         lineId: Long,
         month: YearMonth,
