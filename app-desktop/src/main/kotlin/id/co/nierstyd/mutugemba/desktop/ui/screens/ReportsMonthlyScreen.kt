@@ -37,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -893,7 +894,13 @@ private fun MonthlyReportTable(
                 VerticalSectionDivider(height = HeaderRowHeight + SubHeaderRowHeight)
                 Column(modifier = Modifier.width(rightSectionWidth)) {
                     Row {
-                        Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .width(dayViewportWidth)
+                                    .clipToBounds()
+                                    .horizontalScroll(scrollState),
+                        ) {
                             Row {
                                 TableHeaderCell(
                                     text = AppStrings.ReportsMonthly.TableDates,
@@ -909,7 +916,13 @@ private fun MonthlyReportTable(
                         )
                     }
                     Row {
-                        Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .width(dayViewportWidth)
+                                    .clipToBounds()
+                                    .horizontalScroll(scrollState),
+                        ) {
                             Row {
                                 days.forEach { day ->
                                     DayHeaderCell(
@@ -982,9 +995,16 @@ private fun MonthlyReportTable(
                     Column(modifier = Modifier.width(rightSectionWidth)) {
                         rowsForPart.forEach { row ->
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .width(dayViewportWidth)
+                                            .clipToBounds()
+                                            .horizontalScroll(scrollState),
+                                ) {
                                     Row {
-                                        row.dayValues.forEachIndexed { index, value ->
+                                        days.forEachIndexed { index, _ ->
+                                            val value = row.dayValues.getOrElse(index) { 0 }
                                             val style = dayStyles.getValue(days[index])
                                             TableBodyCell(
                                                 text = value.toString(),
@@ -1026,7 +1046,13 @@ private fun MonthlyReportTable(
                     }
                     VerticalSectionDivider(height = SubtotalRowHeight)
                     Row(modifier = Modifier.width(rightSectionWidth)) {
-                        Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .width(dayViewportWidth)
+                                    .clipToBounds()
+                                    .horizontalScroll(scrollState),
+                        ) {
                             Row {
                                 partDayTotals.forEachIndexed { index, value ->
                                     val style = dayStyles.getValue(days[index])
@@ -1063,7 +1089,13 @@ private fun MonthlyReportTable(
                 }
                 VerticalSectionDivider(height = TotalRowHeight)
                 Row(modifier = Modifier.width(rightSectionWidth)) {
-                    Box(modifier = Modifier.width(dayViewportWidth).horizontalScroll(scrollState)) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .width(dayViewportWidth)
+                                .clipToBounds()
+                                .horizontalScroll(scrollState),
+                    ) {
                         Row {
                             filteredDayTotals.forEachIndexed { index, value ->
                                 val style = dayStyles.getValue(days[index])

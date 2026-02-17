@@ -130,36 +130,68 @@ class GetMonthlyReportDocumentUseCase(
             .sortedBy { it.partNumber }
             .flatMap { part ->
                 val partDefectTotals = partDefectMap[part.id].orEmpty().filterValues { total -> total > 0 }
-                partDefectTotals.entries
-                    .groupBy { (defectTypeId, _) -> problemLabelByDefectId[defectTypeId].orEmpty() }
-                    .entries
-                    .sortedBy { it.key }
-                    .map { (problemLabel, groupedDefects) ->
-                        val groupedDefectTypeIds = groupedDefects.map { it.key }.toSet()
-                        val totalDefect = groupedDefects.sumOf { it.value }
-                        val dayValues =
-                            days.map { date ->
-                                groupedDefectTypeIds.sumOf { defectTypeId ->
-                                    partDefectDayMap[part.id to defectTypeId]?.get(date) ?: 0
+                val rawRows =
+                    partDefectTotals.entries
+                        .groupBy { (defectTypeId, _) -> problemLabelByDefectId[defectTypeId].orEmpty() }
+                        .entries
+                        .sortedBy { it.key }
+                        .map { (problemLabel, groupedDefects) ->
+                            val groupedDefectTypeIds = groupedDefects.map { it.key }.toSet()
+                            val totalDefect = groupedDefects.sumOf { it.value }
+                            val dayValues =
+                                days.map { date ->
+                                    groupedDefectTypeIds.sumOf { defectTypeId ->
+                                        partDefectDayMap[part.id to defectTypeId]?.get(date) ?: 0
+                                    }
                                 }
-                            }
-                        val perDefectTotals =
-                            defectTypeOrder.map { defectTypeId ->
-                                groupedDefects
-                                    .filter { it.key == defectTypeId }
-                                    .sumOf { it.value }
-                            }
-                        MonthlyReportRow(
-                            partId = part.id,
-                            partNumber = part.partNumber,
-                            uniqCode = part.uniqCode,
-                            problemItems = listOf(problemLabel),
-                            sketchPath = part.picturePath,
-                            dayValues = dayValues,
-                            defectTotals = perDefectTotals,
-                            totalDefect = totalDefect,
-                        )
-                    }
+                            val perDefectTotals =
+                                defectTypeOrder.map { defectTypeId ->
+                                    groupedDefects
+                                        .filter { it.key == defectTypeId }
+                                        .sumOf { it.value }
+                                }
+                            MonthlyReportRow(
+                                partId = part.id,
+                                partNumber = part.partNumber,
+                                uniqCode = part.uniqCode,
+                                problemItems = listOf(problemLabel),
+                                sketchPath = part.picturePath,
+                                dayValues = dayValues,
+                                defectTotals = perDefectTotals,
+                                totalDefect = totalDefect,
+                            )
+                        }
+                mergeRowsByProblemItem(rawRows)
             }
     }
+
+    private fun mergeRowsByProblemItem(rows: List<MonthlyReportRow>): List<MonthlyReportRow> =
+        rows
+            .groupBy { row ->
+                DefectNameSanitizer
+                    .canonicalKey(row.problemItems.joinToString(" / "))
+                    .ifBlank { row.problemItems.joinToString(" / ") }
+            }.toList()
+            .sortedBy { it.first }
+            .map { (problemLabel, groupedRows) ->
+                val base = groupedRows.first()
+                val dayValues =
+                    base.dayValues.indices.map { index ->
+                        groupedRows.sumOf { row -> row.dayValues.getOrElse(index) { 0 } }
+                    }
+                val defectTotals =
+                    base.defectTotals.indices.map { index ->
+                        groupedRows.sumOf { row -> row.defectTotals.getOrElse(index) { 0 } }
+                    }
+                MonthlyReportRow(
+                    partId = base.partId,
+                    partNumber = base.partNumber,
+                    uniqCode = base.uniqCode,
+                    problemItems = listOf(problemLabel),
+                    sketchPath = base.sketchPath,
+                    dayValues = dayValues,
+                    defectTotals = defectTotals,
+                    totalDefect = groupedRows.sumOf { it.totalDefect },
+                )
+            }
 }
