@@ -52,37 +52,7 @@ class GetMonthlyReportDocumentUseCase(
                 .mapValues { (_, items) -> items.associateBy({ it.date }, { it.totalDefect }) }
 
         val days = (1..month.lengthOfMonth()).map { month.atDay(it) }
-
-        val rows =
-            parts
-                .sortedBy { it.partNumber }
-                .flatMap { part ->
-                    defectTypes.mapNotNull { defect ->
-                        val totalDefect = partDefectMap[part.id]?.get(defect.id) ?: 0
-                        if (totalDefect <= 0) {
-                            null
-                        } else {
-                            val dayValues =
-                                days.map { date ->
-                                    partDefectDayMap[part.id to defect.id]?.get(date) ?: 0
-                                }
-                            val perDefectTotals =
-                                defectTypes.map { candidate ->
-                                    if (candidate.id == defect.id) totalDefect else 0
-                                }
-                            MonthlyReportRow(
-                                partId = part.id,
-                                partNumber = part.partNumber,
-                                uniqCode = part.uniqCode,
-                                problemItems = listOf(problemItemLabel(defect)),
-                                sketchPath = part.picturePath,
-                                dayValues = dayValues,
-                                defectTotals = perDefectTotals,
-                                totalDefect = totalDefect,
-                            )
-                        }
-                    }
-                }
+        val rows = buildRows(parts, defectTypes, partDefectMap, partDefectDayMap, days)
 
         val dayTotals =
             days.mapIndexed { index, _ ->
@@ -146,4 +116,50 @@ class GetMonthlyReportDocumentUseCase(
 
     private fun problemItemLabel(defect: DefectType): String =
         DefectNameSanitizer.normalizeDisplay(defect.name).ifBlank { defect.name.trim() }
+
+    private fun buildRows(
+        parts: List<id.co.nierstyd.mutugemba.domain.Part>,
+        defectTypes: List<DefectType>,
+        partDefectMap: Map<Long, Map<Long, Int>>,
+        partDefectDayMap: Map<Pair<Long, Long>, Map<java.time.LocalDate, Int>>,
+        days: List<java.time.LocalDate>,
+    ): List<MonthlyReportRow> {
+        val problemLabelByDefectId = defectTypes.associate { it.id to problemItemLabel(it) }
+        val defectTypeOrder = defectTypes.map { it.id }
+        return parts
+            .sortedBy { it.partNumber }
+            .flatMap { part ->
+                val partDefectTotals = partDefectMap[part.id].orEmpty().filterValues { total -> total > 0 }
+                partDefectTotals.entries
+                    .groupBy { (defectTypeId, _) -> problemLabelByDefectId[defectTypeId].orEmpty() }
+                    .entries
+                    .sortedBy { it.key }
+                    .map { (problemLabel, groupedDefects) ->
+                        val groupedDefectTypeIds = groupedDefects.map { it.key }.toSet()
+                        val totalDefect = groupedDefects.sumOf { it.value }
+                        val dayValues =
+                            days.map { date ->
+                                groupedDefectTypeIds.sumOf { defectTypeId ->
+                                    partDefectDayMap[part.id to defectTypeId]?.get(date) ?: 0
+                                }
+                            }
+                        val perDefectTotals =
+                            defectTypeOrder.map { defectTypeId ->
+                                groupedDefects
+                                    .filter { it.key == defectTypeId }
+                                    .sumOf { it.value }
+                            }
+                        MonthlyReportRow(
+                            partId = part.id,
+                            partNumber = part.partNumber,
+                            uniqCode = part.uniqCode,
+                            problemItems = listOf(problemLabel),
+                            sketchPath = part.picturePath,
+                            dayValues = dayValues,
+                            defectTotals = perDefectTotals,
+                            totalDefect = totalDefect,
+                        )
+                    }
+            }
+    }
 }

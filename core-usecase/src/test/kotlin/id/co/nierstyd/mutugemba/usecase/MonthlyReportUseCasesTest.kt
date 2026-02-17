@@ -47,10 +47,12 @@ class MonthlyReportUseCasesTest {
         assertEquals(1, document.totals.dayTotals[1])
         assertEquals(listOf(5, 1), document.totals.defectTotals)
         assertEquals(6, document.totals.totalDefect)
-        assertEquals(listOf("SCRATCH"), document.rows[0].problemItems)
-        assertEquals(3, document.rows[0].totalDefect)
-        assertEquals(listOf("CRACK"), document.rows[1].problemItems)
-        assertEquals(1, document.rows[1].totalDefect)
+        val totalsByLabel =
+            document.rows
+                .groupBy { it.problemItems.firstOrNull() }
+                .mapValues { (_, rows) -> rows.sumOf { it.totalDefect } }
+        assertEquals(5, totalsByLabel["SCRATCH"])
+        assertEquals(1, totalsByLabel["CRACK"])
         assertEquals("Rina", document.header.picName)
     }
 
@@ -208,14 +210,73 @@ class MonthlyReportUseCasesTest {
         val masterRepository = FakeMasterRepository(lines = listOf(line), defectTypes = defectTypes)
 
         val document = GetMonthlyReportDocumentUseCase(repository, masterRepository).execute(line.id, month)
-        val firstRowDayValues = document.rows.first().dayValues
+        val partOneScratchRow =
+            document.rows.first { row ->
+                row.partId == 1L && row.problemItems.firstOrNull() == "SCRATCH"
+            }
 
         assertEquals(month.lengthOfMonth(), document.days.size)
         assertEquals(3, document.rows.size)
-        assertEquals(4, firstRowDayValues[0] + firstRowDayValues[1])
+        assertEquals(4, partOneScratchRow.dayValues[0] + partOneScratchRow.dayValues[1])
         assertEquals(listOf(7, 2), document.totals.dayTotals.take(2))
         assertEquals(listOf(7, 2), document.totals.defectTotals)
         assertEquals(9, document.totals.totalDefect)
+    }
+
+    @Test
+    fun `merge duplicate normalized problem item labels per part`() {
+        val month = YearMonth.of(2026, 2)
+        val line = Line(id = 1L, code = LineCode.PRESS, name = "Press")
+        val parts =
+            listOf(
+                Part(
+                    id = 1L,
+                    partNumber = "PN-3001",
+                    model = "M3",
+                    name = "Part Merge",
+                    uniqCode = "UM1",
+                    material = "Fabric",
+                    picturePath = null,
+                    lineCode = line.code,
+                ),
+            )
+        val defectTypes =
+            listOf(
+                DefectType(1L, "D1", "(AA1) SEWING MIRING", "Surface", DefectSeverity.NORMAL),
+                DefectType(2L, "D2", "SEWING MIRING", "Surface", DefectSeverity.NORMAL),
+            )
+        val defectTotals =
+            listOf(
+                MonthlyPartDefectTotal(1L, 1L, 3),
+                MonthlyPartDefectTotal(1L, 2L, 5),
+            )
+        val defectDayTotals =
+            listOf(
+                MonthlyPartDefectDayTotal(1L, 1L, month.atDay(1), 1),
+                MonthlyPartDefectDayTotal(1L, 1L, month.atDay(2), 2),
+                MonthlyPartDefectDayTotal(1L, 2L, month.atDay(1), 4),
+                MonthlyPartDefectDayTotal(1L, 2L, month.atDay(3), 1),
+            )
+        val repository =
+            MonthlyReportFakeInspectionRepository(
+                monthlyParts = parts,
+                monthlyDayDefects = emptyList(),
+                monthlyDefectTotals = defectTotals,
+                monthlyDefectDayTotals = defectDayTotals,
+                summaries = emptyList(),
+            )
+        val masterRepository = FakeMasterRepository(lines = listOf(line), defectTypes = defectTypes)
+
+        val document = GetMonthlyReportDocumentUseCase(repository, masterRepository).execute(line.id, month)
+
+        assertEquals(1, document.rows.size)
+        assertEquals(listOf("SEWING MIRING"), document.rows.first().problemItems)
+        assertEquals(8, document.rows.first().totalDefect)
+        assertEquals(5, document.rows.first().dayValues[0])
+        assertEquals(2, document.rows.first().dayValues[1])
+        assertEquals(1, document.rows.first().dayValues[2])
+        assertEquals(listOf(5, 3), document.rows.first().defectTotals)
+        assertEquals(8, document.totals.totalDefect)
     }
 
     private fun buildAggregateFixture(): AggregateFixture {
