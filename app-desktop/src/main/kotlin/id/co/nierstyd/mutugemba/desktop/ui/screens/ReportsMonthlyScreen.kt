@@ -88,6 +88,7 @@ private val DocumentWidth = 1140.dp
 private val DocumentMinHeight = 760.dp
 private val HeaderRowHeight = 32.dp
 private val SubHeaderRowHeight = 32.dp
+private val PartSectionHeaderHeight = 28.dp
 private val BodyRowHeight = 42.dp
 private val SubtotalRowHeight = 28.dp
 private val TotalRowHeight = 30.dp
@@ -913,6 +914,14 @@ private fun MonthlyReportTable(
                         ?.let { sketchPath -> sketchCache[sketchPath] }
 
                 Row(modifier = Modifier.fillMaxWidth()) {
+                    TablePartSectionHeader(
+                        text =
+                            "Part ${partSample.uniqCode} - ${partSample.partNumber} " +
+                                "(${rowsForPart.size} jenis NG)",
+                        width = leftColumnsWidth + SectionDividerWidth + rightSectionWidth,
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.width(leftColumnsWidth),
                     ) {
@@ -985,7 +994,7 @@ private fun MonthlyReportTable(
                             backgroundColor = SubtotalHighlight,
                         )
                         TableSubtotalCell(
-                            text = AppStrings.ReportsMonthly.TableSubtotal,
+                            text = "${AppStrings.ReportsMonthly.TableSubtotal} ${partSample.uniqCode}",
                             width = ProblemItemColumnWidth,
                             height = SubtotalRowHeight,
                             backgroundColor = SubtotalHighlight,
@@ -1017,7 +1026,7 @@ private fun MonthlyReportTable(
                         )
                     }
                 }
-                PartDivider(thickness = 2.dp, color = NeutralBorder.copy(alpha = 0.9f))
+                PartDivider(thickness = 3.dp, color = BrandBlue.copy(alpha = 0.28f))
             }
 
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -1115,6 +1124,30 @@ private fun RowScope.TableHeaderCell(
             color = textColor,
             maxLines = 1,
             textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun TablePartSectionHeader(
+    text: String,
+    width: Dp,
+) {
+    Box(
+        modifier =
+            Modifier
+                .width(width)
+                .height(PartSectionHeaderHeight)
+                .border(1.dp, NeutralBorder)
+                .background(BrandBlue.copy(alpha = 0.08f))
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
+            color = NeutralText,
+            maxLines = 1,
         )
     }
 }
@@ -1228,7 +1261,7 @@ private fun MonthlyDocumentModeSwitch(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "Pratinjau dipercepat saat data bulanan besar.",
+                text = "Gunakan Dokumen Penuh untuk pratinjau cetak A4 landscape per halaman.",
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
