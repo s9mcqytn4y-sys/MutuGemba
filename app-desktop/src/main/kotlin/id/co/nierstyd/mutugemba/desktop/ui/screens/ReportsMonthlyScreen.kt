@@ -60,6 +60,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
@@ -88,9 +89,9 @@ private val SubHeaderRowHeight = 32.dp
 private val BodyRowHeight = 40.dp
 private val SubtotalRowHeight = 26.dp
 private val TotalRowHeight = 30.dp
-private val SketchColumnWidth = 56.dp
-private val PartNumberColumnWidth = 150.dp
-private val ProblemItemColumnWidth = 220.dp
+private val SketchColumnWidth = 96.dp
+private val PartNumberColumnWidth = 180.dp
+private val ProblemItemColumnWidth = 260.dp
 private val DayColumnWidth = 32.dp
 private val TotalColumnWidth = 80.dp
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
@@ -634,9 +635,9 @@ private fun MonthlyReportTable(
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
     searchQuery: String,
 ) {
+    val keyword = searchQuery.trim().lowercase()
     val filteredRows =
         document.rows.filter { row ->
-            val keyword = searchQuery.trim().lowercase()
             if (keyword.isBlank()) {
                 true
             } else {
@@ -649,6 +650,14 @@ private fun MonthlyReportTable(
         MonthlyReportEmpty()
         return
     }
+    val groupedRows =
+        filteredRows
+            .groupBy { it.partId }
+            .toList()
+            .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber ?: "" }
+            .map { (_, rows) ->
+                rows.sortedBy { row -> row.problemItems.firstOrNull().orEmpty() }
+            }
 
     val scrollState = rememberScrollState()
     val days = document.days
@@ -666,6 +675,7 @@ private fun MonthlyReportTable(
             filteredRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
         }
     val filteredGrandTotal = filteredRows.sumOf { it.totalDefect }
+    val markerProfile = remember(filteredDayTotals) { DayMarkerProfile.from(filteredDayTotals) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
@@ -725,51 +735,71 @@ private fun MonthlyReportTable(
             }
         }
 
-        filteredRows.forEachIndexed { index, row ->
-            val rowBackground = if (index % 2 == 0) NeutralSurface else NeutralLight
-            val dynamicBodyHeight = BodyRowHeight + 14.dp * (row.problemItems.size.coerceAtLeast(1) - 1)
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
-                    SketchCell(
-                        sketchPath = row.sketchPath,
-                        width = SketchColumnWidth,
-                        height = dynamicBodyHeight,
-                        backgroundColor = rowBackground,
-                    )
-                    TableBodyCell(
-                        text = formatPartNumber(row.partNumber, row.uniqCode),
-                        width = PartNumberColumnWidth,
-                        height = dynamicBodyHeight,
-                        backgroundColor = rowBackground,
-                        maxLines = 2,
-                    )
-                    TableBodyCell(
-                        text = formatProblemItems(row.problemItems),
-                        width = ProblemItemColumnWidth,
-                        height = dynamicBodyHeight,
-                        backgroundColor = rowBackground,
-                        maxLines = 12,
-                    )
+        groupedRows.forEachIndexed { groupIndex, rowsForPart ->
+            val partSample = rowsForPart.first()
+            val partDayTotals =
+                days.mapIndexed { index, _ ->
+                    rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
                 }
-                Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                    row.dayValues.forEachIndexed { index, value ->
-                        val style = dayStyles.getValue(days[index])
-                        TableBodyCell(
-                            text = value.toString(),
-                            width = DayColumnWidth,
+            val partTotal = rowsForPart.sumOf { it.totalDefect }
+
+            rowsForPart.forEachIndexed { rowIndex, row ->
+                val rowBackground = if ((groupIndex + rowIndex) % 2 == 0) NeutralSurface else NeutralLight
+                val dynamicBodyHeight = BodyRowHeight
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth),
+                    ) {
+                        SketchCell(
+                            sketchPath = if (rowIndex == 0) partSample.sketchPath else null,
+                            width = SketchColumnWidth,
                             height = dynamicBodyHeight,
-                            backgroundColor = style.bodyBackground,
-                            alignCenter = true,
-                            textColor = style.bodyTextColor,
+                            backgroundColor = rowBackground,
+                            showPlaceholder = rowIndex == 0,
+                        )
+                        TableBodyCell(
+                            text = if (rowIndex == 0) formatPartNumber(row.partNumber, row.uniqCode) else "",
+                            width = PartNumberColumnWidth,
+                            height = dynamicBodyHeight,
+                            backgroundColor = rowBackground,
+                            maxLines = 2,
+                        )
+                        TableBodyCell(
+                            text = formatProblemItems(row.problemItems),
+                            width = ProblemItemColumnWidth,
+                            height = dynamicBodyHeight,
+                            backgroundColor = rowBackground,
+                            maxLines = 2,
                         )
                     }
-                    TableBodyCell(
-                        text = row.totalDefect.toString(),
-                        width = TotalColumnWidth,
-                        height = dynamicBodyHeight,
-                        backgroundColor = rowBackground,
-                        alignCenter = true,
-                    )
+                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
+                        row.dayValues.forEachIndexed { index, value ->
+                            val style = dayStyles.getValue(days[index])
+                            val marker =
+                                DayMarkerCellStyle.resolve(
+                                    value = value,
+                                    totalForDay = filteredDayTotals[index],
+                                    profile = markerProfile,
+                                    baseBackground = style.bodyBackground,
+                                    baseTextColor = style.bodyTextColor,
+                                )
+                            TableBodyCell(
+                                text = value.toString(),
+                                width = DayColumnWidth,
+                                height = dynamicBodyHeight,
+                                backgroundColor = marker.backgroundColor,
+                                alignCenter = true,
+                                textColor = marker.textColor,
+                            )
+                        }
+                        TableBodyCell(
+                            text = row.totalDefect.toString(),
+                            width = TotalColumnWidth,
+                            height = dynamicBodyHeight,
+                            backgroundColor = rowBackground,
+                            alignCenter = true,
+                        )
+                    }
                 }
             }
 
@@ -789,19 +819,27 @@ private fun MonthlyReportTable(
                     )
                 }
                 Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                    row.dayValues.forEachIndexed { index, value ->
+                    partDayTotals.forEachIndexed { index, value ->
                         val style = dayStyles.getValue(days[index])
+                        val marker =
+                            DayMarkerCellStyle.resolve(
+                                value = value,
+                                totalForDay = filteredDayTotals[index],
+                                profile = markerProfile,
+                                baseBackground = style.subtotalBackground,
+                                baseTextColor = style.bodyTextColor,
+                            )
                         TableSubtotalCell(
                             text = value.toString(),
                             width = DayColumnWidth,
                             height = SubtotalRowHeight,
                             alignCenter = true,
-                            backgroundColor = style.subtotalBackground,
-                            textColor = style.bodyTextColor,
+                            backgroundColor = marker.backgroundColor,
+                            textColor = marker.textColor,
                         )
                     }
                     TableSubtotalCell(
-                        text = row.totalDefect.toString(),
+                        text = partTotal.toString(),
                         width = TotalColumnWidth,
                         height = SubtotalRowHeight,
                         alignCenter = true,
@@ -980,6 +1018,57 @@ private fun RowScope.TableFooterCell(
     }
 }
 
+private data class DayMarkerProfile(
+    val peakTotal: Int,
+    val alertThreshold: Int,
+) {
+    companion object {
+        fun from(dayTotals: List<Int>): DayMarkerProfile {
+            val peak = dayTotals.maxOrNull() ?: 0
+            if (peak <= 0) {
+                return DayMarkerProfile(peakTotal = 0, alertThreshold = 0)
+            }
+            val average = dayTotals.average()
+            val threshold =
+                kotlin.math
+                    .ceil(average * 1.35)
+                    .toInt()
+                    .coerceAtLeast(1)
+            return DayMarkerProfile(peakTotal = peak, alertThreshold = threshold)
+        }
+    }
+}
+
+private data class DayMarkerCellStyle(
+    val backgroundColor: Color,
+    val textColor: Color,
+) {
+    companion object {
+        fun resolve(
+            value: Int,
+            totalForDay: Int,
+            profile: DayMarkerProfile,
+            baseBackground: Color,
+            baseTextColor: Color,
+        ): DayMarkerCellStyle =
+            when {
+                value <= 0 || totalForDay <= 0 ->
+                    DayMarkerCellStyle(baseBackground, baseTextColor)
+                totalForDay == profile.peakTotal ->
+                    DayMarkerCellStyle(
+                        backgroundColor = StatusError.copy(alpha = 0.14f),
+                        textColor = StatusError,
+                    )
+                totalForDay >= profile.alertThreshold ->
+                    DayMarkerCellStyle(
+                        backgroundColor = BrandBlue.copy(alpha = 0.12f),
+                        textColor = BrandBlue,
+                    )
+                else -> DayMarkerCellStyle(baseBackground, baseTextColor)
+            }
+    }
+}
+
 private data class DayCellStyle(
     val hasInput: Boolean,
     val headerBackground: Color,
@@ -1063,6 +1152,7 @@ private fun SketchCell(
     width: Dp,
     height: Dp,
     backgroundColor: Color,
+    showPlaceholder: Boolean = true,
 ) {
     Box(
         modifier =
@@ -1079,10 +1169,10 @@ private fun SketchCell(
             Image(
                 bitmap = bitmap,
                 contentDescription = AppStrings.Inspection.PartImageDescription,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxWidth().height(height - 6.dp),
             )
-        } else {
+        } else if (showPlaceholder) {
             Text(
                 text = AppStrings.ReportsMonthly.TableSketch,
                 style = MaterialTheme.typography.caption,
@@ -1118,7 +1208,8 @@ private fun MonthlyReportLegend() {
             LegendChip(label = "Terisi", color = StatusSuccess)
             LegendChip(label = "Libur/Weekend", color = StatusWarning)
             LegendChip(label = "Belum Input", color = NeutralTextMuted)
-            LegendChip(label = "Grand Total", color = BrandBlue)
+            LegendChip(label = "Hari Puncak NG", color = StatusError)
+            LegendChip(label = "Hari Waspada", color = BrandBlue)
             LegendChip(label = "Sub-total", color = BrandBlue.copy(alpha = 0.4f))
         }
     }

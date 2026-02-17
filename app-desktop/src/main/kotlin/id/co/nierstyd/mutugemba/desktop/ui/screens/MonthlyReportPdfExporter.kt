@@ -412,86 +412,102 @@ object MonthlyReportPdfExporter {
 
         cursorY -= subHeaderHeight
 
-        spec.rows.forEachIndexed { index, row ->
-            val rowBackground = if (index % 2 == 0) Color.WHITE else Color(250, 250, 250)
-            drawCell(
-                content,
-                left,
-                cursorY,
-                sketchWidth,
-                rowHeight,
-                "-",
-                rowBackground,
-                fontRegular,
-                7.5f,
-                alignCenter = true,
-            )
-            val partLabel = "${row.partNumber}(${row.uniqCode})"
-            drawCell(
-                content,
-                left + sketchWidth,
-                cursorY,
-                partWidth,
-                rowHeight,
-                partLabel,
-                rowBackground,
-                fontRegular,
-                7.5f,
-            )
-            drawCell(
-                content,
-                left + sketchWidth + partWidth,
-                cursorY,
-                problemWidth,
-                rowHeight,
-                formatProblemItems(row.problemItems),
-                rowBackground,
-                fontRegular,
-                7.5f,
-            )
+        var visualIndex = 0
+        val groupedRows =
+            spec.rows
+                .groupBy { it.partId }
+                .toList()
+                .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber ?: "" }
+        groupedRows.forEach { (_, partRows) ->
+            val partDayTotals = MutableList(dayCount) { 0 }
+            val partDefectTotals = MutableList(defectCount) { 0 }
+            var partTotal = 0
 
-            row.dayValues.take(dayCount).forEachIndexed { i, value ->
+            partRows.forEachIndexed { rowIndex, row ->
+                val rowBackground = if (visualIndex % 2 == 0) Color.WHITE else Color(250, 250, 250)
                 drawCell(
                     content,
-                    rightStart + (i * dayWidth),
+                    left,
                     cursorY,
-                    dayWidth,
+                    sketchWidth,
                     rowHeight,
-                    value.toString(),
+                    if (rowIndex == 0) "-" else "",
+                    rowBackground,
+                    fontRegular,
+                    7.5f,
+                    alignCenter = true,
+                )
+                val partLabel = if (rowIndex == 0) "${row.partNumber}(${row.uniqCode})" else ""
+                drawCell(
+                    content,
+                    left + sketchWidth,
+                    cursorY,
+                    partWidth,
+                    rowHeight,
+                    partLabel,
+                    rowBackground,
+                    fontRegular,
+                    7.5f,
+                )
+                drawCell(
+                    content,
+                    left + sketchWidth + partWidth,
+                    cursorY,
+                    problemWidth,
+                    rowHeight,
+                    formatProblemItems(row.problemItems),
+                    rowBackground,
+                    fontRegular,
+                    7.5f,
+                )
+
+                row.dayValues.take(dayCount).forEachIndexed { i, value ->
+                    partDayTotals[i] += value
+                    drawCell(
+                        content,
+                        rightStart + (i * dayWidth),
+                        cursorY,
+                        dayWidth,
+                        rowHeight,
+                        value.toString(),
+                        rowBackground,
+                        fontRegular,
+                        7f,
+                        alignCenter = true,
+                    )
+                }
+                row.defectTotals.take(defectCount).forEachIndexed { i, value ->
+                    partDefectTotals[i] += value
+                    drawCell(
+                        content,
+                        rightStart + dayWidthTotal + (i * defectWidth),
+                        cursorY,
+                        defectWidth,
+                        rowHeight,
+                        value.toString(),
+                        rowBackground,
+                        fontRegular,
+                        7f,
+                        alignCenter = true,
+                    )
+                }
+                partTotal += row.totalDefect
+                drawCell(
+                    content,
+                    rightStart + dayWidthTotal + defectWidthTotal,
+                    cursorY,
+                    totalWidth,
+                    rowHeight,
+                    row.totalDefect.toString(),
                     rowBackground,
                     fontRegular,
                     7f,
                     alignCenter = true,
                 )
-            }
-            row.defectTotals.take(defectCount).forEachIndexed { i, value ->
-                drawCell(
-                    content,
-                    rightStart + dayWidthTotal + (i * defectWidth),
-                    cursorY,
-                    defectWidth,
-                    rowHeight,
-                    value.toString(),
-                    rowBackground,
-                    fontRegular,
-                    7f,
-                    alignCenter = true,
-                )
-            }
-            drawCell(
-                content,
-                rightStart + dayWidthTotal + defectWidthTotal,
-                cursorY,
-                totalWidth,
-                rowHeight,
-                row.totalDefect.toString(),
-                rowBackground,
-                fontRegular,
-                7f,
-                alignCenter = true,
-            )
 
-            cursorY -= rowHeight
+                cursorY -= rowHeight
+                visualIndex += 1
+            }
 
             drawCell(
                 content,
@@ -515,7 +531,7 @@ object MonthlyReportPdfExporter {
                 fontBold,
                 7f,
             )
-            row.dayValues.take(dayCount).forEachIndexed { i, value ->
+            partDayTotals.forEachIndexed { i, value ->
                 drawCell(
                     content,
                     rightStart + (i * dayWidth),
@@ -529,7 +545,7 @@ object MonthlyReportPdfExporter {
                     alignCenter = true,
                 )
             }
-            row.defectTotals.take(defectCount).forEachIndexed { i, value ->
+            partDefectTotals.forEachIndexed { i, value ->
                 drawCell(
                     content,
                     rightStart + dayWidthTotal + (i * defectWidth),
@@ -549,7 +565,7 @@ object MonthlyReportPdfExporter {
                 cursorY,
                 totalWidth,
                 subtotalHeight,
-                row.totalDefect.toString(),
+                partTotal.toString(),
                 subtotalBackground,
                 fontBold,
                 7f,
