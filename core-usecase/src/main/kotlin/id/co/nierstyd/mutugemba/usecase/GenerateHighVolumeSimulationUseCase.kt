@@ -35,6 +35,7 @@ class GenerateHighVolumeSimulationUseCase(
         val byCode: Map<String, DefectType>,
         val byCanonicalName: Map<String, DefectType>,
         val fallbackCodesByMaterial: Map<String, List<String>>,
+        val fallbackCodesByLine: Map<LineCode, List<String>>,
     )
 
     private data class SimulationBatchContext(
@@ -58,6 +59,7 @@ class GenerateHighVolumeSimulationUseCase(
             seed = seed,
         ).insertedRecords
 
+    @Suppress("LongMethod")
     fun executeWithSummary(
         days: Int = 45,
         density: Int = 4,
@@ -89,6 +91,7 @@ class GenerateHighVolumeSimulationUseCase(
                 byCode = defectTypes.associateBy { it.code.trim().uppercase() },
                 byCanonicalName = defectTypes.associateBy { DefectNameSanitizer.canonicalKey(it.name) },
                 fallbackCodesByMaterial = buildFallbackDefectCodesByMaterial(parts),
+                fallbackCodesByLine = buildFallbackDefectCodesByLine(parts),
             )
 
         repeat(safeDays) { dayOffset ->
@@ -97,6 +100,7 @@ class GenerateHighVolumeSimulationUseCase(
             lines.forEach { line ->
                 val lineParts = parts.filter { it.lineCode == line.code }
                 if (lineParts.isEmpty()) return@forEach
+                var insertedForLineOnDate = 0
 
                 val minBatchSize = minOf(8, lineParts.size)
                 val loadMultiplier = if (isWeekend) 0.55 else 1.0
@@ -127,7 +131,43 @@ class GenerateHighVolumeSimulationUseCase(
                             resolverContext = resolverContext,
                         )
                     inserted += lineInserted
+                    insertedForLineOnDate += lineInserted
                     insertedByLineId[line.id] = (insertedByLineId[line.id] ?: 0) + lineInserted
+                }
+
+                if (insertedForLineOnDate == 0) {
+                    val fallbackPart =
+                        lineParts.firstOrNull { part ->
+                            resolveCandidateDefects(
+                                part = part,
+                                lineCode = line.code,
+                                defectByCode = resolverContext.byCode,
+                                defectByCanonicalName = resolverContext.byCanonicalName,
+                                fallbackDefectCodesByMaterial = resolverContext.fallbackCodesByMaterial,
+                                fallbackDefectCodesByLine = resolverContext.fallbackCodesByLine,
+                            ).isNotEmpty()
+                        }
+                    if (fallbackPart != null) {
+                        val fallbackInserted =
+                            insertPartSimulation(
+                                part = fallbackPart,
+                                lineCode = line.code,
+                                batchContext =
+                                    SimulationBatchContext(
+                                        lineId = line.id,
+                                        lineName = line.name,
+                                        shiftId = shiftId,
+                                        date = date,
+                                        slotIndex = 0,
+                                        density = 1,
+                                        formatter = formatter,
+                                    ),
+                                random = random,
+                                resolverContext = resolverContext,
+                            )
+                        inserted += fallbackInserted
+                        insertedByLineId[line.id] = (insertedByLineId[line.id] ?: 0) + fallbackInserted
+                    }
                 }
             }
         }
@@ -157,6 +197,7 @@ class GenerateHighVolumeSimulationUseCase(
         defectByCode: Map<String, DefectType>,
         defectByCanonicalName: Map<String, DefectType>,
         fallbackDefectCodesByMaterial: Map<String, List<String>>,
+        fallbackDefectCodesByLine: Map<LineCode, List<String>>,
     ): List<DefectType> {
         val recommended =
             part.recommendedDefectCodes
@@ -174,9 +215,18 @@ class GenerateHighVolumeSimulationUseCase(
                         ?: defectByCanonicalName[DefectNameSanitizer.canonicalKey(code)]
                 }.filter { defect -> defect.lineCode == null || defect.lineCode == lineCode }
                 .distinctBy { it.id }
+        val inferredByLine =
+            fallbackDefectCodesByLine[lineCode]
+                .orEmpty()
+                .mapNotNull { code ->
+                    defectByCode[code.trim().uppercase()]
+                        ?: defectByCanonicalName[DefectNameSanitizer.canonicalKey(code)]
+                }.filter { defect -> defect.lineCode == null || defect.lineCode == lineCode }
+                .distinctBy { it.id }
         return when {
             recommended.isNotEmpty() -> recommended
             inferredByMaterial.isNotEmpty() -> inferredByMaterial
+            inferredByLine.isNotEmpty() -> inferredByLine
             else -> emptyList()
         }
     }
@@ -184,6 +234,21 @@ class GenerateHighVolumeSimulationUseCase(
     private fun buildFallbackDefectCodesByMaterial(parts: List<Part>): Map<String, List<String>> =
         parts
             .groupBy { it.material.trim().uppercase() }
+            .mapValues { (_, groupedParts) ->
+                groupedParts
+                    .flatMap { it.recommendedDefectCodes }
+                    .map { it.trim().uppercase() }
+                    .filter { it.isNotBlank() }
+                    .groupingBy { it }
+                    .eachCount()
+                    .entries
+                    .sortedByDescending { it.value }
+                    .map { it.key }
+            }
+
+    private fun buildFallbackDefectCodesByLine(parts: List<Part>): Map<LineCode, List<String>> =
+        parts
+            .groupBy { it.lineCode }
             .mapValues { (_, groupedParts) ->
                 groupedParts
                     .flatMap { it.recommendedDefectCodes }
@@ -212,6 +277,7 @@ class GenerateHighVolumeSimulationUseCase(
                     defectByCode = resolverContext.byCode,
                     defectByCanonicalName = resolverContext.byCanonicalName,
                     fallbackDefectCodesByMaterial = resolverContext.fallbackCodesByMaterial,
+                    fallbackDefectCodesByLine = resolverContext.fallbackCodesByLine,
                 )
             if (candidateDefects.isEmpty()) return@repeat
 

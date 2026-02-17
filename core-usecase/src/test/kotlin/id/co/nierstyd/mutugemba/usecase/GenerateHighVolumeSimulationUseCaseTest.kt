@@ -464,6 +464,73 @@ class GenerateHighVolumeSimulationUseCaseTest {
         assertEquals(LocalDate.now(), summary.endDate)
         assertEquals(summary.insertedRecords, summary.lineBreakdown.sumOf { it.insertedRecords })
     }
+
+    @Test
+    fun `fallback by line keeps simulation running for unmapped part with sibling mapping`() {
+        val inspectionRepository = RecordingInspectionRepository()
+        val useCase =
+            GenerateHighVolumeSimulationUseCase(
+                inspectionRepository = inspectionRepository,
+                masterDataRepository =
+                    FakeMasterDataRepository(
+                        lines = listOf(Line(id = 1L, code = LineCode.PRESS, name = "Press")),
+                        shifts =
+                            listOf(
+                                Shift(
+                                    id = 1L,
+                                    code = "S1",
+                                    name = "Shift 1",
+                                    startTime = "08:00",
+                                    endTime = "17:00",
+                                ),
+                            ),
+                        parts =
+                            listOf(
+                                Part(
+                                    id = 11L,
+                                    partNumber = "PN-A",
+                                    model = "M1",
+                                    name = "Mapped",
+                                    uniqCode = "U-1",
+                                    material = "FELT",
+                                    picturePath = null,
+                                    lineCode = LineCode.PRESS,
+                                    recommendedDefectCodes = listOf("DF-A"),
+                                ),
+                                Part(
+                                    id = 12L,
+                                    partNumber = "PN-B",
+                                    model = "M2",
+                                    name = "Unmapped",
+                                    uniqCode = "U-2",
+                                    material = "UNKNOWN-MAT",
+                                    picturePath = null,
+                                    lineCode = LineCode.PRESS,
+                                    recommendedDefectCodes = emptyList(),
+                                ),
+                            ),
+                        defects =
+                            listOf(
+                                DefectType(
+                                    id = 101L,
+                                    code = "DF-A",
+                                    name = "Scratch",
+                                    category = "ITEM_DEFECT",
+                                    severity = DefectSeverity.NORMAL,
+                                    lineCode = LineCode.PRESS,
+                                ),
+                            ),
+                    ),
+            )
+
+        val inserted = useCase.execute(days = 2, density = 2, seed = 99L)
+
+        assertTrue(inserted > 0)
+        assertTrue(
+            inspectionRepository.insertedInputs.any { input -> input.partId == 12L },
+            "Part tanpa mapping tetap harus dapat defect relevan dari profil line.",
+        )
+    }
 }
 
 private class RecordingInspectionRepository : InspectionRepository {
