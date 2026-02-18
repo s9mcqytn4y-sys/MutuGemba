@@ -45,8 +45,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
-import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
-import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
@@ -129,7 +127,6 @@ fun ReportsMonthlyScreen(
     var state by remember { mutableStateOf<MonthlyReportUiState>(MonthlyReportUiState.Loading) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
-    var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val summaryByDate =
         remember(dailySummaries, month, selectedLineId) {
@@ -170,11 +167,6 @@ fun ReportsMonthlyScreen(
         SectionHeader(
             title = AppStrings.ReportsMonthly.Title,
             subtitle = AppStrings.ReportsMonthly.Subtitle,
-        )
-        Text(
-            text = AppStrings.ReportsMonthly.Body,
-            style = MaterialTheme.typography.body2,
-            color = NeutralTextMuted,
         )
 
         MonthlyReportToolbar(
@@ -231,27 +223,8 @@ fun ReportsMonthlyScreen(
                 }
             },
         )
-        AppTextField(
-            spec =
-                FieldSpec(
-                    label = "Cari Part / Jenis NG",
-                    placeholder = "Cari part number, UNIQ, atau item defect",
-                    helperText = "Filter reaktif untuk membantu audit bulanan lebih cepat.",
-                ),
-            value = searchQuery,
-            onValueChange = { searchQuery = it.take(80) },
-            singleLine = true,
-        )
 
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            StatusBanner(
-                feedback =
-                    UserFeedback(
-                        FeedbackType.INFO,
-                        "${AppStrings.ReportsMonthly.InfoSync} ${AppStrings.ReportsMonthly.InfoHoliday}",
-                    ),
-                dense = true,
-            )
             feedback?.let {
                 StatusBanner(
                     feedback = it,
@@ -271,7 +244,6 @@ fun ReportsMonthlyScreen(
                     document = snapshot.document,
                     manualHolidays = manualHolidays,
                     summaryByDate = summaryByDate,
-                    searchQuery = searchQuery,
                 )
         }
     }
@@ -502,7 +474,6 @@ private fun MonthlyReportDocumentCard(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
-    searchQuery: String,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -533,7 +504,6 @@ private fun MonthlyReportDocumentCard(
                         document = document,
                         manualHolidays = manualHolidays,
                         summaryByDate = summaryByDate,
-                        searchQuery = searchQuery,
                     )
                     MonthlyReportLegend()
                     MonthlyReportSignature()
@@ -635,19 +605,8 @@ private fun MonthlyReportTable(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
-    searchQuery: String,
 ) {
-    val filteredRows =
-        document.rows.filter { row ->
-            val keyword = searchQuery.trim().lowercase()
-            if (keyword.isBlank()) {
-                true
-            } else {
-                row.partNumber.lowercase().contains(keyword) ||
-                    row.uniqCode.lowercase().contains(keyword) ||
-                    row.problemItems.any { it.lowercase().contains(keyword) }
-            }
-        }
+    val filteredRows = document.rows
     if (filteredRows.isEmpty()) {
         MonthlyReportEmpty()
         return
@@ -706,8 +665,15 @@ private fun MonthlyReportTable(
             .groupBy { it.partId }
             .toList()
             .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber.orEmpty() }
-    var currentPage by remember(searchQuery, groupedRows.size) { mutableStateOf(0) }
-    var compactMode by remember(searchQuery, groupedRows.size) { mutableStateOf(true) }
+    val activeDays = filteredDayTotals.count { it > 0 }
+    val activeParts =
+        groupedRows.count { (_, rows) ->
+            rows.any { row ->
+                visibleDayEntries.any { (dayIndex, _) -> row.dayValues.getOrElse(dayIndex) { 0 } > 0 }
+            }
+        }
+    var currentPage by remember(groupedRows.size) { mutableStateOf(0) }
+    var compactMode by remember(groupedRows.size) { mutableStateOf(true) }
     val pageCount =
         remember(groupedRows.size, compactMode) {
             if (!compactMode || groupedRows.isEmpty()) {
@@ -764,7 +730,9 @@ private fun MonthlyReportTable(
                 if (groupedRows.isEmpty()) {
                     "Part 0"
                 } else {
-                    "Part $visibleRangeStart-$visibleRangeEnd dari ${groupedRows.size}"
+                    "${AppStrings.ReportsMonthly.RangePrefix} " +
+                        "$visibleRangeStart-$visibleRangeEnd " +
+                        "${AppStrings.ReportsMonthly.Of} ${groupedRows.size}"
                 }
             Text(
                 text = summaryLabel,
@@ -776,25 +744,32 @@ private fun MonthlyReportTable(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SecondaryButton(
-                    text = if (compactMode) "Tampilkan Semua Part" else "Mode Ringkas Part",
+                    text =
+                        if (compactMode) {
+                            AppStrings.ReportsMonthly.ShowAllParts
+                        } else {
+                            AppStrings.ReportsMonthly.CompactMode
+                        },
                     onClick = { compactMode = !compactMode },
                 )
                 if (compactMode) {
                     PagerNavButton(
                         enabled = currentPage > 0,
                         icon = AppIcons.ChevronLeft,
-                        label = "Part Sebelumnya",
+                        label = AppStrings.ReportsMonthly.PreviousPartPage,
                         onClick = { currentPage = (currentPage - 1).coerceAtLeast(0) },
                     )
                     Text(
-                        text = "Halaman ${currentPage + 1}/$pageCount",
+                        text =
+                            "${AppStrings.ReportsMonthly.PagePrefix} " +
+                                "${currentPage + 1}/$pageCount",
                         style = MaterialTheme.typography.caption,
                         color = NeutralTextMuted,
                     )
                     PagerNavButton(
                         enabled = currentPage + 1 < pageCount,
                         icon = AppIcons.ChevronRight,
-                        label = "Part Berikutnya",
+                        label = AppStrings.ReportsMonthly.NextPartPage,
                         iconOnRight = true,
                         onClick = { currentPage = (currentPage + 1).coerceAtMost(pageCount - 1) },
                     )
@@ -806,28 +781,66 @@ private fun MonthlyReportTable(
             horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LineChip(label = "Semua Tanggal", selected = dayMarkerFilter == DayMarkerFilter.ALL, onClick = {
-                dayMarkerFilter = DayMarkerFilter.ALL
-                focusedDay = null
-            })
-            LineChip(label = "Terisi", selected = dayMarkerFilter == DayMarkerFilter.INPUT, onClick = {
-                dayMarkerFilter = DayMarkerFilter.INPUT
-                focusedDay = null
-            })
-            LineChip(label = "Libur", selected = dayMarkerFilter == DayMarkerFilter.HOLIDAY, onClick = {
-                dayMarkerFilter = DayMarkerFilter.HOLIDAY
-                focusedDay = null
-            })
-            LineChip(label = "Belum Input", selected = dayMarkerFilter == DayMarkerFilter.EMPTY, onClick = {
-                dayMarkerFilter = DayMarkerFilter.EMPTY
-                focusedDay = null
-            })
+            LineChip(
+                label = AppStrings.ReportsMonthly.FilterAllDates,
+                selected = dayMarkerFilter == DayMarkerFilter.ALL,
+                onClick = {
+                    dayMarkerFilter = DayMarkerFilter.ALL
+                    focusedDay = null
+                },
+            )
+            LineChip(
+                label = AppStrings.ReportsMonthly.FilterInputDates,
+                selected =
+                    dayMarkerFilter == DayMarkerFilter.INPUT,
+                onClick = {
+                    dayMarkerFilter = DayMarkerFilter.INPUT
+                    focusedDay = null
+                },
+            )
+            LineChip(
+                label = AppStrings.ReportsMonthly.FilterHolidayDates,
+                selected =
+                    dayMarkerFilter == DayMarkerFilter.HOLIDAY,
+                onClick = {
+                    dayMarkerFilter = DayMarkerFilter.HOLIDAY
+                    focusedDay = null
+                },
+            )
+            LineChip(
+                label = AppStrings.ReportsMonthly.FilterEmptyDates,
+                selected =
+                    dayMarkerFilter == DayMarkerFilter.EMPTY,
+                onClick = {
+                    dayMarkerFilter = DayMarkerFilter.EMPTY
+                    focusedDay = null
+                },
+            )
             if (focusedDay != null) {
                 SecondaryButton(
-                    text = "Buka Semua Kolom",
+                    text = AppStrings.ReportsMonthly.OpenAllColumns,
                     onClick = { focusedDay = null },
                 )
             }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MonthlyMetricChip(
+                label = AppStrings.ReportsMonthly.MetricActivePart,
+                value = activeParts.toString(),
+            )
+            MonthlyMetricChip(
+                label = AppStrings.ReportsMonthly.MetricActiveDay,
+                value = activeDays.toString(),
+            )
+            MonthlyMetricChip(
+                label = AppStrings.ReportsMonthly.TableTotalNg,
+                value = filteredGrandTotal.toString(),
+                emphasize = true,
+            )
         }
 
         Row(
@@ -904,7 +917,7 @@ private fun MonthlyReportTable(
                 }
             rowsForPart.forEachIndexed { rowIndex, row ->
                 val itemLabel = normalizeProblemItems(row.problemItems).firstOrNull().orEmpty()
-                val itemDisplay = itemLabel.ifBlank { "Tanpa Keterangan" }
+                val itemDisplay = itemLabel.ifBlank { AppStrings.ReportsMonthly.NoProblemLabel }
                 val rowTotal =
                     if (scopedDayView) {
                         visibleDayEntries.sumOf { (dayIndex, _) ->
@@ -956,13 +969,26 @@ private fun MonthlyReportTable(
                         visibleDayEntries.forEach { (dayIndex, day) ->
                             val style = dayStyles.getValue(day)
                             val value = row.dayValues.getOrElse(dayIndex) { 0 }
+                            val valueTextColor =
+                                when {
+                                    value <= 0 -> NeutralTextMuted
+                                    value >= 10 -> BrandBlue
+                                    else -> style.bodyTextColor
+                                }
+                            val valueBackground =
+                                when {
+                                    value <= 0 -> style.bodyBackground
+                                    value >= 10 -> BrandBlue.copy(alpha = 0.12f)
+                                    else -> style.bodyBackground.copy(alpha = 0.12f)
+                                }
                             TableBodyCell(
                                 text = value.toString(),
                                 width = DayColumnWidth,
                                 height = BodyRowHeight,
-                                backgroundColor = style.bodyBackground,
+                                backgroundColor = valueBackground,
                                 alignCenter = true,
-                                textColor = style.bodyTextColor,
+                                textColor = valueTextColor,
+                                fontWeight = if (value > 0) FontWeight.SemiBold else FontWeight.Normal,
                             )
                         }
                         TableBodyCell(
@@ -971,7 +997,8 @@ private fun MonthlyReportTable(
                             height = BodyRowHeight,
                             backgroundColor = rowBackground,
                             alignCenter = true,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = if (rowTotal > 0) FontWeight.SemiBold else FontWeight.Normal,
+                            textColor = if (rowTotal > 0) BrandBlue else NeutralTextMuted,
                         )
                     }
                 }
@@ -1352,6 +1379,36 @@ private fun PartDivider() {
 }
 
 @Composable
+private fun MonthlyMetricChip(
+    label: String,
+    value: String,
+    emphasize: Boolean = false,
+) {
+    val background = if (emphasize) BrandBlue.copy(alpha = 0.12f) else NeutralLight
+    val content = if (emphasize) BrandBlue else NeutralText
+    Surface(
+        color = background,
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text = label, style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            Text(
+                text = value,
+                style = MaterialTheme.typography.caption,
+                color = content,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
 private fun MonthlyReportLegend() {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1362,11 +1419,11 @@ private fun MonthlyReportLegend() {
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LegendChip(label = "Terisi", color = StatusSuccess)
-            LegendChip(label = "Libur/Weekend", color = StatusWarning)
-            LegendChip(label = "Belum Input", color = NeutralTextMuted)
-            LegendChip(label = "Grand Total", color = BrandBlue)
-            LegendChip(label = "Sub-total", color = BrandBlue.copy(alpha = 0.4f))
+            LegendChip(label = AppStrings.ReportsMonthly.LegendInput, color = StatusSuccess)
+            LegendChip(label = AppStrings.ReportsMonthly.LegendHoliday, color = StatusWarning)
+            LegendChip(label = AppStrings.ReportsMonthly.LegendEmpty, color = NeutralTextMuted)
+            LegendChip(label = AppStrings.ReportsMonthly.LegendGrandTotal, color = BrandBlue)
+            LegendChip(label = AppStrings.ReportsMonthly.LegendSubtotal, color = BrandBlue.copy(alpha = 0.4f))
         }
     }
 }
