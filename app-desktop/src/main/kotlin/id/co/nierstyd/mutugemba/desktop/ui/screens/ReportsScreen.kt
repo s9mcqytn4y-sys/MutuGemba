@@ -1372,9 +1372,21 @@ private fun DocumentEntryTable(
         Row(modifier = Modifier.fillMaxWidth()) {
             DocumentFooterCell(text = AppStrings.Reports.DocumentTableTotal, weight = 0.45f + 1.05f + 1.2f + 1.55f)
             DocumentFooterCell(text = totals.totalCheck.toString(), weight = 0.8f, alignCenter = true)
-            DocumentFooterCell(text = totals.totalDefect.toString(), weight = 0.7f, alignCenter = true)
+            DocumentFooterCell(
+                text = totals.totalDefect.toString(),
+                weight = 0.7f,
+                alignCenter = true,
+                textColor = MaterialTheme.colors.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
             DocumentFooterCell(text = totals.totalOk.toString(), weight = 0.7f, alignCenter = true)
-            DocumentFooterCell(text = NumberFormats.formatPercent(totals.ratio), weight = 0.8f, alignCenter = true)
+            DocumentFooterCell(
+                text = NumberFormats.formatPercent(totals.ratio),
+                weight = 0.8f,
+                alignCenter = true,
+                textColor = if (totals.ratio >= 0.15) StatusError else NeutralText,
+                fontWeight = if (totals.ratio >= 0.15) FontWeight.SemiBold else FontWeight.Normal,
+            )
         }
     }
 }
@@ -1438,6 +1450,8 @@ private fun RowScope.DocumentFooterCell(
     text: String,
     weight: Float,
     alignCenter: Boolean = false,
+    textColor: androidx.compose.ui.graphics.Color = NeutralText,
+    fontWeight: FontWeight = FontWeight.Normal,
 ) {
     Box(
         modifier =
@@ -1448,7 +1462,7 @@ private fun RowScope.DocumentFooterCell(
                 .padding(Spacing.sm),
         contentAlignment = if (alignCenter) Alignment.Center else Alignment.CenterStart,
     ) {
-        Text(text = text, style = MaterialTheme.typography.body2, color = NeutralText)
+        Text(text = text, style = MaterialTheme.typography.body2.copy(fontWeight = fontWeight), color = textColor)
     }
 }
 

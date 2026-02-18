@@ -79,6 +79,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
@@ -86,6 +87,7 @@ import id.co.nierstyd.mutugemba.domain.InspectionInputDefaults
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.InspectionTimeSlot
 import id.co.nierstyd.mutugemba.domain.Line
+import id.co.nierstyd.mutugemba.domain.LineCode
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
@@ -428,7 +430,7 @@ private class InspectionFormState(
         get() = selectedLine?.code?.label ?: AppStrings.Common.Placeholder
 
     val shiftLabel: String
-        get() = selectedShift?.let { "${it.code} • ${it.name}" } ?: AppStrings.Inspection.DefaultShiftLabel
+        get() = selectedShift?.let { "${it.code} - ${it.name}" } ?: AppStrings.Inspection.DefaultShiftLabel
 
     val summaryTotals: SummaryTotals
         get() {
@@ -536,11 +538,14 @@ private class InspectionFormState(
                 .filter { it.lineCode == null || it.lineCode == part.lineCode }
                 .sortedBy { it.name }
         if (mapped.isNotEmpty()) {
-            return (mapped + customForLine).distinctBy { it.id }
+            return sanitizeDefectTypesForLine((mapped + customForLine).distinctBy { it.id }, part.lineCode)
         }
-        return defectTypes
-            .filter { it.lineCode == null || it.lineCode == part.lineCode }
-            .sortedBy { it.name }
+        return sanitizeDefectTypesForLine(
+            defectTypes
+                .filter { it.lineCode == null || it.lineCode == part.lineCode }
+                .sortedBy { it.name },
+            part.lineCode,
+        )
     }
 
     fun defectTypesForPart(partId: Long): List<DefectType> {
@@ -556,10 +561,13 @@ private class InspectionFormState(
     fun availableDefectTypesForPart(partId: Long): List<DefectType> {
         val part = parts.firstOrNull { it.id == partId } ?: return emptyList()
         val active = defectTypesForPart(partId).map { it.id }.toSet()
-        return defectTypes
-            .filter { it.lineCode == null || it.lineCode == part.lineCode }
-            .filter { it.id !in active }
-            .sortedBy { it.name }
+        return sanitizeDefectTypesForLine(
+            defectTypes
+                .filter { it.lineCode == null || it.lineCode == part.lineCode }
+                .filter { it.id !in active }
+                .sortedBy { it.name },
+            part.lineCode,
+        )
     }
 
     fun addDefectToPart(
@@ -868,6 +876,40 @@ private class InspectionFormState(
             expandedPartIds[validPartIds.first()] = true
         }
     }
+
+    private fun sanitizeDefectTypesForLine(
+        source: List<DefectType>,
+        lineCode: LineCode,
+    ): List<DefectType> {
+        val byName = linkedMapOf<String, DefectType>()
+        source.forEach { defect ->
+            val display = DefectNameSanitizer.normalizeDisplay(defect.name)
+            if (!DefectNameSanitizer.isMeaningfulItem(display)) return@forEach
+            val key = DefectNameSanitizer.canonicalKey(display)
+            if (key.isBlank()) return@forEach
+
+            val normalized = defect.copy(name = display)
+            val existing = byName[key]
+            if (existing == null) {
+                byName[key] = normalized
+                return@forEach
+            }
+            if (defectLinePriority(normalized, lineCode) > defectLinePriority(existing, lineCode)) {
+                byName[key] = normalized
+            }
+        }
+        return byName.values.toList()
+    }
+
+    private fun defectLinePriority(
+        defect: DefectType,
+        lineCode: LineCode,
+    ): Int =
+        when (defect.lineCode) {
+            lineCode -> 2
+            null -> 1
+            else -> 0
+        }
 
     private fun saveDefaults() {
         dependencies.defaults.saveDefaults.execute(

@@ -2,6 +2,7 @@ package id.co.nierstyd.mutugemba.domain
 
 object DefectNameSanitizer {
     private val leadingCodePattern = Regex("^\\([^)]+\\)\\s*")
+    private val leadingBulletPattern = Regex("^[\\-•*._]+\\s*")
     private val trailingVariantPattern = Regex("\\s+[A-Z]$")
     private val splitPattern = Regex("[,;/\\n]+")
     private val nonAlphaNumericPattern = Regex("[^A-Z0-9 ]")
@@ -26,6 +27,7 @@ object DefectNameSanitizer {
             raw
                 .trim()
                 .replace(leadingCodePattern, "")
+                .replace(leadingBulletPattern, "")
                 .replace("\\s+".toRegex(), " ")
                 .uppercase()
         if (cleaned.isBlank()) return ""

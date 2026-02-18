@@ -327,7 +327,7 @@ CREATE TABLE supplier (
 );
 
 INSERT OR IGNORE INTO supplier(supplier_name, supplier_name_norm, is_active)
-VALUES ('PT Dummy', 'PT DUMMY', 1);
+VALUES ('PT Mitra Prima Sentosa', 'PT MITRA PRIMA SENTOSA', 1);
 
 ALTER TABLE material ADD COLUMN supplier_id INTEGER REFERENCES supplier(supplier_id);
 ALTER TABLE material ADD COLUMN client_supplied INTEGER NOT NULL DEFAULT 0 CHECK (client_supplied IN (0, 1));

@@ -48,7 +48,6 @@ import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsMonthlyScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreenDependencies
-import id.co.nierstyd.mutugemba.desktop.ui.screens.SupplierNgContribution
 import id.co.nierstyd.mutugemba.desktop.ui.theme.MutuGembaTheme
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
@@ -111,46 +110,6 @@ fun MutuGembaApp() {
     }
     val loadMonthlyReportDocument: (Long, YearMonth) -> MonthlyReportDocument? = { lineId, month ->
         container.getMonthlyReportDocumentUseCase.execute(lineId, month)
-    }
-    val loadSupplierContributions: suspend (MonthlyReportDocument) -> List<SupplierNgContribution> = { document ->
-        val partIds = document.rows.map { it.partId }.distinct()
-        val partDetailById =
-            partIds.associateWith { partId ->
-                container.getPartMasterDetailUseCase.execute(partId)
-            }
-        val aggregate = linkedMapOf<Pair<String, String>, Pair<Int, MutableSet<Long>>>()
-        document.rows.forEach { row ->
-            val materials =
-                partDetailById[row.partId]
-                    ?.materials
-                    .orEmpty()
-                    .filter { material ->
-                        !material.materialName.contains("strap", ignoreCase = true)
-                    }
-            if (materials.isEmpty()) return@forEach
-            val base = row.totalDefect / materials.size
-            val remainder = row.totalDefect % materials.size
-            materials.forEachIndexed { index, material ->
-                val distributed = base + if (index < remainder) 1 else 0
-                if (distributed <= 0) return@forEachIndexed
-                val supplierName = material.supplierName?.trim().takeUnless { it.isNullOrBlank() } ?: "PT Dummy"
-                val key = supplierName to material.materialName
-                val current = aggregate[key]
-                val nextTotal = (current?.first ?: 0) + distributed
-                val nextParts = current?.second ?: linkedSetOf()
-                nextParts += row.partId
-                aggregate[key] = nextTotal to nextParts
-            }
-        }
-        aggregate
-            .map { (key, value) ->
-                SupplierNgContribution(
-                    supplierName = key.first,
-                    materialName = key.second,
-                    totalNg = value.first,
-                    totalParts = value.second.size,
-                )
-            }.sortedByDescending { it.totalNg }
     }
 
     LaunchedEffect(Unit) {
@@ -281,7 +240,6 @@ fun MutuGembaApp() {
                                 dailySummaries = dailySummaries,
                                 loadMonthlyReportDocument = loadMonthlyReportDocument,
                                 loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
-                                loadSupplierContributions = loadSupplierContributions,
                             )
                         }
 

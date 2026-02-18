@@ -3,13 +3,17 @@ package id.co.nierstyd.mutugemba.desktop.ui.resources
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apartment
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandLess
@@ -48,4 +52,8 @@ object AppIcons {
     val ExpandMore: ImageVector = Icons.Filled.ExpandMore
     val Close: ImageVector = Icons.Filled.Close
     val Search: ImageVector = Icons.Filled.Search
+    val ArrowUp: ImageVector = Icons.Filled.ArrowUpward
+    val ArrowDown: ImageVector = Icons.Filled.ArrowDownward
+    val Delete: ImageVector = Icons.Filled.DeleteOutline
+    val Add: ImageVector = Icons.Filled.Add
 }

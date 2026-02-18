@@ -66,6 +66,7 @@ import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
 import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
+import id.co.nierstyd.mutugemba.domain.MonthlyReportRow
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
 import kotlinx.coroutines.Dispatchers
@@ -84,24 +85,17 @@ import org.jetbrains.skia.Image as SkiaImage
 private val DocumentWidth = 1120.dp
 private val DocumentMinHeight = 760.dp
 private val HeaderRowHeight = 30.dp
-private val SubHeaderRowHeight = 30.dp
-private val BodyRowHeight = 36.dp
-private val SubtotalRowHeight = 28.dp
+private val SubHeaderRowHeight = 28.dp
+private val BodyRowHeight = 32.dp
+private val SubtotalRowHeight = 26.dp
 private val TotalRowHeight = 30.dp
 private val SketchColumnWidth = 72.dp
 private val PartNumberColumnWidth = 180.dp
 private val ProblemItemColumnWidth = 280.dp
-private val DayColumnWidth = 30.dp
+private val DayColumnWidth = 28.dp
 private val TotalColumnWidth = 84.dp
 private const val PART_PAGE_SIZE = 8
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
-
-data class SupplierNgContribution(
-    val supplierName: String,
-    val materialName: String,
-    val totalNg: Int,
-    val totalParts: Int,
-)
 
 private sealed class MonthlyReportUiState {
     data object Loading : MonthlyReportUiState()
@@ -120,7 +114,6 @@ fun ReportsMonthlyScreen(
     dailySummaries: List<DailyChecksheetSummary>,
     loadMonthlyReportDocument: (Long, YearMonth) -> MonthlyReportDocument?,
     loadManualHolidays: () -> Set<LocalDate>,
-    loadSupplierContributions: suspend (MonthlyReportDocument) -> List<SupplierNgContribution>,
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -136,8 +129,6 @@ fun ReportsMonthlyScreen(
     var state by remember { mutableStateOf<MonthlyReportUiState>(MonthlyReportUiState.Loading) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
-    var supplierContributions by remember { mutableStateOf<List<SupplierNgContribution>>(emptyList()) }
-    var supplierLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val summaryByDate =
         remember(dailySummaries, month, selectedLineId) {
@@ -161,7 +152,6 @@ fun ReportsMonthlyScreen(
         val lineId = selectedLineId
         if (lineId == null) {
             state = MonthlyReportUiState.Empty
-            supplierContributions = emptyList()
             return@LaunchedEffect
         }
         state = MonthlyReportUiState.Loading
@@ -170,16 +160,6 @@ fun ReportsMonthlyScreen(
                 loadMonthlyReportDocument(lineId, month)
             }
         state = document?.let { MonthlyReportUiState.Loaded(it) } ?: MonthlyReportUiState.Empty
-        if (document != null && document.rows.isNotEmpty()) {
-            supplierLoading = true
-            supplierContributions =
-                withContext(Dispatchers.IO) {
-                    loadSupplierContributions(document)
-                }
-            supplierLoading = false
-        } else {
-            supplierContributions = emptyList()
-        }
     }
 
     Column(
@@ -266,8 +246,6 @@ fun ReportsMonthlyScreen(
                     document = snapshot.document,
                     manualHolidays = manualHolidays,
                     summaryByDate = summaryByDate,
-                    supplierContributions = supplierContributions,
-                    supplierLoading = supplierLoading,
                 )
         }
     }
@@ -511,8 +489,6 @@ private fun MonthlyReportDocumentCard(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
-    supplierContributions: List<SupplierNgContribution>,
-    supplierLoading: Boolean,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -539,10 +515,6 @@ private fun MonthlyReportDocumentCard(
                 ) {
                     MonthlyReportHeader(document = document)
                     MonthlyReportMeta(document = document)
-                    SupplierContributionPanel(
-                        items = supplierContributions,
-                        loading = supplierLoading,
-                    )
                     MonthlyReportTable(
                         document = document,
                         manualHolidays = manualHolidays,
@@ -550,72 +522,6 @@ private fun MonthlyReportDocumentCard(
                     )
                     MonthlyReportLegend()
                     MonthlyReportSignature()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SupplierContributionPanel(
-    items: List<SupplierNgContribution>,
-    loading: Boolean,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = NeutralLight.copy(alpha = 0.38f),
-        border = BorderStroke(1.dp, NeutralBorder),
-        shape = MaterialTheme.shapes.small,
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-        ) {
-            Text(
-                text = "Tracking Bahan -> Pemasok -> Kontribusi NG",
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-            if (loading) {
-                Text(
-                    text = "Memuat kontribusi pemasok...",
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
-                )
-                return@Column
-            }
-            if (items.isEmpty()) {
-                Text(
-                    text = "Belum ada kontribusi NG berbasis bahan untuk periode ini.",
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
-                )
-                return@Column
-            }
-            items.take(6).forEachIndexed { index, row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "${index + 1}. ${row.materialName} (${row.supplierName})",
-                        style = MaterialTheme.typography.body2,
-                        color = NeutralText,
-                        modifier = Modifier.weight(1f),
-                    )
-                    AppBadge(
-                        text = "NG ${row.totalNg}",
-                        backgroundColor = BrandBlue.copy(alpha = 0.12f),
-                        contentColor = BrandBlue,
-                    )
-                    Spacer(modifier = Modifier.width(Spacing.xs))
-                    Text(
-                        text = "${row.totalParts} part",
-                        style = MaterialTheme.typography.caption,
-                        color = NeutralTextMuted,
-                    )
                 }
             }
         }
@@ -1012,19 +918,20 @@ private fun MonthlyReportTable(
         }
 
         visibleGroups.forEachIndexed { groupIndex, (_, rowsForPart) ->
-            val partSample = rowsForPart.first()
+            val normalizedRows = mergeRowsByProblemItem(rowsForPart)
+            val partSample = normalizedRows.first()
             val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
             val partDayTotals =
                 visibleDayEntries.map { (dayIndex, _) ->
-                    rowsForPart.sumOf { row -> row.dayValues.getOrElse(dayIndex) { 0 } }
+                    normalizedRows.sumOf { row -> row.dayValues.getOrElse(dayIndex) { 0 } }
                 }
             val partTotal =
                 if (scopedDayView) {
                     partDayTotals.sum()
                 } else {
-                    rowsForPart.sumOf { it.totalDefect }
+                    normalizedRows.sumOf { it.totalDefect }
                 }
-            rowsForPart.forEachIndexed { rowIndex, row ->
+            normalizedRows.forEachIndexed { rowIndex, row ->
                 val itemLabel = normalizeProblemItems(row.problemItems).firstOrNull().orEmpty()
                 val itemDisplay = itemLabel.ifBlank { AppStrings.ReportsMonthly.NoProblemLabel }
                 val rowTotal =
@@ -1680,6 +1587,31 @@ private fun formatPartNumber(
     partNumber: String,
     uniqCode: String,
 ): String = "$partNumber ($uniqCode)"
+
+private fun mergeRowsByProblemItem(rows: List<MonthlyReportRow>): List<MonthlyReportRow> {
+    if (rows.size <= 1) return rows
+    val grouped = linkedMapOf<String, MutableList<MonthlyReportRow>>()
+    rows.forEach { row ->
+        val key =
+            normalizeProblemItems(row.problemItems)
+                .firstOrNull()
+                .orEmpty()
+                .ifBlank { AppStrings.ReportsMonthly.NoProblemLabel }
+        grouped.getOrPut(key) { mutableListOf() }.add(row)
+    }
+    return grouped.map { (itemLabel, itemRows) ->
+        val sample = itemRows.first()
+        val dayValues =
+            sample.dayValues.indices.map { index ->
+                itemRows.sumOf { row -> row.dayValues.getOrElse(index) { 0 } }
+            }
+        sample.copy(
+            problemItems = listOf(itemLabel),
+            dayValues = dayValues,
+            totalDefect = dayValues.sum(),
+        )
+    }
+}
 
 private fun normalizeProblemItems(items: List<String>): List<String> =
     items

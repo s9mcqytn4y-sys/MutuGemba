@@ -63,6 +63,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
 import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.ChecksheetEntry
 import id.co.nierstyd.mutugemba.domain.DailyChecksheetSummary
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectSummary
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.Line
@@ -140,7 +141,7 @@ fun HomeScreen(
     var topProblemLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(month, dailySummaries) {
-        monthlyDefects = loadMonthlyDefectSummary(month)
+        monthlyDefects = aggregateDefectSummaries(loadMonthlyDefectSummary(month))
     }
 
     LaunchedEffect(month, paretoLineId) {
@@ -152,16 +153,12 @@ fun HomeScreen(
         val lineId = paretoLineId ?: return@LaunchedEffect
         val totals =
             withContext(Dispatchers.IO) {
-                val acc = mutableMapOf<Long, DefectSummary>()
+                val summaries = mutableListOf<DefectSummary>()
                 (1..month.lengthOfMonth()).map { month.atDay(it) }.forEach { date ->
                     val detail = loadDailyDetail(lineId, date)
-                    detail?.defectSummaries?.forEach { summary ->
-                        val existing = acc[summary.defectTypeId]
-                        val total = (existing?.totalQuantity ?: 0) + summary.totalQuantity
-                        acc[summary.defectTypeId] = summary.copy(totalQuantity = total)
-                    }
+                    summaries += detail?.defectSummaries.orEmpty()
                 }
-                acc.values.sortedByDescending { it.totalQuantity }
+                aggregateDefectSummaries(summaries)
             }
         analysisDefects = totals
         analysisLoading = false
@@ -926,4 +923,23 @@ private fun LineStatusRow(status: LineDailyStatus) {
             )
         }
     }
+}
+
+private fun aggregateDefectSummaries(source: List<DefectSummary>): List<DefectSummary> {
+    val grouped = linkedMapOf<String, DefectSummary>()
+    source.forEach { summary ->
+        val name = DefectNameSanitizer.normalizeDisplay(summary.defectName)
+        val key = DefectNameSanitizer.canonicalKey(name)
+        if (key.isBlank() || !DefectNameSanitizer.isMeaningfulItem(name)) return@forEach
+        val existing = grouped[key]
+        if (existing == null) {
+            grouped[key] = summary.copy(defectName = name)
+        } else {
+            grouped[key] =
+                existing.copy(
+                    totalQuantity = existing.totalQuantity + summary.totalQuantity,
+                )
+        }
+    }
+    return grouped.values.sortedByDescending { it.totalQuantity }
 }

@@ -7,6 +7,8 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 private const val TARGET_SCHEMA_VERSION = 12
+private const val DEFAULT_SUPPLIER_NAME = "PT Mitra Prima Sentosa"
+private const val DEFAULT_SUPPLIER_NAME_NORM = "PT MITRA PRIMA SENTOSA"
 
 class SqliteDatabase(
     private val dbFile: Path,
@@ -59,6 +61,7 @@ class SqliteDatabase(
             val hasAdvancedMasterSchema =
                 hasTable(connection, "part_configuration") && hasTable(connection, "defect_catalog")
             if (currentVersion >= TARGET_SCHEMA_VERSION && hasNormalizedSchema && hasAdvancedMasterSchema) {
+                ensureReferenceData(connection)
                 return@withConnection
             }
 
@@ -71,6 +74,7 @@ class SqliteDatabase(
                 connection.autoCommit = false
                 runCatching {
                     ensureSupplementalSchema(connection)
+                    ensureReferenceData(connection)
                     connection.createStatement().use { it.execute("PRAGMA user_version = $TARGET_SCHEMA_VERSION;") }
                     connection.commit()
                 }.onFailure {
@@ -91,6 +95,7 @@ class SqliteDatabase(
                 schemaSql.statements().forEach { sql ->
                     connection.createStatement().use { statement -> statement.execute(sql) }
                 }
+                ensureReferenceData(connection)
                 connection.createStatement().use { it.execute("PRAGMA user_version = $TARGET_SCHEMA_VERSION;") }
                 connection.commit()
             }.onFailure {
@@ -137,6 +142,7 @@ class SqliteDatabase(
                 }
         }
 
+    @Suppress("LongMethod")
     private fun ensureSupplementalSchema(connection: Connection) {
         val statements =
             buildList {
@@ -153,7 +159,7 @@ class SqliteDatabase(
                 add(
                     """
                     INSERT OR IGNORE INTO supplier(supplier_name, supplier_name_norm, is_active)
-                    VALUES ('PT Dummy', 'PT DUMMY', 1)
+                    VALUES ('$DEFAULT_SUPPLIER_NAME', '$DEFAULT_SUPPLIER_NAME_NORM', 1)
                     """.trimIndent(),
                 )
                 if (!hasColumn(connection, "material", "supplier_id")) {
@@ -161,7 +167,11 @@ class SqliteDatabase(
                 }
                 if (!hasColumn(connection, "material", "client_supplied")) {
                     add(
-                        "ALTER TABLE material ADD COLUMN client_supplied INTEGER NOT NULL DEFAULT 0 CHECK (client_supplied IN (0, 1))",
+                        """
+                        ALTER TABLE material
+                        ADD COLUMN client_supplied INTEGER NOT NULL DEFAULT 0
+                        CHECK (client_supplied IN (0, 1))
+                        """.trimIndent(),
                     )
                 }
                 add(
@@ -230,10 +240,16 @@ class SqliteDatabase(
                 add("CREATE INDEX IF NOT EXISTS idx_defect_catalog_origin ON defect_catalog(ng_origin_type)")
                 add("CREATE INDEX IF NOT EXISTS idx_defect_catalog_line ON defect_catalog(line_code)")
                 add(
-                    "CREATE INDEX IF NOT EXISTS idx_material_defect_catalog_defect ON material_defect_catalog(defect_catalog_id)",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_material_defect_catalog_defect
+                    ON material_defect_catalog(defect_catalog_id)
+                    """.trimIndent(),
                 )
                 add(
-                    "CREATE INDEX IF NOT EXISTS idx_part_defect_catalog_origin ON part_defect_catalog(part_id, ng_origin_type)",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_part_defect_catalog_origin
+                    ON part_defect_catalog(part_id, ng_origin_type)
+                    """.trimIndent(),
                 )
                 add("CREATE INDEX IF NOT EXISTS idx_part_defect_catalog_material ON part_defect_catalog(material_id)")
                 add("CREATE INDEX IF NOT EXISTS idx_part_recycle_source_part ON part_recycle_source(recycle_part_id)")
@@ -241,6 +257,26 @@ class SqliteDatabase(
 
         statements.forEach { sql ->
             connection.createStatement().use { statement -> statement.execute(sql) }
+        }
+    }
+
+    private fun ensureReferenceData(connection: Connection) {
+        if (!hasTable(connection, "supplier")) return
+        connection.createStatement().use { statement ->
+            statement.execute(
+                """
+                UPDATE supplier
+                SET supplier_name = '$DEFAULT_SUPPLIER_NAME',
+                    supplier_name_norm = '$DEFAULT_SUPPLIER_NAME_NORM'
+                WHERE supplier_name_norm = 'PT DUMMY'
+                """.trimIndent(),
+            )
+            statement.execute(
+                """
+                INSERT OR IGNORE INTO supplier(supplier_name, supplier_name_norm, is_active)
+                VALUES ('$DEFAULT_SUPPLIER_NAME', '$DEFAULT_SUPPLIER_NAME_NORM', 1)
+                """.trimIndent(),
+            )
         }
     }
 }

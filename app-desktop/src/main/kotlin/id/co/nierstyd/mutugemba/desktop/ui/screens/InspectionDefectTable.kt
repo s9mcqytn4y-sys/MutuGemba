@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,27 +19,32 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.CompactNumberField
+import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
-import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
@@ -147,11 +151,6 @@ internal fun PartChecksheetCard(
                         values = defectSlotValues,
                         partId = part.id,
                         onValueChange = onDefectSlotChanged,
-                    )
-                    DefectConfigurator(
-                        activeDefects = defectTypes,
-                        availableDefects = availableDefectTypes,
-                        onAdd = onAddDefectToPart,
                         onMoveUp = onMoveDefectUp,
                         onMoveDown = onMoveDefectDown,
                         onRemove = onRemoveDefectFromPart,
@@ -161,111 +160,9 @@ internal fun PartChecksheetCard(
                         onValueChange = onCustomDefectInputChanged,
                         onAdd = onAddCustomDefect,
                         currentLine = currentLine,
+                        availableDefects = availableDefectTypes,
+                        onAddExisting = onAddDefectToPart,
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-@Suppress("LongMethod")
-private fun DefectConfigurator(
-    activeDefects: List<DefectType>,
-    availableDefects: List<DefectType>,
-    onAdd: (Long) -> Unit,
-    onMoveUp: (Long) -> Unit,
-    onMoveDown: (Long) -> Unit,
-    onRemove: (Long) -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = NeutralLight.copy(alpha = 0.4f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-        shape = MaterialTheme.shapes.small,
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-        ) {
-            Text(
-                text = "Jenis NG Aktif (bisa diatur urutan/aktifnya)",
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-            if (activeDefects.isEmpty()) {
-                Text(
-                    text = "Belum ada Jenis NG aktif untuk part ini.",
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
-                )
-            } else {
-                activeDefects.forEachIndexed { index, defect ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AppBadge(
-                            text = (index + 1).toString(),
-                            backgroundColor = NeutralSurface,
-                            contentColor = NeutralTextMuted,
-                        )
-                        Text(
-                            text = normalizeDefectName(defect.name),
-                            style = MaterialTheme.typography.body2,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                        )
-                        SecondaryButton(
-                            text = "Naik",
-                            onClick = { onMoveUp(defect.id) },
-                            enabled = index > 0,
-                        )
-                        SecondaryButton(
-                            text = "Turun",
-                            onClick = { onMoveDown(defect.id) },
-                            enabled = index < activeDefects.lastIndex,
-                        )
-                        SecondaryButton(
-                            text = "Hapus",
-                            onClick = { onRemove(defect.id) },
-                            enabled = activeDefects.size > 1,
-                        )
-                    }
-                }
-            }
-            if (availableDefects.isNotEmpty()) {
-                Text(
-                    text = "Tambahkan Jenis NG",
-                    style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                ) {
-                    availableDefects.take(12).forEach { defect ->
-                        Surface(
-                            modifier =
-                                Modifier
-                                    .widthIn(min = 120.dp)
-                                    .clickable { onAdd(defect.id) },
-                            color = NeutralSurface,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-                            shape = MaterialTheme.shapes.small,
-                            elevation = 0.dp,
-                        ) {
-                            Text(
-                                text = "+ ${normalizeDefectName(defect.name)}",
-                                style = MaterialTheme.typography.caption,
-                                color = NeutralText,
-                                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
-                                maxLines = 1,
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -490,12 +387,25 @@ private fun PartImage(
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun InlineCustomDefectRow(
     value: String,
     onValueChange: (String) -> Unit,
     onAdd: () -> Unit,
     currentLine: String,
+    availableDefects: List<DefectType>,
+    onAddExisting: (Long) -> Unit,
 ) {
+    var selectedExisting by remember(availableDefects) { mutableStateOf<DropdownOption?>(null) }
+    val existingOptions =
+        remember(availableDefects) {
+            availableDefects.map { defect ->
+                DropdownOption(
+                    id = defect.id,
+                    label = normalizeDefectName(defect.name),
+                )
+            }
+        }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralLight,
@@ -505,27 +415,77 @@ private fun InlineCustomDefectRow(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            verticalAlignment = Alignment.Top,
         ) {
-            Text(
-                text = "Tambah Jenis NG ($currentLine)",
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = true,
-                placeholder = { Text(AppStrings.Inspection.CustomDefectPlaceholder) },
+            Column(
                 modifier = Modifier.weight(1f),
-            )
-            AppBadge(
-                text = AppStrings.Inspection.CustomDefectAddButton,
-                backgroundColor = MaterialTheme.colors.primary,
-                contentColor = NeutralSurface,
-                modifier = Modifier.clickable(onClick = onAdd),
-            )
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Text(
+                    text = "Tambah Jenis NG ($currentLine)",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                AppDropdown(
+                    label = "Pilih dari daftar Jenis NG",
+                    options = existingOptions,
+                    selectedOption = selectedExisting,
+                    onSelected = { selectedExisting = it },
+                    placeholder = "Pilih Jenis NG existing",
+                    enabled = existingOptions.isNotEmpty(),
+                    helperText =
+                        if (existingOptions.isEmpty()) {
+                            "Semua Jenis NG sudah aktif untuk part ini."
+                        } else {
+                            "Pilih untuk menambah cepat tanpa mengetik ulang."
+                        },
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    DefectActionIcon(
+                        icon = AppIcons.Add,
+                        contentDescription = "Tambah Jenis NG existing",
+                        enabled = selectedExisting != null,
+                        onClick = {
+                            selectedExisting?.let { selected ->
+                                onAddExisting(selected.id)
+                                selectedExisting = null
+                            }
+                        },
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Text(
+                    text = "Atau buat Jenis NG baru",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    singleLine = true,
+                    placeholder = { Text(AppStrings.Inspection.CustomDefectPlaceholder) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    DefectActionIcon(
+                        icon = AppIcons.Add,
+                        contentDescription = "Tambah Jenis NG baru",
+                        enabled = value.isNotBlank(),
+                        onClick = onAdd,
+                    )
+                }
+            }
         }
     }
 }
@@ -602,12 +562,16 @@ private fun findExtractedImageCandidate(
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun DefectTableGrid(
     defectTypes: List<DefectType>,
     timeSlots: List<InspectionTimeSlot>,
     values: Map<PartDefectSlotKey, String>,
     partId: Long,
     onValueChange: (Long, InspectionTimeSlot, String) -> Unit,
+    onMoveUp: (Long) -> Unit,
+    onMoveDown: (Long) -> Unit,
+    onRemove: (Long) -> Unit,
 ) {
     fun slotValue(
         defectId: Long,
@@ -636,7 +600,7 @@ private fun DefectTableGrid(
                     .verticalScroll(rememberScrollState()),
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                defectTypes.forEach { defect ->
+                defectTypes.forEachIndexed { index, defect ->
                     Row(modifier = Modifier.fillMaxWidth()) {
                         TableCell(text = normalizeDefectName(defect.name), weight = 1.4f)
                         timeSlots.forEach { slot ->
@@ -647,6 +611,27 @@ private fun DefectTableGrid(
                             )
                         }
                         TableCell(text = rowTotal(defect.id).toString(), weight = 0.7f, alignCenter = true)
+                        TableActionCell(weight = 0.85f) {
+                            DefectActionIcon(
+                                icon = AppIcons.ArrowUp,
+                                contentDescription = "Geser ke atas",
+                                enabled = index > 0,
+                                onClick = { onMoveUp(defect.id) },
+                            )
+                            DefectActionIcon(
+                                icon = AppIcons.ArrowDown,
+                                contentDescription = "Geser ke bawah",
+                                enabled = index < defectTypes.lastIndex,
+                                onClick = { onMoveDown(defect.id) },
+                            )
+                            DefectActionIcon(
+                                icon = AppIcons.Delete,
+                                contentDescription = "Hapus Jenis NG",
+                                enabled = defectTypes.size > 1,
+                                onClick = { onRemove(defect.id) },
+                                tint = StatusError,
+                            )
+                        }
                     }
                 }
             }
@@ -658,6 +643,7 @@ private fun DefectTableGrid(
                 TableFooterCell(text = columnTotal(slot).toString(), weight = 1f, alignCenter = true)
             }
             TableFooterCell(text = totalNg.toString(), weight = 0.7f, alignCenter = true)
+            TableFooterCell(text = "", weight = 0.85f)
         }
     }
 }
@@ -672,6 +658,7 @@ private fun TableHeaderRow(timeSlots: List<InspectionTimeSlot>) {
             TableHeaderCell(text = slot.label, weight = 1f)
         }
         TableHeaderCell(text = AppStrings.Inspection.TableTotal, weight = 0.7f)
+        TableHeaderCell(text = "Aksi", weight = 0.85f)
     }
 }
 
@@ -751,5 +738,45 @@ private fun RowScope.TableFooterCell(
         contentAlignment = if (alignCenter) Alignment.Center else Alignment.CenterStart,
     ) {
         Text(text, color = NeutralText)
+    }
+}
+
+@Composable
+private fun RowScope.TableActionCell(
+    weight: Float,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .weight(weight)
+                .border(1.dp, NeutralBorder)
+                .background(NeutralSurface)
+                .padding(horizontal = Spacing.xs, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+@Composable
+private fun DefectActionIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    tint: Color = MaterialTheme.colors.primary,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.size(30.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (enabled) tint else NeutralTextMuted,
+            modifier = Modifier.size(16.dp),
+        )
     }
 }
