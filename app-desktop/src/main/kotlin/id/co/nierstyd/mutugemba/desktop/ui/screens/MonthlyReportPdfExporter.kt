@@ -24,8 +24,8 @@ data class MonthlyReportPrintMeta(
 )
 
 object MonthlyReportPdfExporter {
-    private val fontRegular = PDType1Font(Standard14Fonts.FontName.HELVETICA)
-    private val fontBold = PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD)
+    private val fontRegular by lazy(LazyThreadSafetyMode.NONE) { PDType1Font(Standard14Fonts.FontName.HELVETICA) }
+    private val fontBold by lazy(LazyThreadSafetyMode.NONE) { PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD) }
 
     fun export(
         document: MonthlyReportDocument,

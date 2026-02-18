@@ -29,6 +29,7 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -79,20 +80,22 @@ import java.nio.file.Files
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import org.jetbrains.skia.Image as SkiaImage
 
 private val DocumentWidth = 1120.dp
 private val DocumentMinHeight = 760.dp
-private val HeaderRowHeight = 32.dp
-private val SubHeaderRowHeight = 32.dp
-private val BodyRowHeight = 40.dp
-private val SubtotalRowHeight = 26.dp
+private val HeaderRowHeight = 30.dp
+private val SubHeaderRowHeight = 30.dp
+private val BodyRowHeight = 36.dp
+private val SubtotalRowHeight = 28.dp
 private val TotalRowHeight = 30.dp
-private val SketchColumnWidth = 56.dp
-private val PartNumberColumnWidth = 150.dp
-private val ProblemItemColumnWidth = 220.dp
-private val DayColumnWidth = 32.dp
-private val TotalColumnWidth = 80.dp
+private val SketchColumnWidth = 72.dp
+private val PartNumberColumnWidth = 180.dp
+private val ProblemItemColumnWidth = 280.dp
+private val DayColumnWidth = 30.dp
+private val TotalColumnWidth = 84.dp
+private const val PART_PAGE_SIZE = 8
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
 
 private sealed class MonthlyReportUiState {
@@ -280,10 +283,9 @@ private fun exportMonthlyPdf(
 ): java.nio.file.Path {
     val exportDir = AppDataPaths.exportsDir()
     Files.createDirectories(exportDir)
-    val filename = "MonthlyReport-${document.header.lineCode.name}-${document.header.month}.pdf"
+    val timestamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(LocalDateTime.now())
+    val filename = "MonthlyReport-${document.header.lineCode.name}-${document.header.month}-$timestamp.pdf"
     val outputPath = exportDir.resolve(filename)
-    // Avoid writing over a file that may still be open by the PDF viewer.
-    Files.deleteIfExists(outputPath)
     val meta =
         MonthlyReportPrintMeta(
             companyName = AppStrings.App.CompanyName,
@@ -628,6 +630,7 @@ private fun MetaItem(
 }
 
 @Composable
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 private fun MonthlyReportTable(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
@@ -671,10 +674,102 @@ private fun MonthlyReportTable(
             .groupBy { it.partId }
             .toList()
             .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber.orEmpty() }
+    var currentPage by remember(searchQuery, groupedRows.size) { mutableStateOf(0) }
+    var compactMode by remember(searchQuery, groupedRows.size) { mutableStateOf(true) }
+    val pageCount =
+        remember(groupedRows.size, compactMode) {
+            if (!compactMode || groupedRows.isEmpty()) {
+                1
+            } else {
+                ((groupedRows.size - 1) / PART_PAGE_SIZE) + 1
+            }
+        }
+    LaunchedEffect(pageCount) {
+        if (currentPage >= pageCount) {
+            currentPage = (pageCount - 1).coerceAtLeast(0)
+        }
+    }
+    val visibleGroups =
+        remember(groupedRows, compactMode, currentPage) {
+            if (!compactMode) {
+                groupedRows
+            } else {
+                groupedRows
+                    .drop(currentPage * PART_PAGE_SIZE)
+                    .take(PART_PAGE_SIZE)
+            }
+        }
+    val visibleRangeStart = if (groupedRows.isEmpty()) 0 else (currentPage * PART_PAGE_SIZE) + 1
+    val visibleRangeEnd =
+        if (groupedRows.isEmpty()) {
+            0
+        } else {
+            (visibleRangeStart + visibleGroups.size - 1).coerceAtMost(groupedRows.size)
+        }
+    val sketchCache = remember { mutableStateMapOf<String, androidx.compose.ui.graphics.ImageBitmap?>() }
+    LaunchedEffect(visibleGroups) {
+        val sketchPaths =
+            visibleGroups
+                .mapNotNull { (_, rows) -> rows.firstOrNull()?.sketchPath }
+                .filter { it.isNotBlank() }
+                .distinct()
+        sketchPaths.forEach { path ->
+            if (!sketchCache.containsKey(path)) {
+                sketchCache[path] = withContext(Dispatchers.IO) { loadSketchBitmap(path) }
+            }
+        }
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val summaryLabel =
+                if (groupedRows.isEmpty()) {
+                    "Part 0"
+                } else {
+                    "Part $visibleRangeStart-$visibleRangeEnd dari ${groupedRows.size}"
+                }
+            Text(
+                text = summaryLabel,
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SecondaryButton(
+                    text = if (compactMode) "Tampilkan Semua Part" else "Mode Ringkas Part",
+                    onClick = { compactMode = !compactMode },
+                )
+                if (compactMode) {
+                    PagerNavButton(
+                        enabled = currentPage > 0,
+                        icon = AppIcons.ChevronLeft,
+                        label = "Part Sebelumnya",
+                        onClick = { currentPage = (currentPage - 1).coerceAtLeast(0) },
+                    )
+                    Text(
+                        text = "Halaman ${currentPage + 1}/$pageCount",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                    PagerNavButton(
+                        enabled = currentPage + 1 < pageCount,
+                        icon = AppIcons.ChevronRight,
+                        label = "Part Berikutnya",
+                        iconOnRight = true,
+                        onClick = { currentPage = (currentPage + 1).coerceAtMost(pageCount - 1) },
+                    )
+                }
+            }
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -730,7 +825,7 @@ private fun MonthlyReportTable(
             }
         }
 
-        groupedRows.forEachIndexed { groupIndex, (_, rowsForPart) ->
+        visibleGroups.forEachIndexed { groupIndex, (_, rowsForPart) ->
             val partSample = rowsForPart.first()
             val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
             val partDayTotals =
@@ -744,7 +839,7 @@ private fun MonthlyReportTable(
                     Row(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
                         if (rowIndex == 0) {
                             SketchCell(
-                                sketchPath = partSample.sketchPath,
+                                bitmap = partSample.sketchPath?.let { sketchCache[it] },
                                 width = SketchColumnWidth,
                                 height = BodyRowHeight,
                                 backgroundColor = rowBackground,
@@ -894,13 +989,35 @@ private fun DayHeaderCell(
                 style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
                 color = style.headerTextColor,
             )
-            if (style.hasInput) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(6.dp)
-                            .background(style.dotColor, shape = CircleShape),
-                )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (style.hasInput) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(6.dp)
+                                .background(style.dotColor, shape = CircleShape),
+                    )
+                }
+                if (style.isHoliday) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .width(8.dp)
+                                .height(4.dp)
+                                .background(StatusWarning, shape = MaterialTheme.shapes.small),
+                    )
+                }
+                if (!style.hasInput && !style.isHoliday) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(4.dp)
+                                .background(NeutralTextMuted.copy(alpha = 0.35f), shape = CircleShape),
+                    )
+                }
             }
         }
     }
@@ -1011,6 +1128,7 @@ private fun RowScope.TableFooterCell(
 
 private data class DayCellStyle(
     val hasInput: Boolean,
+    val isHoliday: Boolean,
     val headerBackground: Color,
     val headerTextColor: Color,
     val bodyBackground: Color,
@@ -1033,6 +1151,7 @@ private data class DayCellStyle(
             val base = dayTextColor(kind)
             return DayCellStyle(
                 hasInput = hasInput,
+                isHoliday = isHoliday,
                 headerBackground = dayHeaderBackground(kind),
                 headerTextColor = base,
                 bodyBackground = dayBodyBackground(kind),
@@ -1088,7 +1207,7 @@ private fun dayFooterBackground(kind: DayCellKind): Color =
 
 @Composable
 private fun SketchCell(
-    sketchPath: String?,
+    bitmap: androidx.compose.ui.graphics.ImageBitmap?,
     width: Dp,
     height: Dp,
     backgroundColor: Color,
@@ -1100,23 +1219,22 @@ private fun SketchCell(
                 .height(height)
                 .border(1.dp, NeutralBorder)
                 .background(backgroundColor)
-                .padding(2.dp),
+                .padding(4.dp),
         contentAlignment = Alignment.Center,
     ) {
-        val bitmap = remember(sketchPath) { loadSketchBitmap(sketchPath) }
         if (bitmap != null) {
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(height - 6.dp),
+                        .height(height - 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
                     bitmap = bitmap,
                     contentDescription = AppStrings.Inspection.PartImageDescription,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxWidth().height(height - 6.dp),
+                    modifier = Modifier.fillMaxWidth().height(height - 8.dp),
                 )
             }
         } else {

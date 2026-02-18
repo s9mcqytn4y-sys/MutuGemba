@@ -99,6 +99,29 @@ private data class DocumentTotals(
     val ratio: Double,
 )
 
+private fun deriveDocumentTotals(detail: DailyChecksheetDetail): DocumentTotals {
+    val entries = detail.entries
+    if (entries.isEmpty()) {
+        val ratio = if (detail.totalCheck > 0) detail.totalDefect.toDouble() / detail.totalCheck.toDouble() else 0.0
+        return DocumentTotals(
+            totalCheck = detail.totalCheck,
+            totalDefect = detail.totalDefect,
+            totalOk = detail.totalOk,
+            ratio = ratio,
+        )
+    }
+    val totalCheck = entries.sumOf { it.totalCheck }
+    val totalDefect = entries.sumOf { it.totalDefect }
+    val totalOk = (totalCheck - totalDefect).coerceAtLeast(0)
+    val ratio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
+    return DocumentTotals(
+        totalCheck = totalCheck,
+        totalDefect = totalDefect,
+        totalOk = totalOk,
+        ratio = ratio,
+    )
+}
+
 @Composable
 fun ReportsScreen(
     lines: List<Line>,
@@ -988,13 +1011,7 @@ private fun EmptyHistoryState(selectedDate: LocalDate) {
 
 @Composable
 private fun DailyDocumentCard(detail: DailyChecksheetDetail) {
-    val totals =
-        DocumentTotals(
-            totalCheck = detail.totalCheck,
-            totalDefect = detail.totalDefect,
-            totalOk = detail.totalOk,
-            ratio = if (detail.totalCheck > 0) detail.totalDefect.toDouble() / detail.totalCheck.toDouble() else 0.0,
-        )
+    val totals = deriveDocumentTotals(detail)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1039,13 +1056,7 @@ private fun DocumentPreviewCard(
     detail: DailyChecksheetDetail,
     onExpand: () -> Unit,
 ) {
-    val totals =
-        DocumentTotals(
-            totalCheck = detail.totalCheck,
-            totalDefect = detail.totalDefect,
-            totalOk = detail.totalOk,
-            ratio = if (detail.totalCheck > 0) detail.totalDefect.toDouble() / detail.totalCheck.toDouble() else 0.0,
-        )
+    val totals = deriveDocumentTotals(detail)
     val previewRows = detail.entries.take(4)
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1414,9 +1425,10 @@ private fun RowScope.DocumentFooterCell(
 
 @Composable
 private fun DailyStatsCard(detail: DailyChecksheetDetail) {
+    val totals = deriveDocumentTotals(detail)
     val entries = detail.entries
-    val totalCheck = detail.totalCheck
-    val totalDefect = detail.totalDefect
+    val totalCheck = totals.totalCheck
+    val totalDefect = totals.totalDefect
     val overallRatio = if (totalCheck > 0) totalDefect.toDouble() / totalCheck.toDouble() else 0.0
 
     val mostNg = entries.maxByOrNull { it.totalDefect }
