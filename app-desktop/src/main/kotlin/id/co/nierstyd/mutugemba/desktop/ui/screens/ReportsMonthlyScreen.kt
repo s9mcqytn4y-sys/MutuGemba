@@ -655,6 +655,8 @@ private fun MonthlyReportTable(
 
     val scrollState = rememberScrollState()
     val days = document.days
+    var dayMarkerFilter by remember(days, summaryByDate, manualHolidays) { mutableStateOf(DayMarkerFilter.ALL) }
+    var focusedDay by remember(days, summaryByDate, manualHolidays) { mutableStateOf<LocalDate?>(null) }
     val dayStyles =
         remember(days, summaryByDate, manualHolidays) {
             days.associateWith { day ->
@@ -664,11 +666,41 @@ private fun MonthlyReportTable(
                 DayCellStyle.from(hasInput = hasInput, isHoliday = isHoliday)
             }
         }
+    val visibleDayEntries =
+        remember(days, dayStyles, dayMarkerFilter, focusedDay) {
+            val scopedDays =
+                if (focusedDay != null) {
+                    days.filter { it == focusedDay }
+                } else {
+                    when (dayMarkerFilter) {
+                        DayMarkerFilter.ALL -> days
+                        DayMarkerFilter.INPUT -> days.filter { dayStyles.getValue(it).hasInput }
+                        DayMarkerFilter.HOLIDAY -> days.filter { dayStyles.getValue(it).isHoliday }
+                        DayMarkerFilter.EMPTY ->
+                            days.filter { style ->
+                                !dayStyles.getValue(style).hasInput &&
+                                    !dayStyles.getValue(style).isHoliday
+                            }
+                    }
+                }
+            days.mapIndexedNotNull { index, day ->
+                if (day in scopedDays) index to day else null
+            }
+        }
+    if (focusedDay != null && visibleDayEntries.none { it.second == focusedDay }) {
+        focusedDay = null
+    }
     val filteredDayTotals =
-        days.mapIndexed { index, _ ->
+        visibleDayEntries.map { (index, _) ->
             filteredRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
         }
-    val filteredGrandTotal = filteredRows.sumOf { it.totalDefect }
+    val scopedDayView = dayMarkerFilter != DayMarkerFilter.ALL || focusedDay != null
+    val filteredGrandTotal =
+        if (scopedDayView) {
+            filteredDayTotals.sum()
+        } else {
+            filteredRows.sumOf { it.totalDefect }
+        }
     val groupedRows =
         filteredRows
             .groupBy { it.partId }
@@ -769,6 +801,34 @@ private fun MonthlyReportTable(
                 }
             }
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LineChip(label = "Semua Tanggal", selected = dayMarkerFilter == DayMarkerFilter.ALL, onClick = {
+                dayMarkerFilter = DayMarkerFilter.ALL
+                focusedDay = null
+            })
+            LineChip(label = "Terisi", selected = dayMarkerFilter == DayMarkerFilter.INPUT, onClick = {
+                dayMarkerFilter = DayMarkerFilter.INPUT
+                focusedDay = null
+            })
+            LineChip(label = "Libur", selected = dayMarkerFilter == DayMarkerFilter.HOLIDAY, onClick = {
+                dayMarkerFilter = DayMarkerFilter.HOLIDAY
+                focusedDay = null
+            })
+            LineChip(label = "Belum Input", selected = dayMarkerFilter == DayMarkerFilter.EMPTY, onClick = {
+                dayMarkerFilter = DayMarkerFilter.EMPTY
+                focusedDay = null
+            })
+            if (focusedDay != null) {
+                SecondaryButton(
+                    text = "Buka Semua Kolom",
+                    onClick = { focusedDay = null },
+                )
+            }
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -799,7 +859,7 @@ private fun MonthlyReportTable(
                     Row {
                         TableHeaderCell(
                             text = AppStrings.ReportsMonthly.TableDates,
-                            width = DayColumnWidth * days.size,
+                            width = DayColumnWidth * visibleDayEntries.size,
                             height = HeaderRowHeight,
                         )
                         TableHeaderCell(
@@ -809,10 +869,14 @@ private fun MonthlyReportTable(
                         )
                     }
                     Row {
-                        days.forEach { day ->
+                        visibleDayEntries.forEach { (_, day) ->
                             DayHeaderCell(
                                 day = day,
                                 style = dayStyles.getValue(day),
+                                selected = focusedDay == day,
+                                onClick = {
+                                    focusedDay = if (focusedDay == day) null else day
+                                },
                             )
                         }
                         TableHeaderCell(
@@ -829,12 +893,26 @@ private fun MonthlyReportTable(
             val partSample = rowsForPart.first()
             val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
             val partDayTotals =
-                days.mapIndexed { dayIndex, _ ->
+                visibleDayEntries.map { (dayIndex, _) ->
                     rowsForPart.sumOf { row -> row.dayValues.getOrElse(dayIndex) { 0 } }
                 }
-            val partTotal = partDayTotals.sum()
+            val partTotal =
+                if (scopedDayView) {
+                    partDayTotals.sum()
+                } else {
+                    rowsForPart.sumOf { it.totalDefect }
+                }
             rowsForPart.forEachIndexed { rowIndex, row ->
                 val itemLabel = normalizeProblemItems(row.problemItems).firstOrNull().orEmpty()
+                val itemDisplay = itemLabel.ifBlank { "Tanpa Keterangan" }
+                val rowTotal =
+                    if (scopedDayView) {
+                        visibleDayEntries.sumOf { (dayIndex, _) ->
+                            row.dayValues.getOrElse(dayIndex) { 0 }
+                        }
+                    } else {
+                        row.totalDefect
+                    }
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Row(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
                         if (rowIndex == 0) {
@@ -850,6 +928,7 @@ private fun MonthlyReportTable(
                                 height = BodyRowHeight,
                                 backgroundColor = rowBackground,
                                 maxLines = 3,
+                                fontWeight = FontWeight.SemiBold,
                             )
                         } else {
                             TableBodyCell(
@@ -866,7 +945,7 @@ private fun MonthlyReportTable(
                             )
                         }
                         TableBodyCell(
-                            text = if (itemLabel.isBlank()) AppStrings.Common.Placeholder else "- $itemLabel",
+                            text = itemDisplay,
                             width = ProblemItemColumnWidth,
                             height = BodyRowHeight,
                             backgroundColor = rowBackground,
@@ -874,7 +953,7 @@ private fun MonthlyReportTable(
                         )
                     }
                     Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                        days.forEachIndexed { dayIndex, day ->
+                        visibleDayEntries.forEach { (dayIndex, day) ->
                             val style = dayStyles.getValue(day)
                             val value = row.dayValues.getOrElse(dayIndex) { 0 }
                             TableBodyCell(
@@ -887,11 +966,12 @@ private fun MonthlyReportTable(
                             )
                         }
                         TableBodyCell(
-                            text = row.totalDefect.toString(),
+                            text = rowTotal.toString(),
                             width = TotalColumnWidth,
                             height = BodyRowHeight,
                             backgroundColor = rowBackground,
                             alignCenter = true,
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
@@ -906,7 +986,7 @@ private fun MonthlyReportTable(
                         backgroundColor = SubtotalHighlight,
                     )
                     TableSubtotalCell(
-                        text = "${AppStrings.ReportsMonthly.TableSubtotal} ${partSample.uniqCode}",
+                        text = AppStrings.ReportsMonthly.TableSubtotal,
                         width = ProblemItemColumnWidth,
                         height = SubtotalRowHeight,
                         backgroundColor = SubtotalHighlight,
@@ -914,7 +994,7 @@ private fun MonthlyReportTable(
                 }
                 Row(modifier = Modifier.horizontalScroll(scrollState)) {
                     partDayTotals.forEachIndexed { dayIndex, value ->
-                        val style = dayStyles.getValue(days[dayIndex])
+                        val style = dayStyles.getValue(visibleDayEntries[dayIndex].second)
                         TableSubtotalCell(
                             text = value.toString(),
                             width = DayColumnWidth,
@@ -946,7 +1026,7 @@ private fun MonthlyReportTable(
             }
             Row(modifier = Modifier.horizontalScroll(scrollState)) {
                 filteredDayTotals.forEachIndexed { index, value ->
-                    val style = dayStyles.getValue(days[index])
+                    val style = dayStyles.getValue(visibleDayEntries[index].second)
                     TableFooterCell(
                         text = value.toString(),
                         width = DayColumnWidth,
@@ -973,6 +1053,8 @@ private fun MonthlyReportTable(
 private fun DayHeaderCell(
     day: LocalDate,
     style: DayCellStyle,
+    selected: Boolean,
+    onClick: () -> Unit,
 ) {
     Box(
         modifier =
@@ -980,7 +1062,8 @@ private fun DayHeaderCell(
                 .width(DayColumnWidth)
                 .height(SubHeaderRowHeight)
                 .border(1.dp, NeutralBorder)
-                .background(style.headerBackground),
+                .background(if (selected) BrandBlue.copy(alpha = 0.18f) else style.headerBackground)
+                .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1052,6 +1135,7 @@ private fun RowScope.TableHeaderCell(
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun RowScope.TableBodyCell(
     text: String,
     width: Dp,
@@ -1060,6 +1144,7 @@ private fun RowScope.TableBodyCell(
     alignCenter: Boolean = false,
     maxLines: Int = 1,
     textColor: Color = NeutralText,
+    fontWeight: FontWeight? = null,
 ) {
     Box(
         modifier =
@@ -1073,7 +1158,7 @@ private fun RowScope.TableBodyCell(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.body2,
+            style = MaterialTheme.typography.body2.copy(fontWeight = fontWeight ?: FontWeight.Normal),
             color = textColor,
             maxLines = maxLines,
         )
@@ -1165,6 +1250,13 @@ private data class DayCellStyle(
 }
 
 private enum class DayCellKind {
+    INPUT,
+    HOLIDAY,
+    EMPTY,
+}
+
+private enum class DayMarkerFilter {
+    ALL,
     INPUT,
     HOLIDAY,
     EMPTY,

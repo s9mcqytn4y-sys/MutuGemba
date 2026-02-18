@@ -99,14 +99,24 @@ private data class DocumentTotals(
     val ratio: Double,
 )
 
-private fun deriveDocumentTotals(detail: DailyChecksheetDetail): DocumentTotals {
-    val entries = detail.entries
+private fun deriveDocumentTotals(detail: DailyChecksheetDetail): DocumentTotals =
+    deriveDocumentTotals(entries = detail.entries, fallback = detail)
+
+private fun deriveDocumentTotals(
+    entries: List<ChecksheetEntry>,
+    fallback: DailyChecksheetDetail,
+): DocumentTotals {
     if (entries.isEmpty()) {
-        val ratio = if (detail.totalCheck > 0) detail.totalDefect.toDouble() / detail.totalCheck.toDouble() else 0.0
+        val ratio =
+            if (fallback.totalCheck > 0) {
+                fallback.totalDefect.toDouble() / fallback.totalCheck.toDouble()
+            } else {
+                0.0
+            }
         return DocumentTotals(
-            totalCheck = detail.totalCheck,
-            totalDefect = detail.totalDefect,
-            totalOk = detail.totalOk,
+            totalCheck = fallback.totalCheck,
+            totalDefect = fallback.totalDefect,
+            totalOk = fallback.totalOk,
             ratio = ratio,
         )
     }
@@ -1056,8 +1066,12 @@ private fun DocumentPreviewCard(
     detail: DailyChecksheetDetail,
     onExpand: () -> Unit,
 ) {
-    val totals = deriveDocumentTotals(detail)
     val previewRows = detail.entries.take(4)
+    val totals =
+        deriveDocumentTotals(
+            entries = previewRows,
+            fallback = detail,
+        )
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralSurface,

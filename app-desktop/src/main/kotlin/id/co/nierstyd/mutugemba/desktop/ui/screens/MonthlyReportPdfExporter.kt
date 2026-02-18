@@ -1,6 +1,7 @@
 package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
+import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
 import id.co.nierstyd.mutugemba.domain.MonthlyReportRow
@@ -759,9 +760,16 @@ object MonthlyReportPdfExporter {
     }
 
     private fun formatProblemItems(items: List<String>): String {
-        if (items.isEmpty()) return "-"
-        if (items.size <= 2) return items.joinToString(", ")
-        val head = items.take(2).joinToString(", ")
-        return "$head +${items.size - 2}"
+        val normalized =
+            items
+                .flatMap { DefectNameSanitizer.expandProblemItems(it) }
+                .ifEmpty { items.map(DefectNameSanitizer::normalizeDisplay) }
+                .filter(DefectNameSanitizer::isMeaningfulItem)
+                .distinct()
+                .map(DefectNameSanitizer::normalizeDisplay)
+        if (normalized.isEmpty()) return "Tanpa Keterangan"
+        if (normalized.size <= 2) return normalized.joinToString(", ")
+        val head = normalized.take(2).joinToString(", ")
+        return "$head +${normalized.size - 2}"
     }
 }
