@@ -908,200 +908,247 @@ private fun MonthlyReportTable(
                     .coerceIn(minDayViewportWidth, fullDaySectionWidth)
             val rightSectionWidth = dayViewportWidth + TotalColumnWidth
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.width(leftColumnsWidth)) {
-                    Row {
-                        TableHeaderCell(
-                            text = "No",
-                            width = adaptiveNoColumnWidth,
-                            height = HeaderRowHeight + SubHeaderRowHeight,
-                        )
-                        TableHeaderCell(
-                            text = AppStrings.ReportsMonthly.TableSketch,
-                            width = adaptiveSketchColumnWidth,
-                            height = HeaderRowHeight + SubHeaderRowHeight,
-                        )
-                        TableHeaderCell(
-                            text = AppStrings.ReportsMonthly.TablePartNumber,
-                            width = adaptivePartNumberColumnWidth,
-                            height = HeaderRowHeight + SubHeaderRowHeight,
-                        )
-                        TableHeaderCell(
-                            text = AppStrings.ReportsMonthly.TableProblemItem,
-                            width = adaptiveProblemItemColumnWidth,
-                            height = HeaderRowHeight + SubHeaderRowHeight,
-                        )
-                    }
-                }
-                VerticalSectionDivider(height = HeaderRowHeight + SubHeaderRowHeight)
-                Column(modifier = Modifier.width(rightSectionWidth)) {
-                    Row {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .width(dayViewportWidth)
-                                    .clipToBounds()
-                                    .horizontalScroll(scrollState),
-                        ) {
-                            Row {
-                                TableHeaderCell(
-                                    text = AppStrings.ReportsMonthly.TableDates,
-                                    width = DayColumnWidth * days.size,
-                                    height = HeaderRowHeight,
-                                )
-                            }
-                        }
-                        TableHeaderCell(
-                            text = AppStrings.ReportsMonthly.TableTotalNg,
-                            width = TotalColumnWidth,
-                            height = HeaderRowHeight + SubHeaderRowHeight,
-                        )
-                    }
-                    Row {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .width(dayViewportWidth)
-                                    .clipToBounds()
-                                    .horizontalScroll(scrollState),
-                        ) {
-                            Row {
-                                days.forEach { day ->
-                                    DayHeaderCell(
-                                        day = day,
-                                        style = dayStyles.getValue(day),
-                                    )
-                                }
-                            }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.width(leftColumnsWidth)) {
+                        Row {
+                            TableHeaderCell(
+                                text = "No",
+                                width = adaptiveNoColumnWidth,
+                                height = HeaderRowHeight + SubHeaderRowHeight,
+                            )
+                            TableHeaderCell(
+                                text = AppStrings.ReportsMonthly.TableSketch,
+                                width = adaptiveSketchColumnWidth,
+                                height = HeaderRowHeight + SubHeaderRowHeight,
+                            )
+                            TableHeaderCell(
+                                text = AppStrings.ReportsMonthly.TablePartNumber,
+                                width = adaptivePartNumberColumnWidth,
+                                height = HeaderRowHeight + SubHeaderRowHeight,
+                            )
+                            TableHeaderCell(
+                                text = AppStrings.ReportsMonthly.TableProblemItem,
+                                width = adaptiveProblemItemColumnWidth,
+                                height = HeaderRowHeight + SubHeaderRowHeight,
+                            )
                         }
                     }
-                }
-            }
-
-            visibleGroupedRows.forEachIndexed { groupIndex, rowsForPart ->
-                val partSample = rowsForPart.first()
-                val groupHeight = BodyRowHeight * rowsForPart.size
-                val partDayTotals =
-                    days.mapIndexed { index, _ ->
-                        rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
-                    }
-                val partTotal = partDayTotals.sum()
-                val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
-                val sketchKey =
-                    SketchRequest(
-                        sketchPath = partSample.sketchPath,
-                        uniqCode = partSample.uniqCode,
-                        partNumber = partSample.partNumber,
-                    ).cacheKey
-                val sketchBitmap =
-                    sketchCache[sketchKey]
-
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    TablePartSectionHeader(
-                        text =
-                            "Part ${partSample.uniqCode} - ${partSample.partNumber} " +
-                                "(${rowsForPart.size} jenis NG | Jumlah NG: $partTotal)",
-                        width = tableWidth,
-                    )
-                }
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.width(leftColumnsWidth),
-                    ) {
-                        TableBodyCell(
-                            text = (groupIndex + 1).toString(),
-                            width = adaptiveNoColumnWidth,
-                            height = groupHeight,
-                            backgroundColor = rowBackground,
-                            alignCenter = true,
-                        )
-                        SketchCell(
-                            sketchPath = partSample.sketchPath,
-                            bitmap = sketchBitmap,
-                            width = adaptiveSketchColumnWidth,
-                            height = groupHeight,
-                            backgroundColor = rowBackground,
-                            showPlaceholder = true,
-                        )
-                        TableBodyCell(
-                            text = formatPartNumber(partSample.partNumber, partSample.uniqCode),
-                            width = adaptivePartNumberColumnWidth,
-                            height = groupHeight,
-                            backgroundColor = rowBackground,
-                            maxLines = 2,
-                        )
-                        Column {
-                            rowsForPart.forEach { row ->
-                                val rowTotal = row.dayValues.sum()
-                                Row {
-                                    TableBodyCell(
-                                        text = "${formatProblemItems(row.problemItems)}\nJumlah NG: $rowTotal",
-                                        width = adaptiveProblemItemColumnWidth,
-                                        height = BodyRowHeight,
-                                        backgroundColor = rowBackground,
-                                        maxLines = 2,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    VerticalSectionDivider(height = groupHeight)
+                    VerticalSectionDivider(height = HeaderRowHeight + SubHeaderRowHeight)
                     Column(modifier = Modifier.width(rightSectionWidth)) {
-                        rowsForPart.forEach { row ->
-                            val rowTotal = row.dayValues.sum()
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .width(dayViewportWidth)
-                                            .clipToBounds()
-                                            .horizontalScroll(scrollState),
-                                ) {
-                                    Row {
-                                        days.forEachIndexed { index, _ ->
-                                            val value = row.dayValues.getOrElse(index) { 0 }
-                                            val style = dayStyles.getValue(days[index])
-                                            TableBodyCell(
-                                                text = value.toString(),
-                                                width = DayColumnWidth,
-                                                height = BodyRowHeight,
-                                                backgroundColor = style.bodyBackground,
-                                                alignCenter = true,
-                                                textColor = style.bodyTextColor,
-                                            )
-                                        }
+                        Row {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .width(dayViewportWidth)
+                                        .clipToBounds()
+                                        .horizontalScroll(scrollState),
+                            ) {
+                                Row {
+                                    TableHeaderCell(
+                                        text = AppStrings.ReportsMonthly.TableDates,
+                                        width = DayColumnWidth * days.size,
+                                        height = HeaderRowHeight,
+                                    )
+                                }
+                            }
+                            TableHeaderCell(
+                                text = AppStrings.ReportsMonthly.TableTotalNg,
+                                width = TotalColumnWidth,
+                                height = HeaderRowHeight + SubHeaderRowHeight,
+                            )
+                        }
+                        Row {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .width(dayViewportWidth)
+                                        .clipToBounds()
+                                        .horizontalScroll(scrollState),
+                            ) {
+                                Row {
+                                    days.forEach { day ->
+                                        DayHeaderCell(
+                                            day = day,
+                                            style = dayStyles.getValue(day),
+                                        )
                                     }
                                 }
-                                TableBodyCell(
-                                    text = rowTotal.toString(),
-                                    width = TotalColumnWidth,
-                                    height = BodyRowHeight,
-                                    backgroundColor = rowBackground,
-                                    alignCenter = true,
-                                )
                             }
                         }
                     }
+                }
+
+                visibleGroupedRows.forEachIndexed { groupIndex, rowsForPart ->
+                    val partSample = rowsForPart.first()
+                    val groupHeight = BodyRowHeight * rowsForPart.size
+                    val partDayTotals =
+                        days.mapIndexed { index, _ ->
+                            rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
+                        }
+                    val partTotal = partDayTotals.sum()
+                    val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
+                    val sketchKey =
+                        SketchRequest(
+                            sketchPath = partSample.sketchPath,
+                            uniqCode = partSample.uniqCode,
+                            partNumber = partSample.partNumber,
+                        ).cacheKey
+                    val sketchBitmap =
+                        sketchCache[sketchKey]
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        TablePartSectionHeader(
+                            text =
+                                "Part ${partSample.uniqCode} - ${partSample.partNumber} " +
+                                    "(${rowsForPart.size} jenis NG | Jumlah NG: $partTotal)",
+                            width = tableWidth,
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.width(leftColumnsWidth),
+                        ) {
+                            TableBodyCell(
+                                text = (groupIndex + 1).toString(),
+                                width = adaptiveNoColumnWidth,
+                                height = groupHeight,
+                                backgroundColor = rowBackground,
+                                alignCenter = true,
+                            )
+                            SketchCell(
+                                sketchPath = partSample.sketchPath,
+                                bitmap = sketchBitmap,
+                                width = adaptiveSketchColumnWidth,
+                                height = groupHeight,
+                                backgroundColor = rowBackground,
+                                showPlaceholder = true,
+                            )
+                            TableBodyCell(
+                                text = formatPartNumber(partSample.partNumber, partSample.uniqCode),
+                                width = adaptivePartNumberColumnWidth,
+                                height = groupHeight,
+                                backgroundColor = rowBackground,
+                                maxLines = 2,
+                            )
+                            Column {
+                                rowsForPart.forEach { row ->
+                                    val rowTotal = row.dayValues.sum()
+                                    Row {
+                                        TableBodyCell(
+                                            text = "${formatProblemItems(row.problemItems)}\nJumlah NG: $rowTotal",
+                                            width = adaptiveProblemItemColumnWidth,
+                                            height = BodyRowHeight,
+                                            backgroundColor = rowBackground,
+                                            maxLines = 2,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        VerticalSectionDivider(height = groupHeight)
+                        Column(modifier = Modifier.width(rightSectionWidth)) {
+                            rowsForPart.forEach { row ->
+                                val rowTotal = row.dayValues.sum()
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Box(
+                                        modifier =
+                                            Modifier
+                                                .width(dayViewportWidth)
+                                                .clipToBounds()
+                                                .horizontalScroll(scrollState),
+                                    ) {
+                                        Row {
+                                            days.forEachIndexed { index, _ ->
+                                                val value = row.dayValues.getOrElse(index) { 0 }
+                                                val style = dayStyles.getValue(days[index])
+                                                TableBodyCell(
+                                                    text = value.toString(),
+                                                    width = DayColumnWidth,
+                                                    height = BodyRowHeight,
+                                                    backgroundColor = style.bodyBackground,
+                                                    alignCenter = true,
+                                                    textColor = style.bodyTextColor,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    TableBodyCell(
+                                        text = rowTotal.toString(),
+                                        width = TotalColumnWidth,
+                                        height = BodyRowHeight,
+                                        backgroundColor = rowBackground,
+                                        alignCenter = true,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.width(leftColumnsWidth)) {
+                            TableSubtotalCell(
+                                text = "",
+                                width =
+                                    adaptiveNoColumnWidth +
+                                        adaptiveSketchColumnWidth +
+                                        adaptivePartNumberColumnWidth,
+                                height = SubtotalRowHeight,
+                                backgroundColor = SubtotalHighlight,
+                            )
+                            TableSubtotalCell(
+                                text = "${AppStrings.ReportsMonthly.TableSubtotal} ${partSample.uniqCode}",
+                                width = adaptiveProblemItemColumnWidth,
+                                height = SubtotalRowHeight,
+                                backgroundColor = SubtotalHighlight,
+                            )
+                        }
+                        VerticalSectionDivider(height = SubtotalRowHeight)
+                        Row(modifier = Modifier.width(rightSectionWidth)) {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .width(dayViewportWidth)
+                                        .clipToBounds()
+                                        .horizontalScroll(scrollState),
+                            ) {
+                                Row {
+                                    partDayTotals.forEachIndexed { index, value ->
+                                        val style = dayStyles.getValue(days[index])
+                                        TableSubtotalCell(
+                                            text = value.toString(),
+                                            width = DayColumnWidth,
+                                            height = SubtotalRowHeight,
+                                            alignCenter = true,
+                                            backgroundColor = style.subtotalBackground,
+                                            textColor = style.bodyTextColor,
+                                        )
+                                    }
+                                }
+                            }
+                            TableSubtotalCell(
+                                text = partTotal.toString(),
+                                width = TotalColumnWidth,
+                                height = SubtotalRowHeight,
+                                alignCenter = true,
+                                backgroundColor = SubtotalHighlight,
+                            )
+                        }
+                    }
+                    PartDivider(thickness = 3.dp, color = BrandBlue.copy(alpha = 0.28f))
                 }
 
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Row(modifier = Modifier.width(leftColumnsWidth)) {
-                        TableSubtotalCell(
-                            text = "",
-                            width = adaptiveNoColumnWidth + adaptiveSketchColumnWidth + adaptivePartNumberColumnWidth,
-                            height = SubtotalRowHeight,
-                            backgroundColor = SubtotalHighlight,
-                        )
-                        TableSubtotalCell(
-                            text = "${AppStrings.ReportsMonthly.TableSubtotal} ${partSample.uniqCode}",
-                            width = adaptiveProblemItemColumnWidth,
-                            height = SubtotalRowHeight,
-                            backgroundColor = SubtotalHighlight,
+                        TableFooterCell(
+                            text = AppStrings.ReportsMonthly.TableGrandTotal,
+                            width = leftColumnsWidth,
+                            height = TotalRowHeight,
                         )
                     }
-                    VerticalSectionDivider(height = SubtotalRowHeight)
+                    VerticalSectionDivider(height = TotalRowHeight)
                     Row(modifier = Modifier.width(rightSectionWidth)) {
                         Box(
                             modifier =
@@ -1111,70 +1158,28 @@ private fun MonthlyReportTable(
                                     .horizontalScroll(scrollState),
                         ) {
                             Row {
-                                partDayTotals.forEachIndexed { index, value ->
+                                filteredDayTotals.forEachIndexed { index, value ->
                                     val style = dayStyles.getValue(days[index])
-                                    TableSubtotalCell(
+                                    TableFooterCell(
                                         text = value.toString(),
                                         width = DayColumnWidth,
-                                        height = SubtotalRowHeight,
+                                        height = TotalRowHeight,
                                         alignCenter = true,
-                                        backgroundColor = style.subtotalBackground,
+                                        backgroundColor = style.footerBackground,
                                         textColor = style.bodyTextColor,
                                     )
                                 }
                             }
                         }
-                        TableSubtotalCell(
-                            text = partTotal.toString(),
+                        TableFooterCell(
+                            text = filteredGrandTotal.toString(),
                             width = TotalColumnWidth,
-                            height = SubtotalRowHeight,
+                            height = TotalRowHeight,
                             alignCenter = true,
-                            backgroundColor = SubtotalHighlight,
+                            backgroundColor = BrandBlue.copy(alpha = 0.12f),
+                            textColor = BrandBlue,
                         )
                     }
-                }
-                PartDivider(thickness = 3.dp, color = BrandBlue.copy(alpha = 0.28f))
-            }
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.width(leftColumnsWidth)) {
-                    TableFooterCell(
-                        text = AppStrings.ReportsMonthly.TableGrandTotal,
-                        width = leftColumnsWidth,
-                        height = TotalRowHeight,
-                    )
-                }
-                VerticalSectionDivider(height = TotalRowHeight)
-                Row(modifier = Modifier.width(rightSectionWidth)) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .width(dayViewportWidth)
-                                .clipToBounds()
-                                .horizontalScroll(scrollState),
-                    ) {
-                        Row {
-                            filteredDayTotals.forEachIndexed { index, value ->
-                                val style = dayStyles.getValue(days[index])
-                                TableFooterCell(
-                                    text = value.toString(),
-                                    width = DayColumnWidth,
-                                    height = TotalRowHeight,
-                                    alignCenter = true,
-                                    backgroundColor = style.footerBackground,
-                                    textColor = style.bodyTextColor,
-                                )
-                            }
-                        }
-                    }
-                    TableFooterCell(
-                        text = filteredGrandTotal.toString(),
-                        width = TotalColumnWidth,
-                        height = TotalRowHeight,
-                        alignCenter = true,
-                        backgroundColor = BrandBlue.copy(alpha = 0.12f),
-                        textColor = BrandBlue,
-                    )
                 }
             }
         }
