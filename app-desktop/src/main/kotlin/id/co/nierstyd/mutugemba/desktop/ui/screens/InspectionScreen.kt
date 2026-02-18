@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -55,6 +57,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
@@ -157,7 +160,7 @@ private fun InspectionScreenContent(
             }
         },
     )
-    val openSearch by rememberUpdatedState(newValue = { showSearchModal = true })
+    val toggleSearch by rememberUpdatedState(newValue = { showSearchModal = !showSearchModal })
 
     DisposableEffect(Unit) {
         val manager = KeyboardFocusManager.getCurrentKeyboardFocusManager()
@@ -165,11 +168,15 @@ private fun InspectionScreenContent(
             KeyEventDispatcher { event ->
                 if (event.id != KeyEvent.KEY_PRESSED) return@KeyEventDispatcher false
                 if (event.isControlDown && event.keyCode == KeyEvent.VK_K) {
-                    openSearch()
+                    toggleSearch()
                     return@KeyEventDispatcher true
                 }
                 if (showSearchModal && event.keyCode == KeyEvent.VK_ENTER) {
                     focusFirstResult()
+                    return@KeyEventDispatcher true
+                }
+                if (showSearchModal && event.keyCode == KeyEvent.VK_ESCAPE) {
+                    showSearchModal = false
                     return@KeyEventDispatcher true
                 }
                 false
@@ -187,10 +194,13 @@ private fun InspectionScreenContent(
                 .focusable()
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.isCtrlPressed && event.key == Key.K) {
-                        showSearchModal = true
+                        showSearchModal = !showSearchModal
                         true
                     } else if (event.type == KeyEventType.KeyDown && showSearchModal && event.key == Key.Enter) {
                         focusFirstResult()
+                        true
+                    } else if (event.type == KeyEventType.KeyDown && showSearchModal && event.key == Key.Escape) {
+                        showSearchModal = false
                         true
                     } else {
                         false
@@ -203,7 +213,8 @@ private fun InspectionScreenContent(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = viewportMaxHeight),
+                    .heightIn(max = viewportMaxHeight)
+                    .padding(bottom = 84.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             item {
@@ -295,6 +306,11 @@ private fun InspectionScreenContent(
                         onDefectSlotChanged = { defectId, slot, value ->
                             state.onDefectSlotChanged(part.id, defectId, slot, value)
                         },
+                        availableDefectTypes = state.availableDefectTypesForPart(part.id),
+                        onAddDefectToPart = { state.addDefectToPart(part.id, it) },
+                        onMoveDefectUp = { state.moveDefectUp(part.id, it) },
+                        onMoveDefectDown = { state.moveDefectDown(part.id, it) },
+                        onRemoveDefectFromPart = { state.removeDefectFromPart(part.id, it) },
                     )
                 }
             }
@@ -302,14 +318,22 @@ private fun InspectionScreenContent(
             item {
                 state.feedback?.let { StatusBanner(feedback = it) }
             }
+        }
 
-            item {
-                InspectionActionsBar(
-                    canSave = state.canSave,
-                    onSaveRequest = { state.onSaveRequested() },
-                    onClearAll = { state.clearAllInputs() },
-                )
-            }
+        Surface(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+            color = NeutralSurface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+            elevation = 2.dp,
+        ) {
+            InspectionActionsBar(
+                canSave = state.canSave,
+                onSaveRequest = { state.onSaveRequested() },
+                onClearAll = { state.clearAllInputs() },
+            )
         }
 
         InspectionFloatingActions(
@@ -378,6 +402,7 @@ private class InspectionFormState(
     val defectSlotInputs = mutableStateMapOf<PartDefectSlotKey, String>()
     private val totalCheckInputs = mutableStateMapOf<Long, String>()
     private val expandedPartIds = mutableStateMapOf<Long, Boolean>()
+    private val partDefectOverrides = mutableStateMapOf<Long, List<Long>>()
 
     val today = java.time.LocalDate.now()
 
@@ -498,7 +523,8 @@ private class InspectionFormState(
 
     fun totalCheckInput(partId: Long): String = totalCheckInputs[partId] ?: ""
 
-    fun defectTypesForPart(partId: Long): List<DefectType> {
+    @Suppress("ReturnCount")
+    private fun baseDefectTypesForPart(partId: Long): List<DefectType> {
         val part = parts.firstOrNull { it.id == partId } ?: return defectTypes
         val mapped =
             part.recommendedDefectCodes
@@ -515,6 +541,77 @@ private class InspectionFormState(
         return defectTypes
             .filter { it.lineCode == null || it.lineCode == part.lineCode }
             .sortedBy { it.name }
+    }
+
+    fun defectTypesForPart(partId: Long): List<DefectType> {
+        val overrideIds = partDefectOverrides[partId]
+        if (overrideIds.isNullOrEmpty()) {
+            return baseDefectTypesForPart(partId)
+        }
+        val byId = defectTypes.associateBy { it.id }
+        val resolved = overrideIds.mapNotNull { byId[it] }
+        return if (resolved.isEmpty()) baseDefectTypesForPart(partId) else resolved
+    }
+
+    fun availableDefectTypesForPart(partId: Long): List<DefectType> {
+        val part = parts.firstOrNull { it.id == partId } ?: return emptyList()
+        val active = defectTypesForPart(partId).map { it.id }.toSet()
+        return defectTypes
+            .filter { it.lineCode == null || it.lineCode == part.lineCode }
+            .filter { it.id !in active }
+            .sortedBy { it.name }
+    }
+
+    fun addDefectToPart(
+        partId: Long,
+        defectId: Long,
+    ) {
+        val active = defectTypesForPart(partId).map { it.id }.toMutableList()
+        if (defectId !in active) {
+            active += defectId
+            partDefectOverrides[partId] = active
+            ensureInputs()
+        }
+    }
+
+    fun removeDefectFromPart(
+        partId: Long,
+        defectId: Long,
+    ) {
+        val active = defectTypesForPart(partId).map { it.id }.toMutableList()
+        if (active.size <= 1) return
+        if (active.remove(defectId)) {
+            partDefectOverrides[partId] = active
+            ensureInputs()
+        }
+    }
+
+    fun moveDefectUp(
+        partId: Long,
+        defectId: Long,
+    ) {
+        val active = defectTypesForPart(partId).map { it.id }.toMutableList()
+        val index = active.indexOf(defectId)
+        if (index <= 0) return
+        val previous = active[index - 1]
+        active[index - 1] = active[index]
+        active[index] = previous
+        partDefectOverrides[partId] = active
+        ensureInputs()
+    }
+
+    fun moveDefectDown(
+        partId: Long,
+        defectId: Long,
+    ) {
+        val active = defectTypesForPart(partId).map { it.id }.toMutableList()
+        val index = active.indexOf(defectId)
+        if (index == -1 || index >= active.lastIndex) return
+        val next = active[index + 1]
+        active[index + 1] = active[index]
+        active[index] = next
+        partDefectOverrides[partId] = active
+        ensureInputs()
     }
 
     fun totalDefectQuantity(partId: Long): Int = defectTypesForPart(partId).sumOf { defectRowTotal(partId, it.id) }
@@ -663,6 +760,7 @@ private class InspectionFormState(
     fun clearAllInputs() {
         totalCheckInputs.keys.toList().forEach { totalCheckInputs[it] = "" }
         defectSlotInputs.keys.toList().forEach { defectSlotInputs[it] = "" }
+        partDefectOverrides.clear()
     }
 
     private fun buildInputs(): List<InspectionInput> {
@@ -743,9 +841,19 @@ private class InspectionFormState(
         totalCheckInputs.keys.filter { it !in validPartIds }.forEach { totalCheckInputs.remove(it) }
         expandedPartIds.keys.filter { it !in validPartIds }.forEach { expandedPartIds.remove(it) }
         defectSlotInputs.keys.filter { it.partId !in validPartIds }.forEach { defectSlotInputs.remove(it) }
+        partDefectOverrides.keys.filter { it !in validPartIds }.forEach { partDefectOverrides.remove(it) }
         validPartIds.forEach { partId ->
             totalCheckInputs.putIfAbsent(partId, "")
             expandedPartIds.putIfAbsent(partId, false)
+            val fallbackDefectIds = baseDefectTypesForPart(partId).map { it.id }
+            val overrideIds = partDefectOverrides[partId].orEmpty()
+            val validDefectIds = defectTypes.map { it.id }.toSet()
+            val cleanedOverride = overrideIds.filter { it in validDefectIds }
+            if (cleanedOverride.isEmpty()) {
+                partDefectOverrides[partId] = fallbackDefectIds
+            } else if (cleanedOverride.size != overrideIds.size) {
+                partDefectOverrides[partId] = cleanedOverride
+            }
             val activeDefectIds = defectTypesForPart(partId).map { it.id }.toSet()
             defectSlotInputs.keys
                 .filter { it.partId == partId && it.defectTypeId !in activeDefectIds }
@@ -1368,7 +1476,7 @@ private fun InspectionActionsBar(
     onClearAll: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.sm),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1397,46 +1505,66 @@ private fun InspectionConfirmDialog(
         return
     }
 
-    androidx.compose.material.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(AppStrings.Inspection.ConfirmTitle) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Text(
-                    AppStrings.Inspection.ConfirmSubtitle,
-                    style = MaterialTheme.typography.body2,
-                )
-                ConfirmSummaryChart(summaryTotals = summaryTotals)
-                ConfirmTotalsCard(summaryTotals = summaryTotals)
-                Text(AppStrings.Inspection.ConfirmPartTitle, style = MaterialTheme.typography.subtitle1)
-                defectSummaries.forEach { row ->
-                    ConfirmPartRow(
-                        title = AppStrings.Inspection.partSummaryItem(row.partNumber, row.partName),
-                        badges =
-                            listOf(
-                                BadgeSpec(
-                                    "${AppStrings.Inspection.SummaryRatioOk} ${row.totalOk}",
-                                    StatusSuccess,
-                                    NeutralSurface,
-                                ),
-                                BadgeSpec(
-                                    "${AppStrings.Inspection.SummaryRatioNg} ${row.totalDefect}",
-                                    StatusError,
-                                    NeutralSurface,
-                                ),
-                            ),
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.width(760.dp),
+            color = NeutralSurface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+            shape = MaterialTheme.shapes.medium,
+            elevation = 8.dp,
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    Text(AppStrings.Inspection.ConfirmTitle, style = MaterialTheme.typography.h6)
+                    Text(
+                        AppStrings.Inspection.ConfirmSubtitle,
+                        style = MaterialTheme.typography.body2,
                     )
+                    ConfirmSummaryChart(summaryTotals = summaryTotals)
+                    ConfirmTotalsCard(summaryTotals = summaryTotals)
+                    Text(AppStrings.Inspection.ConfirmPartTitle, style = MaterialTheme.typography.subtitle1)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        defectSummaries.forEach { row ->
+                            ConfirmPartRow(
+                                title = AppStrings.Inspection.partSummaryItem(row.partNumber, row.partName),
+                                badges =
+                                    listOf(
+                                        BadgeSpec(
+                                            "${AppStrings.Inspection.SummaryRatioOk} ${row.totalOk}",
+                                            StatusSuccess,
+                                            NeutralSurface,
+                                        ),
+                                        BadgeSpec(
+                                            "${AppStrings.Inspection.SummaryRatioNg} ${row.totalDefect}",
+                                            StatusError,
+                                            NeutralSurface,
+                                        ),
+                                    ),
+                            )
+                        }
+                    }
+                    ConfirmNoticeRow()
                 }
-                ConfirmNoticeRow()
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(NeutralLight)
+                            .padding(Spacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.End),
+                ) {
+                    SecondaryButton(text = AppStrings.Actions.Cancel, onClick = onDismiss)
+                    PrimaryButton(text = AppStrings.Actions.SaveNow, onClick = onConfirm)
+                }
             }
-        },
-        confirmButton = {
-            PrimaryButton(text = AppStrings.Actions.SaveNow, onClick = onConfirm)
-        },
-        dismissButton = {
-            SecondaryButton(text = AppStrings.Actions.Cancel, onClick = onDismiss)
-        },
-    )
+        }
+    }
 }
 
 @Composable

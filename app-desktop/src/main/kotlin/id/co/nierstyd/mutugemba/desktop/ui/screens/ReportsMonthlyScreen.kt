@@ -96,6 +96,13 @@ private val TotalColumnWidth = 84.dp
 private const val PART_PAGE_SIZE = 8
 private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
 
+data class SupplierNgContribution(
+    val supplierName: String,
+    val materialName: String,
+    val totalNg: Int,
+    val totalParts: Int,
+)
+
 private sealed class MonthlyReportUiState {
     data object Loading : MonthlyReportUiState()
 
@@ -107,11 +114,13 @@ private sealed class MonthlyReportUiState {
 }
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 fun ReportsMonthlyScreen(
     lines: List<Line>,
     dailySummaries: List<DailyChecksheetSummary>,
     loadMonthlyReportDocument: (Long, YearMonth) -> MonthlyReportDocument?,
     loadManualHolidays: () -> Set<LocalDate>,
+    loadSupplierContributions: suspend (MonthlyReportDocument) -> List<SupplierNgContribution>,
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -127,6 +136,8 @@ fun ReportsMonthlyScreen(
     var state by remember { mutableStateOf<MonthlyReportUiState>(MonthlyReportUiState.Loading) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
+    var supplierContributions by remember { mutableStateOf<List<SupplierNgContribution>>(emptyList()) }
+    var supplierLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val summaryByDate =
         remember(dailySummaries, month, selectedLineId) {
@@ -150,6 +161,7 @@ fun ReportsMonthlyScreen(
         val lineId = selectedLineId
         if (lineId == null) {
             state = MonthlyReportUiState.Empty
+            supplierContributions = emptyList()
             return@LaunchedEffect
         }
         state = MonthlyReportUiState.Loading
@@ -158,6 +170,16 @@ fun ReportsMonthlyScreen(
                 loadMonthlyReportDocument(lineId, month)
             }
         state = document?.let { MonthlyReportUiState.Loaded(it) } ?: MonthlyReportUiState.Empty
+        if (document != null && document.rows.isNotEmpty()) {
+            supplierLoading = true
+            supplierContributions =
+                withContext(Dispatchers.IO) {
+                    loadSupplierContributions(document)
+                }
+            supplierLoading = false
+        } else {
+            supplierContributions = emptyList()
+        }
     }
 
     Column(
@@ -244,6 +266,8 @@ fun ReportsMonthlyScreen(
                     document = snapshot.document,
                     manualHolidays = manualHolidays,
                     summaryByDate = summaryByDate,
+                    supplierContributions = supplierContributions,
+                    supplierLoading = supplierLoading,
                 )
         }
     }
@@ -255,9 +279,9 @@ private fun exportMonthlyPdf(
 ): java.nio.file.Path {
     val exportDir = AppDataPaths.exportsDir()
     Files.createDirectories(exportDir)
-    val timestamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(LocalDateTime.now())
-    val filename = "MonthlyReport-${document.header.lineCode.name}-${document.header.month}-$timestamp.pdf"
-    val outputPath = exportDir.resolve(filename)
+    val timestamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS").format(LocalDateTime.now())
+    val baseName = "MonthlyReport-${document.header.lineCode.name}-${document.header.month}-$timestamp"
+    val outputPath = resolveUniquePdfPath(exportDir, baseName)
     val meta =
         MonthlyReportPrintMeta(
             companyName = AppStrings.App.CompanyName,
@@ -271,6 +295,19 @@ private fun exportMonthlyPdf(
                 },
         )
     return MonthlyReportPdfExporter.export(document, meta, outputPath, manualHolidays)
+}
+
+private fun resolveUniquePdfPath(
+    exportDir: java.nio.file.Path,
+    baseName: String,
+): java.nio.file.Path {
+    var candidate = exportDir.resolve("$baseName.pdf")
+    var suffix = 1
+    while (Files.exists(candidate)) {
+        candidate = exportDir.resolve("$baseName-$suffix.pdf")
+        suffix += 1
+    }
+    return candidate
 }
 
 @Composable
@@ -474,6 +511,8 @@ private fun MonthlyReportDocumentCard(
     document: MonthlyReportDocument,
     manualHolidays: Set<LocalDate>,
     summaryByDate: Map<LocalDate, DailyChecksheetSummary>,
+    supplierContributions: List<SupplierNgContribution>,
+    supplierLoading: Boolean,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -500,6 +539,10 @@ private fun MonthlyReportDocumentCard(
                 ) {
                     MonthlyReportHeader(document = document)
                     MonthlyReportMeta(document = document)
+                    SupplierContributionPanel(
+                        items = supplierContributions,
+                        loading = supplierLoading,
+                    )
                     MonthlyReportTable(
                         document = document,
                         manualHolidays = manualHolidays,
@@ -507,6 +550,72 @@ private fun MonthlyReportDocumentCard(
                     )
                     MonthlyReportLegend()
                     MonthlyReportSignature()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SupplierContributionPanel(
+    items: List<SupplierNgContribution>,
+    loading: Boolean,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralLight.copy(alpha = 0.38f),
+        border = BorderStroke(1.dp, NeutralBorder),
+        shape = MaterialTheme.shapes.small,
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text(
+                text = "Tracking Bahan -> Pemasok -> Kontribusi NG",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            if (loading) {
+                Text(
+                    text = "Memuat kontribusi pemasok...",
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
+                return@Column
+            }
+            if (items.isEmpty()) {
+                Text(
+                    text = "Belum ada kontribusi NG berbasis bahan untuk periode ini.",
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
+                return@Column
+            }
+            items.take(6).forEachIndexed { index, row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "${index + 1}. ${row.materialName} (${row.supplierName})",
+                        style = MaterialTheme.typography.body2,
+                        color = NeutralText,
+                        modifier = Modifier.weight(1f),
+                    )
+                    AppBadge(
+                        text = "NG ${row.totalNg}",
+                        backgroundColor = BrandBlue.copy(alpha = 0.12f),
+                        contentColor = BrandBlue,
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.xs))
+                    Text(
+                        text = "${row.totalParts} part",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
                 }
             }
         }

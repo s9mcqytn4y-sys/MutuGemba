@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
@@ -38,6 +40,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.CompactNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
+import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
@@ -59,6 +62,7 @@ import java.nio.file.Paths
 import kotlin.io.path.name
 
 @Composable
+@Suppress("LongParameterList")
 internal fun PartChecksheetCard(
     part: Part,
     defectTypes: List<DefectType>,
@@ -77,6 +81,11 @@ internal fun PartChecksheetCard(
     onAddCustomDefect: () -> Unit,
     currentLine: String,
     onDefectSlotChanged: (Long, InspectionTimeSlot, String) -> Unit,
+    availableDefectTypes: List<DefectType>,
+    onAddDefectToPart: (Long) -> Unit,
+    onMoveDefectUp: (Long) -> Unit,
+    onMoveDefectDown: (Long) -> Unit,
+    onRemoveDefectFromPart: (Long) -> Unit,
 ) {
     val borderColor = if (expanded) MaterialTheme.colors.primary else NeutralBorder
     Surface(
@@ -139,12 +148,124 @@ internal fun PartChecksheetCard(
                         partId = part.id,
                         onValueChange = onDefectSlotChanged,
                     )
+                    DefectConfigurator(
+                        activeDefects = defectTypes,
+                        availableDefects = availableDefectTypes,
+                        onAdd = onAddDefectToPart,
+                        onMoveUp = onMoveDefectUp,
+                        onMoveDown = onMoveDefectDown,
+                        onRemove = onRemoveDefectFromPart,
+                    )
                     InlineCustomDefectRow(
                         value = customDefectInput,
                         onValueChange = onCustomDefectInputChanged,
                         onAdd = onAddCustomDefect,
                         currentLine = currentLine,
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+@Suppress("LongMethod")
+private fun DefectConfigurator(
+    activeDefects: List<DefectType>,
+    availableDefects: List<DefectType>,
+    onAdd: (Long) -> Unit,
+    onMoveUp: (Long) -> Unit,
+    onMoveDown: (Long) -> Unit,
+    onRemove: (Long) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralLight.copy(alpha = 0.4f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        shape = MaterialTheme.shapes.small,
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text(
+                text = "Jenis NG Aktif (bisa diatur urutan/aktifnya)",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            if (activeDefects.isEmpty()) {
+                Text(
+                    text = "Belum ada Jenis NG aktif untuk part ini.",
+                    style = MaterialTheme.typography.body2,
+                    color = NeutralTextMuted,
+                )
+            } else {
+                activeDefects.forEachIndexed { index, defect ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AppBadge(
+                            text = (index + 1).toString(),
+                            backgroundColor = NeutralSurface,
+                            contentColor = NeutralTextMuted,
+                        )
+                        Text(
+                            text = normalizeDefectName(defect.name),
+                            style = MaterialTheme.typography.body2,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                        )
+                        SecondaryButton(
+                            text = "Naik",
+                            onClick = { onMoveUp(defect.id) },
+                            enabled = index > 0,
+                        )
+                        SecondaryButton(
+                            text = "Turun",
+                            onClick = { onMoveDown(defect.id) },
+                            enabled = index < activeDefects.lastIndex,
+                        )
+                        SecondaryButton(
+                            text = "Hapus",
+                            onClick = { onRemove(defect.id) },
+                            enabled = activeDefects.size > 1,
+                        )
+                    }
+                }
+            }
+            if (availableDefects.isNotEmpty()) {
+                Text(
+                    text = "Tambahkan Jenis NG",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                ) {
+                    availableDefects.take(12).forEach { defect ->
+                        Surface(
+                            modifier =
+                                Modifier
+                                    .widthIn(min = 120.dp)
+                                    .clickable { onAdd(defect.id) },
+                            color = NeutralSurface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+                            shape = MaterialTheme.shapes.small,
+                            elevation = 0.dp,
+                        ) {
+                            Text(
+                                text = "+ ${normalizeDefectName(defect.name)}",
+                                style = MaterialTheme.typography.caption,
+                                color = NeutralText,
+                                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
             }
         }

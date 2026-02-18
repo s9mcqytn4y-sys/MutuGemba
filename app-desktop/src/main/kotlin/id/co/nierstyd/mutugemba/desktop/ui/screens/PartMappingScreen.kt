@@ -6,6 +6,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Checkbox
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Tab
@@ -66,6 +68,7 @@ import id.co.nierstyd.mutugemba.domain.model.NgOriginType
 import id.co.nierstyd.mutugemba.domain.model.PartDetail
 import id.co.nierstyd.mutugemba.domain.model.PartFilter
 import id.co.nierstyd.mutugemba.domain.model.PartListItem
+import id.co.nierstyd.mutugemba.domain.model.PartMasterDetail
 import id.co.nierstyd.mutugemba.domain.model.PartMasterListItem
 import id.co.nierstyd.mutugemba.domain.model.SaveDefectMasterCommand
 import id.co.nierstyd.mutugemba.domain.model.SaveMaterialMasterCommand
@@ -419,6 +422,9 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                             managerInfo = "Gagal perbarui mapping jenis NG: ${throwable.message ?: "-"}"
                         }
                     }
+                },
+                loadPartDetail = { partId ->
+                    withContext(Dispatchers.IO) { dependencies.getPartMasterDetail.execute(partId) }
                 },
             )
         } else {
@@ -932,6 +938,7 @@ private fun PartMasterManagerPanel(
     onSaveDefect: (name: String, originType: NgOriginType, lineCode: String?) -> Unit,
     onAssignPartMaterials: (partId: Long, materialIds: List<Long>) -> Unit,
     onAssignPartDefects: (partId: Long, defectIds: List<Long>) -> Unit,
+    loadPartDetail: suspend (Long) -> PartMasterDetail?,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -973,6 +980,7 @@ private fun PartMasterManagerPanel(
                         onSavePart = onSavePart,
                         onAssignPartMaterials = onAssignPartMaterials,
                         onAssignPartDefects = onAssignPartDefects,
+                        loadPartDetail = loadPartDetail,
                     )
 
                 1 ->
@@ -999,7 +1007,7 @@ private fun PartMasterManagerPanel(
 }
 
 @Composable
-@Suppress("LongMethod")
+@Suppress("LongMethod", "LongParameterList", "CyclomaticComplexMethod")
 private fun PartEditorTab(
     totalParts: Int,
     parts: List<PartMasterListItem>,
@@ -1008,15 +1016,54 @@ private fun PartEditorTab(
     onSavePart: (uniqNo: String, partNumber: String, partName: String, lineCode: String, excluded: Boolean) -> Unit,
     onAssignPartMaterials: (partId: Long, materialIds: List<Long>) -> Unit,
     onAssignPartDefects: (partId: Long, defectIds: List<Long>) -> Unit,
+    loadPartDetail: suspend (Long) -> PartMasterDetail?,
 ) {
     var uniqNo by remember { mutableStateOf("") }
     var partNumber by remember { mutableStateOf("") }
     var partName by remember { mutableStateOf("") }
     var lineCode by remember { mutableStateOf("press") }
     var excluded by remember { mutableStateOf(false) }
-    var assignPartId by remember { mutableStateOf("") }
-    var assignMaterialIds by remember { mutableStateOf("") }
-    var assignDefectIds by remember { mutableStateOf("") }
+    var assignPartQuery by remember { mutableStateOf("") }
+    var selectedAssignPartId by remember { mutableStateOf<Long?>(parts.firstOrNull()?.id) }
+    var assignmentLoading by remember { mutableStateOf(false) }
+    val selectedMaterialIds = remember { mutableStateMapOf<Long, Boolean>() }
+    val selectedDefectIds = remember { mutableStateMapOf<Long, Boolean>() }
+    val selectedPart = parts.firstOrNull { it.id == selectedAssignPartId }
+    val assignPartCandidates =
+        remember(parts, assignPartQuery) {
+            val keyword = assignPartQuery.trim().lowercase()
+            parts
+                .filter { part ->
+                    keyword.isBlank() ||
+                        part.uniqNo.lowercase().contains(keyword) ||
+                        part.partNumber.lowercase().contains(keyword) ||
+                        part.partName.lowercase().contains(keyword)
+                }.take(8)
+        }
+    val eligibleDefects =
+        remember(defects, selectedPart?.lineCode) {
+            defects.filter { defect ->
+                defect.lineCode.isNullOrBlank() ||
+                    selectedPart?.lineCode.equals(defect.lineCode, ignoreCase = true)
+            }
+        }
+
+    LaunchedEffect(parts) {
+        if (selectedAssignPartId == null || parts.none { it.id == selectedAssignPartId }) {
+            selectedAssignPartId = parts.firstOrNull()?.id
+        }
+    }
+
+    LaunchedEffect(selectedAssignPartId, materials, defects) {
+        selectedMaterialIds.clear()
+        selectedDefectIds.clear()
+        val partId = selectedAssignPartId ?: return@LaunchedEffect
+        assignmentLoading = true
+        val detail = runCatching { loadPartDetail(partId) }.getOrNull()
+        detail?.materials?.forEach { selectedMaterialIds[it.materialId] = true }
+        detail?.defects?.forEach { selectedDefectIds[it.defectId] = true }
+        assignmentLoading = false
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Part aktif: $totalParts", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
@@ -1092,55 +1139,185 @@ private fun PartEditorTab(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "Gunakan ID untuk mapping layer bahan dan jenis NG per part.",
+                    text =
+                        "UI granular visual: pilih part, lalu centang layer bahan " +
+                            "dan Jenis NG tanpa input ID manual.",
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
                 AppTextField(
-                    spec = FieldSpec(label = "ID Part"),
-                    value = assignPartId,
-                    onValueChange = { assignPartId = it.filter(Char::isDigit) },
+                    spec = FieldSpec(label = "Cari Part untuk Assignment"),
+                    value = assignPartQuery,
+                    onValueChange = { assignPartQuery = it },
                     singleLine = true,
                 )
-                AppTextField(
-                    spec = FieldSpec(label = "ID Bahan (pisahkan koma)"),
-                    value = assignMaterialIds,
-                    onValueChange = { assignMaterialIds = it },
-                    singleLine = true,
-                )
-                AppTextField(
-                    spec = FieldSpec(label = "ID Jenis NG (pisahkan koma)"),
-                    value = assignDefectIds,
-                    onValueChange = { assignDefectIds = it },
-                    singleLine = true,
-                )
+                if (assignPartCandidates.isEmpty()) {
+                    Text("Part tidak ditemukan.", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        assignPartCandidates.forEach { part ->
+                            val selected = part.id == selectedAssignPartId
+                            Surface(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { selectedAssignPartId = part.id },
+                                color = if (selected) NeutralLight else NeutralSurface,
+                                border =
+                                    BorderStroke(
+                                        1.dp,
+                                        if (selected) MaterialTheme.colors.primary else NeutralBorder,
+                                    ),
+                                shape = MaterialTheme.shapes.small,
+                                elevation = 0.dp,
+                            ) {
+                                Row(
+                                    modifier =
+                                        Modifier.fillMaxWidth().padding(
+                                            horizontal = Spacing.sm,
+                                            vertical = Spacing.xs,
+                                        ),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = "${part.uniqNo} - ${part.partNumber}",
+                                        style = MaterialTheme.typography.body2,
+                                        color = NeutralText,
+                                    )
+                                    AppBadge(
+                                        text = part.lineCode.uppercase(),
+                                        backgroundColor = NeutralSurface,
+                                        contentColor = NeutralTextMuted,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                selectedPart?.let { part ->
+                    Text(
+                        text = "Part terpilih: ${part.uniqNo} • ${part.partNumber}",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                }
+                if (assignmentLoading) {
+                    Text(
+                        "Memuat assignment part...",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.Top) {
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        color = NeutralSurface,
+                        border = BorderStroke(1.dp, NeutralBorder),
+                        shape = MaterialTheme.shapes.small,
+                        elevation = 0.dp,
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        ) {
+                            Text("Layer Bahan", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                            materials.forEach { material ->
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                val next = !(selectedMaterialIds[material.id] ?: false)
+                                                selectedMaterialIds[material.id] = next
+                                            },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Checkbox(
+                                        checked = selectedMaterialIds[material.id] ?: false,
+                                        onCheckedChange = { checked -> selectedMaterialIds[material.id] = checked },
+                                    )
+                                    Column {
+                                        Text(material.name, style = MaterialTheme.typography.body2)
+                                        Text(
+                                            material.supplierName ?: "Pemasok belum diatur",
+                                            style = MaterialTheme.typography.caption,
+                                            color = NeutralTextMuted,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        color = NeutralSurface,
+                        border = BorderStroke(1.dp, NeutralBorder),
+                        shape = MaterialTheme.shapes.small,
+                        elevation = 0.dp,
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        ) {
+                            Text("Jenis NG", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+                            eligibleDefects.forEach { defect ->
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                val next = !(selectedDefectIds[defect.id] ?: false)
+                                                selectedDefectIds[defect.id] = next
+                                            },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Checkbox(
+                                        checked = selectedDefectIds[defect.id] ?: false,
+                                        onCheckedChange = { checked -> selectedDefectIds[defect.id] = checked },
+                                    )
+                                    Column {
+                                        Text(defect.name, style = MaterialTheme.typography.body2)
+                                        Text(
+                                            "${defect.originType} ${defect.lineCode?.uppercase()?.let {
+                                                "• $it"
+                                            } ?: ""}",
+                                            style = MaterialTheme.typography.caption,
+                                            color = NeutralTextMuted,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     SecondaryButton(
                         text = "Simpan Layer Bahan",
                         onClick = {
-                            val partId = assignPartId.toLongOrNull() ?: return@SecondaryButton
-                            onAssignPartMaterials(partId, assignMaterialIds.toIdList())
+                            val partId = selectedAssignPartId ?: return@SecondaryButton
+                            val materialIds =
+                                materials
+                                    .filter { selectedMaterialIds[it.id] == true }
+                                    .map { it.id }
+                            onAssignPartMaterials(partId, materialIds)
                         },
                     )
                     SecondaryButton(
                         text = "Simpan Jenis NG",
                         onClick = {
-                            val partId = assignPartId.toLongOrNull() ?: return@SecondaryButton
-                            onAssignPartDefects(partId, assignDefectIds.toIdList())
+                            val partId = selectedAssignPartId ?: return@SecondaryButton
+                            val defectIds =
+                                eligibleDefects
+                                    .filter { selectedDefectIds[it.id] == true }
+                                    .map { it.id }
+                            onAssignPartDefects(partId, defectIds)
                         },
                     )
                 }
                 Text(
                     text =
-                        "Referensi Part: ${
-                            parts.take(5).joinToString { "${it.id}:${it.uniqNo}" }.ifBlank { "-" }
-                        }",
-                    style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
-                )
-                Text(
-                    text =
-                        "Referensi Bahan/Jenis NG: Bahan ${materials.size} item, Jenis NG ${defects.size} item.",
+                        "Part termuat: ${parts.size} | Bahan: ${materials.size} | Jenis NG: ${defects.size}",
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
@@ -1285,8 +1462,3 @@ private fun PartListItem.matchesCatalogQuery(rawQuery: String): Boolean {
         ).joinToString(" ").lowercase()
     return query in searchBucket
 }
-
-private fun String.toIdList(): List<Long> =
-    split(",")
-        .mapNotNull { token -> token.trim().toLongOrNull() }
-        .distinct()

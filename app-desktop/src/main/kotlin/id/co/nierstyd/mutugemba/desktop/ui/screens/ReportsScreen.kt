@@ -58,6 +58,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusError
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
@@ -1318,7 +1319,15 @@ private fun DocumentEntryTable(
 
         entries.forEachIndexed { index, entry ->
             val ratio = if (entry.totalCheck > 0) entry.totalDefect.toDouble() / entry.totalCheck.toDouble() else 0.0
-            val rowBackground = if (index % 2 == 0) NeutralSurface else NeutralLight
+            val highRisk = ratio >= 0.15
+            val rowBackground =
+                if (highRisk) {
+                    MaterialTheme.colors.primary.copy(alpha = 0.08f)
+                } else if (index % 2 == 0) {
+                    NeutralSurface
+                } else {
+                    NeutralLight
+                }
             Row(modifier = Modifier.fillMaxWidth()) {
                 DocumentBodyCell(
                     text = (index + 1).toString(),
@@ -1340,6 +1349,8 @@ private fun DocumentEntryTable(
                     weight = 0.7f,
                     alignCenter = true,
                     backgroundColor = rowBackground,
+                    textColor = if (entry.totalDefect > 0) MaterialTheme.colors.primary else NeutralTextMuted,
+                    fontWeight = if (entry.totalDefect > 0) FontWeight.SemiBold else FontWeight.Normal,
                 )
                 DocumentBodyCell(
                     text = (entry.totalCheck - entry.totalDefect).coerceAtLeast(0).toString(),
@@ -1352,6 +1363,8 @@ private fun DocumentEntryTable(
                     weight = 0.8f,
                     alignCenter = true,
                     backgroundColor = rowBackground,
+                    textColor = if (highRisk) StatusError else NeutralText,
+                    fontWeight = if (highRisk) FontWeight.SemiBold else FontWeight.Normal,
                 )
             }
         }
@@ -1397,6 +1410,8 @@ private fun RowScope.DocumentBodyCell(
     alignCenter: Boolean = false,
     backgroundColor: androidx.compose.ui.graphics.Color = NeutralSurface,
     maxLines: Int = 1,
+    textColor: androidx.compose.ui.graphics.Color = NeutralText,
+    fontWeight: FontWeight = FontWeight.Normal,
 ) {
     Box(
         modifier =
@@ -1409,8 +1424,8 @@ private fun RowScope.DocumentBodyCell(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.body2,
-            color = NeutralText,
+            style = MaterialTheme.typography.body2.copy(fontWeight = fontWeight),
+            color = textColor,
             maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
             textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,

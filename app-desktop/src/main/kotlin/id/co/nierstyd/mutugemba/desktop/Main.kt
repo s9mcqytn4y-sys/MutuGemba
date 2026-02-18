@@ -33,8 +33,22 @@ private fun configurePdfBoxRuntime() {
     System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog")
     System.setProperty("org.apache.commons.logging.simplelog.defaultlog", "warn")
     System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.fontbox.ttf", "error")
+    System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.fontbox", "error")
+    System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.pdfbox", "error")
     System.setProperty(
         "org.apache.commons.logging.simplelog.log.org.apache.pdfbox.pdmodel.font.FileSystemFontProvider",
+        "error",
+    )
+    System.setProperty(
+        "org.apache.commons.logging.simplelog.log.org.apache.fontbox.ttf.CmapSubtable",
+        "error",
+    )
+    System.setProperty(
+        "org.apache.commons.logging.simplelog.log.org.apache.fontbox.ttf.TTFParser",
+        "error",
+    )
+    System.setProperty(
+        "org.apache.commons.logging.simplelog.log.org.apache.pdfbox.pdmodel.PDDocument",
         "error",
     )
 }

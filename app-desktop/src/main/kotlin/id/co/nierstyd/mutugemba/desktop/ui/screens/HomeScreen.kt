@@ -364,6 +364,12 @@ fun HomeScreen(
                             onNavigateToInspection = onNavigateToInspection,
                             onReset = { showResetDialog = true },
                         )
+                        TpsFlowSnapshotCard(
+                            totalInput = totalToday,
+                            totalNg = totalDefectToday,
+                            totalCheck = totalCheckFromSummary,
+                            activeLines = activeLinesToday,
+                        )
                         feedback?.let { StatusBanner(feedback = it) }
                     }
                 }
@@ -398,6 +404,47 @@ fun HomeScreen(
         },
         onDismiss = { showResetDialog = false },
     )
+}
+
+@Composable
+private fun TpsFlowSnapshotCard(
+    totalInput: Int,
+    totalNg: Int,
+    totalCheck: Int,
+    activeLines: Int,
+) {
+    val detectStatus = if (totalNg > 0) "DETECT: $totalNg NG" else "DETECT: Stabil"
+    val containStatus = if (totalInput > 0) "CONTAIN: $activeLines line aktif" else "CONTAIN: Belum ada input"
+    val closeRate =
+        if (totalCheck > 0) {
+            (((totalCheck - totalNg).coerceAtLeast(0).toDouble() / totalCheck.toDouble()) * 100.0).toInt()
+        } else {
+            0
+        }
+    val closeStatus = "CLOSE: $closeRate% OK"
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = NeutralSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text("Alur TPS Hari Ini", style = MaterialTheme.typography.subtitle1, color = NeutralText)
+            Text(
+                "Pantau siklus DETECT -> CONTAIN -> CLOSE untuk operator.",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            Text(detectStatus, style = MaterialTheme.typography.body2, color = NeutralText)
+            Text(containStatus, style = MaterialTheme.typography.body2, color = NeutralText)
+            Text(closeStatus, style = MaterialTheme.typography.body2, color = NeutralText)
+        }
+    }
 }
 
 @Composable
