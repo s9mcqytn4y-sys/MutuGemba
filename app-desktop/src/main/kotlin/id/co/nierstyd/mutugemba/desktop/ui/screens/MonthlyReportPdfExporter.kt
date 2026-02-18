@@ -4,7 +4,6 @@ package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
-import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
 import id.co.nierstyd.mutugemba.domain.MonthlyReportRow
 import org.apache.pdfbox.pdmodel.PDDocument
@@ -17,7 +16,6 @@ import java.awt.Color
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDate
-import kotlin.math.floor
 
 data class MonthlyReportPrintMeta(
     val companyName: String,
@@ -62,7 +60,6 @@ object MonthlyReportPdfExporter {
 
     private data class PageSpec(
         val days: List<LocalDate>,
-        val defectTypes: List<DefectType>,
         val rows: List<MonthlyReportRow>,
         val manualHolidays: Set<LocalDate>,
     )
@@ -71,22 +68,23 @@ object MonthlyReportPdfExporter {
         document: MonthlyReportDocument,
         manualHolidays: Set<LocalDate>,
     ): List<PageSpec> {
-        val daySlices = sliceDaysForPage(document.days)
-        val specs = mutableListOf<PageSpec>()
         val pagedRows = paginateRowsForPage(document.rows)
-        daySlices.forEach { days ->
-            val defectGroups = sliceDefectsForPage(document.defectTypes, days.size)
-            defectGroups.forEach { defectGroup ->
-                if (pagedRows.isEmpty()) {
-                    specs += PageSpec(days, defectGroup, emptyList(), manualHolidays)
-                } else {
-                    pagedRows.forEach { chunk ->
-                        specs += PageSpec(days, defectGroup, chunk, manualHolidays)
-                    }
-                }
-            }
+        if (pagedRows.isEmpty()) {
+            return listOf(
+                PageSpec(
+                    days = document.days,
+                    rows = emptyList(),
+                    manualHolidays = manualHolidays,
+                ),
+            )
         }
-        return specs
+        return pagedRows.map { chunk ->
+            PageSpec(
+                days = document.days,
+                rows = chunk,
+                manualHolidays = manualHolidays,
+            )
+        }
     }
 
     private fun paginateRowsForPage(rows: List<MonthlyReportRow>): List<List<MonthlyReportRow>> {
@@ -187,43 +185,6 @@ object MonthlyReportPdfExporter {
         mutablePage.addAll(chunkRows)
         mutableUsedHeight += chunkHeight
         return mutablePage to mutableUsedHeight
-    }
-
-    private fun sliceDaysForPage(days: List<LocalDate>): List<List<LocalDate>> {
-        if (days.isEmpty()) return emptyList()
-        val defaultSlice = 16
-        val maxDayPerPage = calculateMaxDayColumns().coerceAtLeast(1)
-        val sliceSize = minOf(defaultSlice, maxDayPerPage)
-        return days.chunked(sliceSize)
-    }
-
-    private fun sliceDefectsForPage(
-        defects: List<DefectType>,
-        dayCount: Int,
-    ): List<List<DefectType>> {
-        if (defects.isEmpty()) return listOf(emptyList())
-        val maxPerPage = calculateMaxDefectColumns(dayCount).coerceAtLeast(1)
-        return defects.chunked(maxPerPage)
-    }
-
-    private fun calculateMaxDayColumns(): Int {
-        val contentWidth = pageContentWidth()
-        val firstColumns = 42f + 98f + 150f
-        val totalColumn = 38f
-        val defectWidth = 30f
-        val minDayWidth = 12f
-        val available = contentWidth - firstColumns - totalColumn - defectWidth
-        return floor(available / minDayWidth).toInt().coerceAtLeast(1)
-    }
-
-    private fun calculateMaxDefectColumns(dayCount: Int): Int {
-        val contentWidth = pageContentWidth()
-        val firstColumns = 42f + 98f + 150f
-        val totalColumn = 38f
-        val dayWidth = 12f
-        val defectWidth = 30f
-        val available = contentWidth - firstColumns - totalColumn - (dayCount * dayWidth)
-        return floor(available / defectWidth).toInt().coerceAtLeast(1)
     }
 
     private fun tableBodyHeightBudget(): Float {
@@ -386,12 +347,14 @@ object MonthlyReportPdfExporter {
         val subtotalHeight = 16f
         val totalHeight = 18f
 
-        val sketchWidth = 42f
-        val partWidth = 98f
-        val problemWidth = 150f
-        val dayWidth = 12f
-        val defectWidth = 30f
+        val noWidth = 26f
+        val sketchWidth = 78f
+        val partWidth = 124f
+        val problemWidth = 182f
         val totalWidth = 38f
+        val dayCount = spec.days.size.coerceAtLeast(1)
+        val fixedWidth = noWidth + sketchWidth + partWidth + problemWidth + totalWidth
+        val dayWidth = ((width - fixedWidth) / dayCount).coerceAtLeast(9.2f)
 
         var cursorY = top
         val headerBackground = palette.header
@@ -401,6 +364,18 @@ object MonthlyReportPdfExporter {
         drawCell(
             content,
             left,
+            cursorY,
+            noWidth,
+            leftHeaderHeight,
+            "No",
+            headerBackground,
+            fontBold,
+            7.5f,
+            alignCenter = true,
+        )
+        drawCell(
+            content,
+            left + noWidth,
             cursorY,
             sketchWidth,
             leftHeaderHeight,
@@ -412,7 +387,7 @@ object MonthlyReportPdfExporter {
         )
         drawCell(
             content,
-            left + sketchWidth,
+            left + noWidth + sketchWidth,
             cursorY,
             partWidth,
             leftHeaderHeight,
@@ -424,7 +399,7 @@ object MonthlyReportPdfExporter {
         )
         drawCell(
             content,
-            left + sketchWidth + partWidth,
+            left + noWidth + sketchWidth + partWidth,
             cursorY,
             problemWidth,
             leftHeaderHeight,
@@ -435,12 +410,8 @@ object MonthlyReportPdfExporter {
             alignCenter = true,
         )
 
-        val rightStart = left + sketchWidth + partWidth + problemWidth
-        val dayCount = spec.days.size
-        val defectCount = spec.defectTypes.size
+        val rightStart = left + noWidth + sketchWidth + partWidth + problemWidth
         val dayWidthTotal = dayCount * dayWidth
-        val defectWidthTotal = defectCount * defectWidth
-        val totalGroupWidth = defectWidthTotal + totalWidth
 
         drawCell(
             content,
@@ -458,9 +429,9 @@ object MonthlyReportPdfExporter {
             content,
             rightStart + dayWidthTotal,
             cursorY,
-            totalGroupWidth,
+            totalWidth,
             headerHeight,
-            AppStrings.ReportsMonthly.TableTotals,
+            AppStrings.ReportsMonthly.TableTotalNg,
             headerBackground,
             fontBold,
             7.5f,
@@ -486,24 +457,9 @@ object MonthlyReportPdfExporter {
             )
         }
 
-        spec.defectTypes.forEachIndexed { index, defect ->
-            drawCell(
-                content,
-                rightStart + dayWidthTotal + (index * defectWidth),
-                cursorY,
-                defectWidth,
-                subHeaderHeight,
-                defect.name,
-                headerBackground,
-                fontBold,
-                7f,
-                alignCenter = true,
-            )
-        }
-
         drawCell(
             content,
-            rightStart + dayWidthTotal + defectWidthTotal,
+            rightStart + dayWidthTotal,
             cursorY,
             totalWidth,
             subHeaderHeight,
@@ -523,18 +479,31 @@ object MonthlyReportPdfExporter {
                 .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber ?: "" }
         groupedRows.forEachIndexed { partIndex, (_, partRows) ->
             val partDayTotals = MutableList(dayCount) { 0 }
-            val partDefectTotals = MutableList(defectCount) { 0 }
             var partTotal = 0
             val rowBackground = if (partIndex % 2 == 0) Color.WHITE else palette.stripe
             val sketchHeight = rowHeight * partRows.size
+            val sample = partRows.firstOrNull()
 
             drawCell(
                 content,
                 left,
                 cursorY,
+                noWidth,
+                sketchHeight,
+                (partIndex + 1).toString(),
+                rowBackground,
+                fontRegular,
+                7f,
+                alignCenter = true,
+            )
+
+            drawCell(
+                content,
+                left + noWidth,
+                cursorY,
                 sketchWidth,
                 sketchHeight,
-                AppStrings.ReportsMonthly.TableSketch,
+                sample?.uniqCode ?: "-",
                 rowBackground,
                 fontRegular,
                 7f,
@@ -545,7 +514,7 @@ object MonthlyReportPdfExporter {
                 val partLabel = if (rowIndex == 0) "${row.partNumber}(${row.uniqCode})" else ""
                 drawCell(
                     content,
-                    left + sketchWidth,
+                    left + noWidth + sketchWidth,
                     cursorY,
                     partWidth,
                     rowHeight,
@@ -556,7 +525,7 @@ object MonthlyReportPdfExporter {
                 )
                 drawCell(
                     content,
-                    left + sketchWidth + partWidth,
+                    left + noWidth + sketchWidth + partWidth,
                     cursorY,
                     problemWidth,
                     rowHeight,
@@ -581,25 +550,10 @@ object MonthlyReportPdfExporter {
                         alignCenter = true,
                     )
                 }
-                row.defectTotals.take(defectCount).forEachIndexed { i, value ->
-                    partDefectTotals[i] += value
-                    drawCell(
-                        content,
-                        rightStart + dayWidthTotal + (i * defectWidth),
-                        cursorY,
-                        defectWidth,
-                        rowHeight,
-                        value.toString(),
-                        rowBackground,
-                        fontRegular,
-                        7f,
-                        alignCenter = true,
-                    )
-                }
                 partTotal += row.totalDefect
                 drawCell(
                     content,
-                    rightStart + dayWidthTotal + defectWidthTotal,
+                    rightStart + dayWidthTotal,
                     cursorY,
                     totalWidth,
                     rowHeight,
@@ -617,7 +571,7 @@ object MonthlyReportPdfExporter {
                 content,
                 left,
                 cursorY,
-                sketchWidth + partWidth,
+                noWidth + sketchWidth + partWidth,
                 subtotalHeight,
                 "",
                 subtotalBackground,
@@ -626,7 +580,7 @@ object MonthlyReportPdfExporter {
             )
             drawCell(
                 content,
-                left + sketchWidth + partWidth,
+                left + noWidth + sketchWidth + partWidth,
                 cursorY,
                 problemWidth,
                 subtotalHeight,
@@ -649,23 +603,9 @@ object MonthlyReportPdfExporter {
                     alignCenter = true,
                 )
             }
-            partDefectTotals.forEachIndexed { i, value ->
-                drawCell(
-                    content,
-                    rightStart + dayWidthTotal + (i * defectWidth),
-                    cursorY,
-                    defectWidth,
-                    subtotalHeight,
-                    value.toString(),
-                    subtotalBackground,
-                    fontBold,
-                    7f,
-                    alignCenter = true,
-                )
-            }
             drawCell(
                 content,
-                rightStart + dayWidthTotal + defectWidthTotal,
+                rightStart + dayWidthTotal,
                 cursorY,
                 totalWidth,
                 subtotalHeight,
@@ -684,7 +624,7 @@ object MonthlyReportPdfExporter {
             content,
             left,
             cursorY,
-            totalLabelWidth,
+            noWidth + totalLabelWidth,
             totalHeight,
             AppStrings.ReportsMonthly.TableGrandTotal,
             palette.total,
@@ -705,23 +645,9 @@ object MonthlyReportPdfExporter {
                 alignCenter = true,
             )
         }
-        document.totals.defectTotals.take(defectCount).forEachIndexed { i, value ->
-            drawCell(
-                content,
-                rightStart + dayWidthTotal + (i * defectWidth),
-                cursorY,
-                defectWidth,
-                totalHeight,
-                value.toString(),
-                subtotalBackground,
-                fontBold,
-                7f,
-                alignCenter = true,
-            )
-        }
         drawCell(
             content,
-            rightStart + dayWidthTotal + defectWidthTotal,
+            rightStart + dayWidthTotal,
             cursorY,
             totalWidth,
             totalHeight,
@@ -867,12 +793,6 @@ object MonthlyReportPdfExporter {
             return if (trimmed.isEmpty()) "" else trimmed + ellipsis
         }
         return current
-    }
-
-    private fun pageContentWidth(): Float {
-        val pageWidth = PDRectangle.A4.height
-        val margin = mmToPoint(14f) * 2
-        return pageWidth - margin
     }
 
     private fun pageContentHeight(): Float {

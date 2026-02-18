@@ -86,6 +86,8 @@ import java.nio.file.Paths
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
 import org.jetbrains.skia.Image as SkiaImage
 
 private val DocumentWidth = 1280.dp
@@ -107,6 +109,7 @@ private val SubtotalHighlight = BrandBlue.copy(alpha = 0.06f)
 private const val PREVIEW_PART_LIMIT = 6
 private const val FULL_DOCUMENT_PAGE_PART_LIMIT = 14
 private const val SKETCH_SEARCH_DEPTH = 6
+private val IndonesianLocale = Locale("id", "ID")
 
 private data class SketchRequest(
     val sketchPath: String?,
@@ -760,7 +763,16 @@ private fun MonthlyReportTable(
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     val sketchCache = remember { mutableStateMapOf<String, androidx.compose.ui.graphics.ImageBitmap?>() }
+    val isFullDocument = documentMode == MonthlyDocumentMode.FULL
+    val enableDayScroll = !isFullDocument
+    val rowHeight = if (documentMode == MonthlyDocumentMode.PREVIEW) 44.dp else BodyRowHeight
+    val subtotalHeight = if (documentMode == MonthlyDocumentMode.PREVIEW) 32.dp else SubtotalRowHeight
+    val partHeaderHeight = if (documentMode == MonthlyDocumentMode.PREVIEW) 30.dp else PartSectionHeaderHeight
     val days = document.days
+    if (days.isEmpty()) {
+        MonthlyReportEmpty()
+        return
+    }
     val dayStyles =
         remember(days, summaryByDate, manualHolidays) {
             days.associateWith { day ->
@@ -826,7 +838,7 @@ private fun MonthlyReportTable(
                             if (documentMode == MonthlyDocumentMode.PREVIEW) {
                                 "Pratinjau ${visibleGroupedRows.size}/${groupedRows.size} part"
                             } else {
-                                "Dokumen penuh ${visibleGroupedRows.size} part/halaman"
+                                "Dokumen penuh ${visibleGroupedRows.size} part/halaman (semua tanggal tampil)"
                             },
                         backgroundColor = NeutralLight,
                         contentColor = NeutralTextMuted,
@@ -838,29 +850,31 @@ private fun MonthlyReportTable(
                             contentColor = BrandBlue,
                         )
                     }
-                    PagerNavButton(
-                        enabled = scrollState.value > 0,
-                        icon = AppIcons.ChevronLeft,
-                        label = "Geser kiri",
-                        onClick = {
-                            scope.launch {
-                                val next = (scrollState.value - 220).coerceAtLeast(0)
-                                scrollState.animateScrollTo(next)
-                            }
-                        },
-                    )
-                    PagerNavButton(
-                        enabled = scrollState.maxValue > 0 && scrollState.value < scrollState.maxValue,
-                        icon = AppIcons.ChevronRight,
-                        label = "Geser kanan",
-                        iconOnRight = true,
-                        onClick = {
-                            scope.launch {
-                                val next = (scrollState.value + 220).coerceAtMost(scrollState.maxValue)
-                                scrollState.animateScrollTo(next)
-                            }
-                        },
-                    )
+                    if (enableDayScroll) {
+                        PagerNavButton(
+                            enabled = scrollState.value > 0,
+                            icon = AppIcons.ChevronLeft,
+                            label = "Geser kiri",
+                            onClick = {
+                                scope.launch {
+                                    val next = (scrollState.value - 220).coerceAtLeast(0)
+                                    scrollState.animateScrollTo(next)
+                                }
+                            },
+                        )
+                        PagerNavButton(
+                            enabled = scrollState.maxValue > 0 && scrollState.value < scrollState.maxValue,
+                            icon = AppIcons.ChevronRight,
+                            label = "Geser kanan",
+                            iconOnRight = true,
+                            onClick = {
+                                scope.launch {
+                                    val next = (scrollState.value + 220).coerceAtMost(scrollState.maxValue)
+                                    scrollState.animateScrollTo(next)
+                                }
+                            },
+                        )
+                    }
                     if (documentMode == MonthlyDocumentMode.FULL && pageCount > 1) {
                         PagerNavButton(
                             enabled = currentPage > 0,
@@ -889,10 +903,10 @@ private fun MonthlyReportTable(
             val tableWidth = maxWidth
             val defaultLeftColumnsWidth =
                 NoColumnWidth + SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth
-            val fullDaySectionWidth = DayColumnWidth * days.size
-            val minDayViewportWidth = (DayColumnWidth * 4).coerceAtMost(fullDaySectionWidth)
+            val minFullDayWidth = if (isFullDocument) 18.dp else DayColumnWidth
+            val minDayViewportWidth = (minFullDayWidth * 4).coerceAtMost(minFullDayWidth * days.size)
             val reservedWidth = TotalColumnWidth + SectionDividerWidth + minDayViewportWidth
-            val safeLeftBudget = (maxWidth - reservedWidth).coerceAtLeast(360.dp)
+            val safeLeftBudget = (maxWidth - reservedWidth).coerceAtLeast(320.dp)
             val adaptiveScale = (safeLeftBudget / defaultLeftColumnsWidth).coerceIn(0.72f, 1f)
             val adaptiveNoColumnWidth = NoColumnWidth * adaptiveScale
             val adaptiveSketchColumnWidth = SketchColumnWidth * adaptiveScale
@@ -903,10 +917,34 @@ private fun MonthlyReportTable(
                     adaptiveSketchColumnWidth +
                     adaptivePartNumberColumnWidth +
                     adaptiveProblemItemColumnWidth
-            val dayViewportWidth =
+            val rawDayViewportWidth =
                 (maxWidth - leftColumnsWidth - TotalColumnWidth - SectionDividerWidth)
-                    .coerceIn(minDayViewportWidth, fullDaySectionWidth)
+                    .coerceAtLeast(minDayViewportWidth)
+            val dayCellWidth =
+                if (isFullDocument) {
+                    (rawDayViewportWidth / days.size).coerceAtLeast(18.dp)
+                } else {
+                    DayColumnWidth
+                }
+            val dayGridWidth = if (isFullDocument) dayCellWidth * days.size else DayColumnWidth * days.size
+            val dayViewportWidth =
+                if (isFullDocument) {
+                    dayGridWidth
+                } else {
+                    rawDayViewportWidth.coerceAtMost(dayGridWidth)
+                }
             val rightSectionWidth = dayViewportWidth + TotalColumnWidth
+            val dayContentModifier =
+                if (enableDayScroll) {
+                    Modifier
+                        .width(dayViewportWidth)
+                        .clipToBounds()
+                        .horizontalScroll(scrollState)
+                } else {
+                    Modifier
+                        .width(dayViewportWidth)
+                        .clipToBounds()
+                }
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -940,16 +978,12 @@ private fun MonthlyReportTable(
                     Column(modifier = Modifier.width(rightSectionWidth)) {
                         Row {
                             Box(
-                                modifier =
-                                    Modifier
-                                        .width(dayViewportWidth)
-                                        .clipToBounds()
-                                        .horizontalScroll(scrollState),
+                                modifier = dayContentModifier,
                             ) {
                                 Row {
                                     TableHeaderCell(
                                         text = AppStrings.ReportsMonthly.TableDates,
-                                        width = DayColumnWidth * days.size,
+                                        width = dayGridWidth,
                                         height = HeaderRowHeight,
                                     )
                                 }
@@ -962,17 +996,14 @@ private fun MonthlyReportTable(
                         }
                         Row {
                             Box(
-                                modifier =
-                                    Modifier
-                                        .width(dayViewportWidth)
-                                        .clipToBounds()
-                                        .horizontalScroll(scrollState),
+                                modifier = dayContentModifier,
                             ) {
                                 Row {
                                     days.forEach { day ->
                                         DayHeaderCell(
                                             day = day,
                                             style = dayStyles.getValue(day),
+                                            width = dayCellWidth,
                                         )
                                     }
                                 }
@@ -983,7 +1014,7 @@ private fun MonthlyReportTable(
 
                 visibleGroupedRows.forEachIndexed { groupIndex, rowsForPart ->
                     val partSample = rowsForPart.first()
-                    val groupHeight = BodyRowHeight * rowsForPart.size
+                    val groupHeight = rowHeight * rowsForPart.size
                     val partDayTotals =
                         days.mapIndexed { index, _ ->
                             rowsForPart.sumOf { row -> row.dayValues.getOrNull(index) ?: 0 }
@@ -1003,8 +1034,9 @@ private fun MonthlyReportTable(
                         TablePartSectionHeader(
                             text =
                                 "Part ${partSample.uniqCode} - ${partSample.partNumber} " +
-                                    "(${rowsForPart.size} jenis NG | Jumlah NG: $partTotal)",
+                                    "(${rowsForPart.size} jenis NG)",
                             width = tableWidth,
+                            height = partHeaderHeight,
                         )
                     }
                     Row(modifier = Modifier.fillMaxWidth()) {
@@ -1035,14 +1067,13 @@ private fun MonthlyReportTable(
                             )
                             Column {
                                 rowsForPart.forEach { row ->
-                                    val rowTotal = row.dayValues.sum()
                                     Row {
                                         TableBodyCell(
-                                            text = "${formatProblemItems(row.problemItems)}\nJumlah NG: $rowTotal",
+                                            text = formatProblemItems(row.problemItems),
                                             width = adaptiveProblemItemColumnWidth,
-                                            height = BodyRowHeight,
+                                            height = rowHeight,
                                             backgroundColor = rowBackground,
-                                            maxLines = 2,
+                                            maxLines = 3,
                                         )
                                     }
                                 }
@@ -1054,11 +1085,7 @@ private fun MonthlyReportTable(
                                 val rowTotal = row.dayValues.sum()
                                 Row(modifier = Modifier.fillMaxWidth()) {
                                     Box(
-                                        modifier =
-                                            Modifier
-                                                .width(dayViewportWidth)
-                                                .clipToBounds()
-                                                .horizontalScroll(scrollState),
+                                        modifier = dayContentModifier,
                                     ) {
                                         Row {
                                             days.forEachIndexed { index, _ ->
@@ -1066,8 +1093,8 @@ private fun MonthlyReportTable(
                                                 val style = dayStyles.getValue(days[index])
                                                 TableBodyCell(
                                                     text = value.toString(),
-                                                    width = DayColumnWidth,
-                                                    height = BodyRowHeight,
+                                                    width = dayCellWidth,
+                                                    height = rowHeight,
                                                     backgroundColor = style.bodyBackground,
                                                     alignCenter = true,
                                                     textColor = style.bodyTextColor,
@@ -1078,7 +1105,7 @@ private fun MonthlyReportTable(
                                     TableBodyCell(
                                         text = rowTotal.toString(),
                                         width = TotalColumnWidth,
-                                        height = BodyRowHeight,
+                                        height = rowHeight,
                                         backgroundColor = rowBackground,
                                         alignCenter = true,
                                     )
@@ -1095,32 +1122,28 @@ private fun MonthlyReportTable(
                                     adaptiveNoColumnWidth +
                                         adaptiveSketchColumnWidth +
                                         adaptivePartNumberColumnWidth,
-                                height = SubtotalRowHeight,
+                                height = subtotalHeight,
                                 backgroundColor = SubtotalHighlight,
                             )
                             TableSubtotalCell(
                                 text = "${AppStrings.ReportsMonthly.TableSubtotal} ${partSample.uniqCode}",
                                 width = adaptiveProblemItemColumnWidth,
-                                height = SubtotalRowHeight,
+                                height = subtotalHeight,
                                 backgroundColor = SubtotalHighlight,
                             )
                         }
-                        VerticalSectionDivider(height = SubtotalRowHeight)
+                        VerticalSectionDivider(height = subtotalHeight)
                         Row(modifier = Modifier.width(rightSectionWidth)) {
                             Box(
-                                modifier =
-                                    Modifier
-                                        .width(dayViewportWidth)
-                                        .clipToBounds()
-                                        .horizontalScroll(scrollState),
+                                modifier = dayContentModifier,
                             ) {
                                 Row {
                                     partDayTotals.forEachIndexed { index, value ->
                                         val style = dayStyles.getValue(days[index])
                                         TableSubtotalCell(
                                             text = value.toString(),
-                                            width = DayColumnWidth,
-                                            height = SubtotalRowHeight,
+                                            width = dayCellWidth,
+                                            height = subtotalHeight,
                                             alignCenter = true,
                                             backgroundColor = style.subtotalBackground,
                                             textColor = style.bodyTextColor,
@@ -1131,7 +1154,7 @@ private fun MonthlyReportTable(
                             TableSubtotalCell(
                                 text = partTotal.toString(),
                                 width = TotalColumnWidth,
-                                height = SubtotalRowHeight,
+                                height = subtotalHeight,
                                 alignCenter = true,
                                 backgroundColor = SubtotalHighlight,
                             )
@@ -1151,18 +1174,14 @@ private fun MonthlyReportTable(
                     VerticalSectionDivider(height = TotalRowHeight)
                     Row(modifier = Modifier.width(rightSectionWidth)) {
                         Box(
-                            modifier =
-                                Modifier
-                                    .width(dayViewportWidth)
-                                    .clipToBounds()
-                                    .horizontalScroll(scrollState),
+                            modifier = dayContentModifier,
                         ) {
                             Row {
                                 filteredDayTotals.forEachIndexed { index, value ->
                                     val style = dayStyles.getValue(days[index])
                                     TableFooterCell(
                                         text = value.toString(),
-                                        width = DayColumnWidth,
+                                        width = dayCellWidth,
                                         height = TotalRowHeight,
                                         alignCenter = true,
                                         backgroundColor = style.footerBackground,
@@ -1190,11 +1209,12 @@ private fun MonthlyReportTable(
 private fun DayHeaderCell(
     day: LocalDate,
     style: DayCellStyle,
+    width: Dp = DayColumnWidth,
 ) {
     Box(
         modifier =
             Modifier
-                .width(DayColumnWidth)
+                .width(width)
                 .height(SubHeaderRowHeight)
                 .border(1.dp, NeutralBorder)
                 .background(style.headerBackground),
@@ -1205,6 +1225,12 @@ private fun DayHeaderCell(
                 text = day.dayOfMonth.toString(),
                 style = MaterialTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
                 color = style.headerTextColor,
+            )
+            Text(
+                text = day.dayOfWeek.getDisplayName(TextStyle.SHORT, IndonesianLocale).take(3),
+                style = MaterialTheme.typography.overline,
+                color = style.headerTextColor.copy(alpha = 0.75f),
+                maxLines = 1,
             )
             if (style.hasInput) {
                 Box(
@@ -1251,12 +1277,13 @@ private fun RowScope.TableHeaderCell(
 private fun TablePartSectionHeader(
     text: String,
     width: Dp,
+    height: Dp = PartSectionHeaderHeight,
 ) {
     Box(
         modifier =
             Modifier
                 .width(width)
-                .height(PartSectionHeaderHeight)
+                .height(height)
                 .border(1.dp, NeutralBorder)
                 .background(BrandBlue.copy(alpha = 0.08f))
                 .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
