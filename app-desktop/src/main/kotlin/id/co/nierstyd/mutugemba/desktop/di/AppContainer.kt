@@ -50,6 +50,8 @@ import id.co.nierstyd.mutugemba.usecase.part.ListMaterialMastersUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ListPartMastersUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ListSupplierMastersUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ObservePartsUseCase
+import id.co.nierstyd.mutugemba.usecase.part.ReplacePartDefectsUseCase
+import id.co.nierstyd.mutugemba.usecase.part.ReplacePartMaterialsUseCase
 import id.co.nierstyd.mutugemba.usecase.part.SaveDefectMasterUseCase
 import id.co.nierstyd.mutugemba.usecase.part.SaveMaterialMasterUseCase
 import id.co.nierstyd.mutugemba.usecase.part.SavePartMasterUseCase
@@ -131,6 +133,8 @@ class AppContainer {
     val listPartMastersUseCase = ListPartMastersUseCase(partMasterRepository)
     val getPartMasterDetailUseCase = GetPartMasterDetailUseCase(partMasterRepository)
     val savePartMasterUseCase = SavePartMasterUseCase(partMasterRepository)
+    val replacePartMaterialsUseCase = ReplacePartMaterialsUseCase(partMasterRepository)
+    val replacePartDefectsUseCase = ReplacePartDefectsUseCase(partMasterRepository)
     val listMaterialMastersUseCase = ListMaterialMastersUseCase(partMasterRepository)
     val saveMaterialMasterUseCase = SaveMaterialMasterUseCase(partMasterRepository)
     val listSupplierMastersUseCase = ListSupplierMastersUseCase(partMasterRepository)

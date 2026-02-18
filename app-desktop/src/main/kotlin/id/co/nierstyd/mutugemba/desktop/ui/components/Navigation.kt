@@ -318,7 +318,7 @@ private fun SidebarSubItem(
 private fun AppRoute.navHint(): String =
     when (this) {
         AppRoute.Home -> "Ringkasan KPI harian, pareto, dan trend QC."
-        AppRoute.PartMapping -> "Cari part aktif, cek gambar, dan telusuri kebutuhan model."
+        AppRoute.PartMapping -> "Buka katalog part, galeri detail, dan administrasi data master."
         AppRoute.Inspection -> "Input checksheet harian untuk line produksi."
         AppRoute.Abnormal -> "Tindak lanjut tiket abnormal: detect, contain, close."
         AppRoute.Reports -> "Review dokumen checksheet harian dan status tanggal."

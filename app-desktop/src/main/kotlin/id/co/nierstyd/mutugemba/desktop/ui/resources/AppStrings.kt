@@ -33,7 +33,7 @@ object AppStrings {
 
     object Navigation {
         const val Home = "Beranda"
-        const val PartMapping = "Manajemen Part"
+        const val PartMapping = "Katalog & Master Part"
         const val Inspection = "Input Inspeksi"
         const val Abnormal = "Tiket Abnormal"
         const val Reports = "Laporan"
@@ -480,8 +480,8 @@ object AppStrings {
     }
 
     object PartMapping {
-        const val Title = "Manajemen Part Produksi"
-        const val Subtitle = "Data part asli tervalidasi dari mapping + screening Daily NG Press/Sewing."
+        const val Title = "Katalog & Administrasi Part"
+        const val Subtitle = "Katalog part produksi, galeri part, dan administrasi data master."
         const val Filters = "Filter Part"
         const val SearchLabel = "Cari UNIQ / part number / nama"
         const val LineLabel = "Line"

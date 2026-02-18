@@ -174,6 +174,8 @@ fun MutuGembaApp() {
                                     listPartMasters = container.listPartMastersUseCase,
                                     getPartMasterDetail = container.getPartMasterDetailUseCase,
                                     savePartMaster = container.savePartMasterUseCase,
+                                    replacePartMaterials = container.replacePartMaterialsUseCase,
+                                    replacePartDefects = container.replacePartDefectsUseCase,
                                     listMaterialMasters = container.listMaterialMastersUseCase,
                                     saveMaterialMaster = container.saveMaterialMasterUseCase,
                                     listSupplierMasters = container.listSupplierMastersUseCase,

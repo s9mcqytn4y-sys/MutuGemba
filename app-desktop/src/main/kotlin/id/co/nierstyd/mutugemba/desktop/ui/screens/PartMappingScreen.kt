@@ -82,6 +82,8 @@ import id.co.nierstyd.mutugemba.usecase.part.ListMaterialMastersUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ListPartMastersUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ListSupplierMastersUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ObservePartsUseCase
+import id.co.nierstyd.mutugemba.usecase.part.ReplacePartDefectsUseCase
+import id.co.nierstyd.mutugemba.usecase.part.ReplacePartMaterialsUseCase
 import id.co.nierstyd.mutugemba.usecase.part.SaveDefectMasterUseCase
 import id.co.nierstyd.mutugemba.usecase.part.SaveMaterialMasterUseCase
 import id.co.nierstyd.mutugemba.usecase.part.SavePartMasterUseCase
@@ -101,6 +103,8 @@ data class PartMappingScreenDependencies(
     val listPartMasters: ListPartMastersUseCase,
     val getPartMasterDetail: GetPartMasterDetailUseCase,
     val savePartMaster: SavePartMasterUseCase,
+    val replacePartMaterials: ReplacePartMaterialsUseCase,
+    val replacePartDefects: ReplacePartDefectsUseCase,
     val listMaterialMasters: ListMaterialMastersUseCase,
     val saveMaterialMaster: SaveMaterialMasterUseCase,
     val listSupplierMasters: ListSupplierMastersUseCase,
@@ -125,7 +129,10 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     var selectedUniqNo by rememberSaveable { mutableStateOf<String?>(null) }
     var partDetail by remember { mutableStateOf<PartDetail?>(null) }
     var partDetailLoading by remember { mutableStateOf(false) }
+    var screenMode by rememberSaveable { mutableStateOf(0) }
     var managerTabIndex by rememberSaveable { mutableStateOf(0) }
+    var catalogQuery by rememberSaveable { mutableStateOf("") }
+    var catalogSort by rememberSaveable { mutableStateOf("uniq") }
     var masterParts by remember { mutableStateOf<List<PartMasterListItem>>(emptyList()) }
     var masterMaterials by remember { mutableStateOf<List<MaterialMaster>>(emptyList()) }
     var masterSuppliers by remember { mutableStateOf<List<SupplierMaster>>(emptyList()) }
@@ -246,6 +253,18 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     ) {
         val assetLoadedCount = thumbnailMap.values.count { it != null }
         val selectedPartLabel = partDetail?.partNumber ?: selectedUniqNo ?: "-"
+        val catalogParts =
+            parts
+                .filter { part ->
+                    val query = catalogQuery.trim()
+                    query.isBlank() || part.matchesCatalogQuery(query)
+                }.let { filtered ->
+                    when (catalogSort) {
+                        "part_number" -> filtered.sortedBy { it.partNumber }
+                        "ng_desc" -> filtered.sortedByDescending { it.totalDefectMonthToDate }
+                        else -> filtered.sortedBy { it.uniqNo }
+                    }
+                }
 
         SectionHeader(
             title = AppStrings.PartMapping.Title,
@@ -262,217 +281,302 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             dense = true,
         )
 
-        PartMasterManagerPanel(
-            tabIndex = managerTabIndex,
-            onTabSelected = { managerTabIndex = it },
-            parts = masterParts,
-            materials = masterMaterials,
-            suppliers = masterSuppliers,
-            defects = masterDefects,
-            infoText = managerInfo,
-            onSavePart = { uniqNo, partNumber, partName, lineCode, excluded ->
-                scope.launch {
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            dependencies.savePartMaster.execute(
-                                SavePartMasterCommand(
-                                    id = null,
-                                    uniqNo = uniqNo,
-                                    partNumber = partNumber,
-                                    partName = partName,
-                                    lineCode = lineCode,
-                                    excludedFromChecksheet = excluded,
-                                ),
-                            )
-                            reloadMasters()
-                        }
-                    }.onSuccess {
-                        managerInfo = "Part berhasil disimpan."
-                    }.onFailure { throwable ->
-                        managerInfo = "Gagal simpan part: ${throwable.message ?: "-"}"
-                    }
-                }
-            },
-            onSaveSupplier = { name ->
-                scope.launch {
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            dependencies.saveSupplierMaster.execute(id = null, name = name)
-                            reloadMasters()
-                        }
-                    }.onSuccess {
-                        managerInfo = "Supplier berhasil disimpan."
-                    }.onFailure { throwable ->
-                        managerInfo = "Gagal simpan supplier: ${throwable.message ?: "-"}"
-                    }
-                }
-            },
-            onSaveMaterial = { name, supplierId, clientSupplied ->
-                scope.launch {
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            dependencies.saveMaterialMaster.execute(
-                                SaveMaterialMasterCommand(
-                                    id = null,
-                                    name = name,
-                                    supplierId = supplierId,
-                                    clientSupplied = clientSupplied,
-                                ),
-                            )
-                            reloadMasters()
-                        }
-                    }.onSuccess {
-                        managerInfo = "Material berhasil disimpan."
-                    }.onFailure { throwable ->
-                        managerInfo = "Gagal simpan material: ${throwable.message ?: "-"}"
-                    }
-                }
-            },
-            onSaveDefect = { name, originType, lineCode ->
-                scope.launch {
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            dependencies.saveDefectMaster.execute(
-                                SaveDefectMasterCommand(
-                                    id = null,
-                                    name = name,
-                                    originType = originType,
-                                    lineCode = lineCode,
-                                ),
-                            )
-                            reloadMasters()
-                        }
-                    }.onSuccess {
-                        managerInfo = "Item defect berhasil disimpan."
-                    }.onFailure { throwable ->
-                        managerInfo = "Gagal simpan item defect: ${throwable.message ?: "-"}"
-                    }
-                }
-            },
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        ) {
-            PartContextCard(
-                modifier = Modifier.weight(1f),
-                title = "Periode QA",
-                value = "${period.monthValue.toString().padStart(2, '0')}-${period.year}",
-                hint = "Sumber analitik defect bulanan",
+        TabRow(selectedTabIndex = screenMode, backgroundColor = NeutralSurface) {
+            Tab(
+                selected = screenMode == 0,
+                onClick = { screenMode = 0 },
+                text = { Text("Katalog Part") },
             )
-            PartContextCard(
-                modifier = Modifier.weight(1f),
-                title = "Total Part Aktif",
-                value = parts.size.toString(),
-                hint = "Part tersedia untuk line produksi",
-            )
-            PartContextCard(
-                modifier = Modifier.weight(1f),
-                title = "Aset Gambar",
-                value = "$assetLoadedCount/${parts.size}",
-                hint = if (thumbnailLoading) "Memuat thumbnail..." else "Sinkron dari asset hash store",
-            )
-            PartContextCard(
-                modifier = Modifier.weight(1f),
-                title = "Part Terpilih",
-                value = selectedPartLabel,
-                hint = "Gunakan daftar kiri untuk berpindah cepat",
+            Tab(
+                selected = screenMode == 1,
+                onClick = { screenMode = 1 },
+                text = { Text("Administrasi Master") },
             )
         }
 
-        loadError?.let { message ->
-            StatusBanner(
-                feedback = UserFeedback(FeedbackType.ERROR, "Gagal memuat part: $message"),
-                dense = true,
+        if (screenMode == 1) {
+            PartMasterManagerPanel(
+                tabIndex = managerTabIndex,
+                onTabSelected = { managerTabIndex = it },
+                parts = masterParts,
+                materials = masterMaterials,
+                suppliers = masterSuppliers,
+                defects = masterDefects,
+                infoText = managerInfo,
+                onSavePart = { uniqNo, partNumber, partName, lineCode, excluded ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                dependencies.savePartMaster.execute(
+                                    SavePartMasterCommand(
+                                        id = null,
+                                        uniqNo = uniqNo,
+                                        partNumber = partNumber,
+                                        partName = partName,
+                                        lineCode = lineCode,
+                                        excludedFromChecksheet = excluded,
+                                    ),
+                                )
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Data part berhasil disimpan."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal simpan data part: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
+                onSaveSupplier = { name ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                dependencies.saveSupplierMaster.execute(id = null, name = name)
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Data pemasok berhasil disimpan."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal simpan pemasok: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
+                onSaveMaterial = { name, supplierId, clientSupplied ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                dependencies.saveMaterialMaster.execute(
+                                    SaveMaterialMasterCommand(
+                                        id = null,
+                                        name = name,
+                                        supplierId = supplierId,
+                                        clientSupplied = clientSupplied,
+                                    ),
+                                )
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Data bahan berhasil disimpan."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal simpan data bahan: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
+                onSaveDefect = { name, originType, lineCode ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                dependencies.saveDefectMaster.execute(
+                                    SaveDefectMasterCommand(
+                                        id = null,
+                                        name = name,
+                                        originType = originType,
+                                        lineCode = lineCode,
+                                    ),
+                                )
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Jenis NG berhasil disimpan."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal simpan jenis NG: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
+                onAssignPartMaterials = { partId, materialIds ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                dependencies.replacePartMaterials.execute(partId, materialIds)
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Layer bahan part berhasil diperbarui."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal perbarui layer bahan: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
+                onAssignPartDefects = { partId, defectIds ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                val assignments =
+                                    defectIds.mapNotNull { defectId ->
+                                        masterDefects.firstOrNull { it.id == defectId }?.let { defect ->
+                                            id.co.nierstyd.mutugemba.domain.model.SavePartDefectAssignmentCommand(
+                                                defectId = defect.id,
+                                                originType = defect.originType,
+                                                materialId = null,
+                                            )
+                                        }
+                                    }
+                                dependencies.replacePartDefects.execute(partId, assignments)
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Mapping jenis NG part berhasil diperbarui."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal perbarui mapping jenis NG: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
             )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-        ) {
-            Surface(
-                modifier = Modifier.weight(0.44f).fillMaxHeight(),
-                color = NeutralSurface,
-                border = BorderStroke(1.dp, NeutralBorder),
-                shape = MaterialTheme.shapes.medium,
-                elevation = 0.dp,
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(Spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                ) {
-                    Text(
-                        text = "${AppStrings.PartMapping.PartListTitle} (${parts.size})",
-                        style = MaterialTheme.typography.subtitle1,
-                    )
-
-                    when {
-                        partsLoading -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                                repeat(8) {
-                                    SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
-                                }
-                            }
-                        }
-
-                        parts.isEmpty() -> {
-                            Text(
-                                text = AppStrings.PartMapping.EmptyParts,
-                                style = MaterialTheme.typography.body2,
-                                color = NeutralTextMuted,
-                            )
-                        }
-
-                        else -> {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxWidth().weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                            ) {
-                                items(parts, key = { it.partId }) { item ->
-                                    PartCard(
-                                        item = item,
-                                        thumbnail = thumbnailMap[item.uniqNo],
-                                        thumbnailLoading = thumbnailLoading && !thumbnailMap.containsKey(item.uniqNo),
-                                        selected = item.uniqNo == selectedUniqNo,
-                                        onClick = { selectedUniqNo = item.uniqNo },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                PartContextCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Periode QA",
+                    value = "${period.monthValue.toString().padStart(2, '0')}-${period.year}",
+                    hint = "Sumber analitik NG bulanan",
+                )
+                PartContextCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Total Part Aktif",
+                    value = parts.size.toString(),
+                    hint = "Part tersedia untuk line produksi",
+                )
+                PartContextCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Aset Gambar",
+                    value = "$assetLoadedCount/${parts.size}",
+                    hint = if (thumbnailLoading) "Memuat thumbnail..." else "Sinkron dari asset hash store",
+                )
+                PartContextCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Part Terpilih",
+                    value = selectedPartLabel,
+                    hint = "Gunakan daftar kiri untuk berpindah cepat",
+                )
             }
 
-            Surface(
-                modifier = Modifier.weight(0.56f).fillMaxHeight(),
-                color = NeutralSurface,
-                border = BorderStroke(1.dp, NeutralBorder),
-                shape = MaterialTheme.shapes.medium,
-                elevation = 0.dp,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(Spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                AppTextField(
+                    spec =
+                        FieldSpec(
+                            label = "Cari Katalog Part",
+                            placeholder = "Cari UNIQ / part number / nama part",
+                        ),
+                    value = catalogQuery,
+                    onValueChange = { catalogQuery = it },
+                    modifier = Modifier.weight(2f),
+                    singleLine = true,
+                )
+                AppTextField(
+                    spec =
+                        FieldSpec(
+                            label = "Urutkan (uniq / part_number / ng_desc)",
+                        ),
+                    value = catalogSort,
+                    onValueChange = { catalogSort = it.trim().lowercase() },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+            }
+
+            loadError?.let { message ->
+                StatusBanner(
+                    feedback = UserFeedback(FeedbackType.ERROR, "Gagal memuat part: $message"),
+                    dense = true,
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                Surface(
+                    modifier = Modifier.weight(0.44f).fillMaxHeight(),
+                    color = NeutralSurface,
+                    border = BorderStroke(1.dp, NeutralBorder),
+                    shape = MaterialTheme.shapes.medium,
+                    elevation = 0.dp,
                 ) {
-                    Text(text = AppStrings.PartMapping.DetailTitle, style = MaterialTheme.typography.subtitle1)
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        Text(
+                            text = "${AppStrings.PartMapping.PartListTitle} (${catalogParts.size})",
+                            style = MaterialTheme.typography.subtitle1,
+                        )
 
-                    when {
-                        partDetailLoading -> {
-                            Text("Memuat detail...", style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                        when {
+                            partsLoading -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                    repeat(8) {
+                                        SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
+                                    }
+                                }
+                            }
+
+                            catalogParts.isEmpty() -> {
+                                Text(
+                                    text = AppStrings.PartMapping.EmptyParts,
+                                    style = MaterialTheme.typography.body2,
+                                    color = NeutralTextMuted,
+                                )
+                            }
+
+                            else -> {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxWidth().weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                ) {
+                                    items(catalogParts, key = { it.partId }) { item ->
+                                        PartCard(
+                                            item = item,
+                                            thumbnail = thumbnailMap[item.uniqNo],
+                                            thumbnailLoading =
+                                                thumbnailLoading && !thumbnailMap.containsKey(item.uniqNo),
+                                            selected = item.uniqNo == selectedUniqNo,
+                                            onClick = { selectedUniqNo = item.uniqNo },
+                                        )
+                                    }
+                                }
+                            }
                         }
+                    }
+                }
 
-                        partDetail == null -> {
-                            Text(
-                                AppStrings.PartMapping.EmptyDetail,
-                                style = MaterialTheme.typography.body2,
-                                color = NeutralTextMuted,
-                            )
-                        }
+                Surface(
+                    modifier = Modifier.weight(0.56f).fillMaxHeight(),
+                    color = NeutralSurface,
+                    border = BorderStroke(1.dp, NeutralBorder),
+                    shape = MaterialTheme.shapes.medium,
+                    elevation = 0.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        Text(text = AppStrings.PartMapping.DetailTitle, style = MaterialTheme.typography.subtitle1)
 
-                        else -> {
-                            PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
+                        when {
+                            partDetailLoading -> {
+                                Text(
+                                    "Memuat detail...",
+                                    style = MaterialTheme.typography.body2,
+                                    color = NeutralTextMuted,
+                                )
+                            }
+
+                            partDetail == null -> {
+                                Text(
+                                    AppStrings.PartMapping.EmptyDetail,
+                                    style = MaterialTheme.typography.body2,
+                                    color = NeutralTextMuted,
+                                )
+                            }
+
+                            else -> {
+                                PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
+                            }
                         }
                     }
                 }
@@ -560,11 +664,30 @@ private fun PartCard(
                     style = MaterialTheme.typography.body2,
                     color = NeutralText,
                 )
-                AppBadge(
-                    text = item.lineCode.uppercase(),
-                    backgroundColor = NeutralLight,
-                    contentColor = NeutralText,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    AppBadge(
+                        text = item.lineCode.uppercase(),
+                        backgroundColor = NeutralLight,
+                        contentColor = NeutralText,
+                    )
+                    AppBadge(
+                        text = "Model ${item.modelCodes.size}",
+                        backgroundColor = NeutralLight,
+                        contentColor = NeutralTextMuted,
+                    )
+                    AppBadge(
+                        text = "NG Bulan ${item.totalDefectMonthToDate}",
+                        backgroundColor = NeutralLight,
+                        contentColor =
+                            if (item.totalDefectMonthToDate >
+                                0
+                            ) {
+                                MaterialTheme.colors.primary
+                            } else {
+                                NeutralTextMuted
+                            },
+                    )
+                }
                 Text(
                     text = "Klik untuk lihat profil detail part",
                     style = MaterialTheme.typography.caption,
@@ -807,6 +930,8 @@ private fun PartMasterManagerPanel(
     onSaveSupplier: (name: String) -> Unit,
     onSaveMaterial: (name: String, supplierId: Long?, clientSupplied: Boolean) -> Unit,
     onSaveDefect: (name: String, originType: NgOriginType, lineCode: String?) -> Unit,
+    onAssignPartMaterials: (partId: Long, materialIds: List<Long>) -> Unit,
+    onAssignPartDefects: (partId: Long, defectIds: List<Long>) -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -820,7 +945,7 @@ private fun PartMasterManagerPanel(
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text(
-                text = "Master Data Modern",
+                text = "Administrasi Data Master",
                 style = MaterialTheme.typography.subtitle1,
                 color = NeutralText,
             )
@@ -830,7 +955,7 @@ private fun PartMasterManagerPanel(
                 color = NeutralTextMuted,
             )
             TabRow(selectedTabIndex = tabIndex, backgroundColor = NeutralSurface) {
-                listOf("Part", "Material", "Supplier", "Defect").forEachIndexed { index, title ->
+                listOf("Part", "Bahan", "Pemasok", "Jenis NG").forEachIndexed { index, title ->
                     Tab(
                         selected = tabIndex == index,
                         onClick = { onTabSelected(index) },
@@ -842,7 +967,12 @@ private fun PartMasterManagerPanel(
                 0 ->
                     PartEditorTab(
                         totalParts = parts.size,
+                        parts = parts,
+                        materials = materials,
+                        defects = defects,
                         onSavePart = onSavePart,
+                        onAssignPartMaterials = onAssignPartMaterials,
+                        onAssignPartDefects = onAssignPartDefects,
                     )
 
                 1 ->
@@ -869,15 +999,24 @@ private fun PartMasterManagerPanel(
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun PartEditorTab(
     totalParts: Int,
+    parts: List<PartMasterListItem>,
+    materials: List<MaterialMaster>,
+    defects: List<DefectMaster>,
     onSavePart: (uniqNo: String, partNumber: String, partName: String, lineCode: String, excluded: Boolean) -> Unit,
+    onAssignPartMaterials: (partId: Long, materialIds: List<Long>) -> Unit,
+    onAssignPartDefects: (partId: Long, defectIds: List<Long>) -> Unit,
 ) {
     var uniqNo by remember { mutableStateOf("") }
     var partNumber by remember { mutableStateOf("") }
     var partName by remember { mutableStateOf("") }
     var lineCode by remember { mutableStateOf("press") }
     var excluded by remember { mutableStateOf(false) }
+    var assignPartId by remember { mutableStateOf("") }
+    var assignMaterialIds by remember { mutableStateOf("") }
+    var assignDefectIds by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Part aktif: $totalParts", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
@@ -906,14 +1045,14 @@ private fun PartEditorTab(
                 singleLine = true,
             )
             AppTextField(
-                spec = FieldSpec(label = "Line (press/sewing)"),
+                spec = FieldSpec(label = "Line Produksi (press/sewing)"),
                 value = lineCode,
                 onValueChange = { lineCode = it },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )
             AppTextField(
-                spec = FieldSpec(label = "Exclude Input (0/1)"),
+                spec = FieldSpec(label = "Kecualikan dari Checksheet (0/1)"),
                 value = if (excluded) "1" else "0",
                 onValueChange = { excluded = it == "1" },
                 modifier = Modifier.weight(1f),
@@ -922,7 +1061,7 @@ private fun PartEditorTab(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             PrimaryButton(
-                text = "Simpan Part",
+                text = "Simpan Data Part",
                 onClick = { onSavePart(uniqNo, partNumber, partName, lineCode, excluded) },
             )
             SecondaryButton(
@@ -935,6 +1074,77 @@ private fun PartEditorTab(
                     excluded = false
                 },
             )
+        }
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = NeutralLight.copy(alpha = 0.45f),
+            border = BorderStroke(1.dp, NeutralBorder),
+            shape = MaterialTheme.shapes.small,
+            elevation = 0.dp,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Text(
+                    text = "Assignment Cerdas per Part",
+                    style = MaterialTheme.typography.body2,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "Gunakan ID untuk mapping layer bahan dan jenis NG per part.",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                AppTextField(
+                    spec = FieldSpec(label = "ID Part"),
+                    value = assignPartId,
+                    onValueChange = { assignPartId = it.filter(Char::isDigit) },
+                    singleLine = true,
+                )
+                AppTextField(
+                    spec = FieldSpec(label = "ID Bahan (pisahkan koma)"),
+                    value = assignMaterialIds,
+                    onValueChange = { assignMaterialIds = it },
+                    singleLine = true,
+                )
+                AppTextField(
+                    spec = FieldSpec(label = "ID Jenis NG (pisahkan koma)"),
+                    value = assignDefectIds,
+                    onValueChange = { assignDefectIds = it },
+                    singleLine = true,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    SecondaryButton(
+                        text = "Simpan Layer Bahan",
+                        onClick = {
+                            val partId = assignPartId.toLongOrNull() ?: return@SecondaryButton
+                            onAssignPartMaterials(partId, assignMaterialIds.toIdList())
+                        },
+                    )
+                    SecondaryButton(
+                        text = "Simpan Jenis NG",
+                        onClick = {
+                            val partId = assignPartId.toLongOrNull() ?: return@SecondaryButton
+                            onAssignPartDefects(partId, assignDefectIds.toIdList())
+                        },
+                    )
+                }
+                Text(
+                    text =
+                        "Referensi Part: ${
+                            parts.take(5).joinToString { "${it.id}:${it.uniqNo}" }.ifBlank { "-" }
+                        }",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                Text(
+                    text =
+                        "Referensi Bahan/Jenis NG: Bahan ${materials.size} item, Jenis NG ${defects.size} item.",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+            }
         }
     }
 }
@@ -958,26 +1168,26 @@ private fun MaterialEditorTab(
             singleLine = true,
         )
         AppTextField(
-            spec = FieldSpec(label = "Supplier ID (opsional)"),
+            spec = FieldSpec(label = "ID Pemasok (opsional)"),
             value = supplierRef,
             onValueChange = { supplierRef = it.filter(Char::isDigit) },
             singleLine = true,
         )
         AppTextField(
-            spec = FieldSpec(label = "Client Supplied (0/1)"),
+            spec = FieldSpec(label = "Bahan Titipan Klien (0/1)"),
             value = if (clientSupplied) "1" else "0",
             onValueChange = { clientSupplied = it == "1" },
             singleLine = true,
         )
         Text(
-            "Referensi Supplier: ${
+            "Referensi Pemasok: ${
                 suppliers.take(5).joinToString { "${it.id}:${it.name}" }.ifBlank { "-" }
             }",
             style = MaterialTheme.typography.caption,
             color = NeutralTextMuted,
         )
         PrimaryButton(
-            text = "Simpan Material",
+            text = "Simpan Data Bahan",
             onClick = {
                 onSaveMaterial(
                     materialName,
@@ -997,15 +1207,15 @@ private fun SupplierEditorTab(
     var supplierName by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Text("Supplier: ${suppliers.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        Text("Pemasok: ${suppliers.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         AppTextField(
-            spec = FieldSpec(label = "Nama Supplier"),
+            spec = FieldSpec(label = "Nama Pemasok"),
             value = supplierName,
             onValueChange = { supplierName = it },
             singleLine = true,
         )
         PrimaryButton(
-            text = "Simpan Supplier",
+            text = "Simpan Data Pemasok",
             onClick = { onSaveSupplier(supplierName) },
         )
     }
@@ -1021,23 +1231,23 @@ private fun DefectEditorTab(
     var lineCode by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Text("Item defect: ${defects.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        Text("Jenis NG: ${defects.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         AppTextField(
-            spec = FieldSpec(label = "Nama Item Defect"),
+            spec = FieldSpec(label = "Nama Jenis NG"),
             value = defectName,
             onValueChange = { defectName = it },
             singleLine = true,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             AppTextField(
-                spec = FieldSpec(label = "Jenis NG (material/process)"),
+                spec = FieldSpec(label = "Asal NG (material/process)"),
                 value = originRaw,
                 onValueChange = { originRaw = it },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )
             AppTextField(
-                spec = FieldSpec(label = "Line (opsional)"),
+                spec = FieldSpec(label = "Line Produksi (opsional)"),
                 value = lineCode,
                 onValueChange = { lineCode = it },
                 modifier = Modifier.weight(1f),
@@ -1045,7 +1255,7 @@ private fun DefectEditorTab(
             )
         }
         PrimaryButton(
-            text = "Simpan Item Defect",
+            text = "Simpan Jenis NG",
             onClick = {
                 onSaveDefect(
                     defectName,
@@ -1061,3 +1271,22 @@ private fun decodeImageBitmap(bytes: ByteArray?): ImageBitmap? {
     if (bytes == null || bytes.isEmpty()) return null
     return runCatching { SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap() }.getOrNull()
 }
+
+private fun PartListItem.matchesCatalogQuery(rawQuery: String): Boolean {
+    val query = rawQuery.trim().lowercase()
+    if (query.isBlank()) return true
+    val searchBucket =
+        listOf(
+            uniqNo,
+            partNumber,
+            partName,
+            lineCode,
+            modelCodes.joinToString(" "),
+        ).joinToString(" ").lowercase()
+    return query in searchBucket
+}
+
+private fun String.toIdList(): List<Long> =
+    split(",")
+        .mapNotNull { token -> token.trim().toLongOrNull() }
+        .distinct()

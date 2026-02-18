@@ -56,4 +56,69 @@ class SqliteDatabaseMigrationTest {
         assertTrue(hasPartConfigurationTable)
         assertEquals(12, userVersion)
     }
+
+    @Test
+    fun migrateIfNeeded_repairsMissingSupplementalTablesOnLegacyVersion12() {
+        val tempDir = Files.createTempDirectory("mutugemba-sqlite-repair")
+        val dbFile = tempDir.resolve("mapping.db")
+
+        DriverManager.getConnection("jdbc:sqlite:${dbFile.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    CREATE TABLE production_line (
+                      production_line_id INTEGER PRIMARY KEY,
+                      code TEXT
+                    )
+                    """.trimIndent(),
+                )
+                statement.execute(
+                    """
+                    CREATE TABLE part (
+                      part_id INTEGER PRIMARY KEY,
+                      uniq_no TEXT,
+                      uniq_no_norm TEXT
+                    )
+                    """.trimIndent(),
+                )
+                statement.execute(
+                    """
+                    CREATE TABLE material (
+                      material_id INTEGER PRIMARY KEY,
+                      material_name TEXT,
+                      material_name_norm TEXT
+                    )
+                    """.trimIndent(),
+                )
+                statement.execute("PRAGMA user_version = 12")
+            }
+        }
+
+        val database = SqliteDatabase(dbFile)
+        val hasPartConfigurationTable =
+            database.read { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='part_configuration'",
+                    ).use { rs ->
+                        rs.next()
+                        rs.getInt(1) == 1
+                    }
+                }
+            }
+        val hasSupplierTable =
+            database.read { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='supplier'",
+                    ).use { rs ->
+                        rs.next()
+                        rs.getInt(1) == 1
+                    }
+                }
+            }
+
+        assertTrue(hasPartConfigurationTable)
+        assertTrue(hasSupplierTable)
+    }
 }

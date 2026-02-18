@@ -59,7 +59,7 @@ class InMemoryDatabase(
                 id = index + 1L,
                 code = spec.code,
                 name = spec.name,
-                category = "ITEM_DEFECT",
+                category = if (spec.name.isProcessNgName()) "NG_PROSES" else "NG_MATERIAL",
                 severity = DefectSeverity.NORMAL,
                 lineCode =
                     when (spec.lineCode) {
@@ -174,12 +174,13 @@ class InMemoryDatabase(
             .orEmpty()
             .forEach { row ->
                 val normalizedCode = normalizeName(row.defect_name_norm.ifBlank { row.defect_name })
-                if (normalizedCode.isBlank()) return@forEach
+                val displayName = cleanDefectName(row.defect_name)
+                if (!isDefectNameValid(normalizedCode, displayName)) return@forEach
                 byCode.putIfAbsent(
                     normalizedCode,
                     DefectSpec(
                         code = normalizedCode,
-                        name = cleanDefectName(row.defect_name),
+                        name = displayName,
                         lineCode = normalizeLine(row.line),
                     ),
                 )
@@ -187,12 +188,13 @@ class InMemoryDatabase(
 
         mapping.qa.defect_types.forEach { row ->
             val normalizedCode = normalizeName(row.name_norm.ifBlank { row.name })
-            if (normalizedCode.isBlank()) return@forEach
+            val displayName = cleanDefectName(row.name)
+            if (!isDefectNameValid(normalizedCode, displayName)) return@forEach
             byCode.putIfAbsent(
                 normalizedCode,
                 DefectSpec(
                     code = normalizedCode,
-                    name = cleanDefectName(row.name),
+                    name = displayName,
                     lineCode = null,
                 ),
             )
@@ -395,6 +397,18 @@ class InMemoryDatabase(
 
     private fun cleanDefectName(value: String): String =
         DefectNameSanitizer.normalizeDisplay(value).ifBlank { normalizeName(value) }
+
+    private fun isDefectNameValid(
+        code: String,
+        displayName: String,
+    ): Boolean {
+        if (code.isBlank()) return false
+        if (displayName.length < 3) return false
+        val invalidTokens = setOf("A", "-", "--", ".", "TOTAL", "SUBTOTAL", "SUB-TOTAL")
+        if (code in invalidTokens) return false
+        if (displayName.uppercase() in invalidTokens) return false
+        return true
+    }
 }
 
 private data class DefectSpec(
@@ -402,3 +416,19 @@ private data class DefectSpec(
     val name: String,
     val lineCode: String?,
 )
+
+private fun String.isProcessNgName(): Boolean {
+    val normalized = uppercase()
+    val processKeywords =
+        listOf(
+            "OVERCUTTING",
+            "MIRING",
+            "TERBALIK",
+            "MARGIN",
+            "SALAH",
+            "MISS",
+            "SHIFT",
+            "HUMAN",
+        )
+    return processKeywords.any { normalized.contains(it) }
+}
