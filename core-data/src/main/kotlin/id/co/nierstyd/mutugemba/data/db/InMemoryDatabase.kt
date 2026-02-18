@@ -81,13 +81,19 @@ class InMemoryDatabase(
     private fun defectCodeToIdMap(): Map<String, Long> = defectTypes.associateBy({ it.code }, { it.id })
 
     val parts: List<Part> =
-        mapping.parts.mapIndexed { index, part ->
+        mapping.parts.mapIndexedNotNull { index, part ->
             val lineCode =
                 if (part.production_line.equals("sewing", ignoreCase = true)) {
                     LineCode.SEWING
                 } else {
                     LineCode.PRESS
                 }
+            // Part line press dengan material strap tidak ditampilkan di checksheet input
+            // karena material tersebut milik client dan tidak masuk tracking kerugian internal.
+            val materialComposite = listOfNotNull(part.material_raw, part.material_note).joinToString(" ")
+            if (lineCode == LineCode.PRESS && materialComposite.contains("strap", ignoreCase = true)) {
+                return@mapIndexedNotNull null
+            }
             val partNumberNorm = normalizePartNumber(part.part_number)
             val recommendedCodes = recommendedDefectCodesForPart(part, partNumberNorm, lineCode)
             Part(

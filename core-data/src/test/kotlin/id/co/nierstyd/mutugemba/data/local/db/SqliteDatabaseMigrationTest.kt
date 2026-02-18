@@ -31,6 +31,17 @@ class SqliteDatabaseMigrationTest {
                     }
                 }
             }
+        val hasPartConfigurationTable =
+            database.read { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='part_configuration'",
+                    ).use { rs ->
+                        rs.next()
+                        rs.getInt(1) == 1
+                    }
+                }
+            }
         val userVersion =
             database.read { connection ->
                 connection.createStatement().use { statement ->
@@ -42,6 +53,7 @@ class SqliteDatabaseMigrationTest {
             }
 
         assertTrue(hasPartTable)
-        assertEquals(11, userVersion)
+        assertTrue(hasPartConfigurationTable)
+        assertEquals(12, userVersion)
     }
 }

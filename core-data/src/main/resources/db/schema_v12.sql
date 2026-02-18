@@ -1,0 +1,395 @@
+PRAGMA foreign_keys = OFF;
+
+DROP TABLE IF EXISTS qa_part_defect_observation;
+DROP TABLE IF EXISTS qa_part_report_summary;
+DROP TABLE IF EXISTS qa_report_defect_legend;
+DROP TABLE IF EXISTS qa_defect_type;
+DROP TABLE IF EXISTS qa_report;
+DROP TABLE IF EXISTS image_asset;
+DROP TABLE IF EXISTS material_tag_model;
+DROP TABLE IF EXISTS part_material_layer_tag;
+DROP TABLE IF EXISTS part_material_tag;
+DROP TABLE IF EXISTS part_material_layer;
+DROP TABLE IF EXISTS material_tag;
+DROP TABLE IF EXISTS material;
+DROP TABLE IF EXISTS part_requirement;
+DROP TABLE IF EXISTS part_model;
+DROP TABLE IF EXISTS model;
+DROP TABLE IF EXISTS part;
+DROP TABLE IF EXISTS production_line;
+DROP TABLE IF EXISTS material_item_defect_risk;
+DROP TABLE IF EXISTS part_item_defect_stat;
+DROP TABLE IF EXISTS item_defect;
+
+DROP TABLE IF EXISTS inspection_defect_slot;
+DROP TABLE IF EXISTS inspection_defect;
+DROP TABLE IF EXISTS inspection_record;
+DROP TABLE IF EXISTS daily_checksheet;
+DROP TABLE IF EXISTS attachment;
+DROP TABLE IF EXISTS master_defect_type;
+DROP TABLE IF EXISTS master_part;
+DROP TABLE IF EXISTS master_shift;
+DROP TABLE IF EXISTS master_line;
+DROP TABLE IF EXISTS user_preference;
+DROP TABLE IF EXISTS app_user;
+
+DROP INDEX IF EXISTS idx_inspection_line_id;
+DROP INDEX IF EXISTS idx_inspection_checksheet;
+DROP INDEX IF EXISTS idx_inspection_created_at;
+DROP INDEX IF EXISTS idx_inspection_defect_slot_defect;
+DROP INDEX IF EXISTS idx_inspection_defect_unique;
+DROP INDEX IF EXISTS idx_inspection_defect_type;
+DROP INDEX IF EXISTS idx_inspection_defect_inspection;
+DROP INDEX IF EXISTS idx_daily_checksheet_date;
+DROP INDEX IF EXISTS idx_daily_checksheet_line_date;
+DROP INDEX IF EXISTS idx_daily_checksheet_doc_no;
+DROP INDEX IF EXISTS idx_user_pref_unique;
+DROP INDEX IF EXISTS idx_app_user_line_code;
+DROP INDEX IF EXISTS idx_app_user_name;
+DROP INDEX IF EXISTS idx_master_part_line_code;
+DROP INDEX IF EXISTS idx_master_line_code;
+DROP INDEX IF EXISTS idx_master_line_name;
+DROP INDEX IF EXISTS idx_master_defect_category;
+DROP INDEX IF EXISTS idx_master_defect_code;
+DROP INDEX IF EXISTS idx_master_part_name;
+DROP INDEX IF EXISTS idx_master_part_uniq_code;
+DROP INDEX IF EXISTS idx_master_part_number;
+DROP INDEX IF EXISTS idx_master_shift_code;
+
+CREATE TABLE production_line (
+  production_line_id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE CHECK (code IN ('press', 'sewing')),
+  display_name TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO production_line(production_line_id, code, display_name)
+VALUES
+  (1, 'press', 'Press'),
+  (2, 'sewing', 'Sewing');
+
+CREATE TABLE part (
+  part_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uniq_no TEXT NOT NULL UNIQUE,
+  uniq_no_norm TEXT NOT NULL UNIQUE,
+  production_line_id INTEGER NOT NULL,
+  part_number TEXT NOT NULL,
+  part_number_norm TEXT NOT NULL,
+  part_name TEXT NOT NULL DEFAULT '',
+  part_number_partlist TEXT,
+  part_name_partlist TEXT,
+  material_raw TEXT,
+  material_note TEXT,
+  models_source TEXT NOT NULL,
+  models_inferred INTEGER NOT NULL DEFAULT 0 CHECK (models_inferred IN (0, 1)),
+  qty_kbn_inconsistent INTEGER NOT NULL DEFAULT 0 CHECK (qty_kbn_inconsistent IN (0, 1)),
+  note_missing_in_part_requirement_list INTEGER NOT NULL DEFAULT 0 CHECK (note_missing_in_part_requirement_list IN (0, 1)),
+  note_missing_image_in_part_list_pdf INTEGER NOT NULL DEFAULT 0 CHECK (note_missing_image_in_part_list_pdf IN (0, 1)),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  FOREIGN KEY (production_line_id) REFERENCES production_line(production_line_id) ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_part_part_number ON part(part_number);
+CREATE INDEX idx_part_part_number_norm ON part(part_number_norm);
+CREATE INDEX idx_part_part_name ON part(part_name);
+CREATE INDEX idx_part_line ON part(production_line_id);
+
+CREATE TABLE model (
+  model_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE part_model (
+  part_id INTEGER NOT NULL,
+  model_id INTEGER NOT NULL,
+  PRIMARY KEY (part_id, model_id),
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (model_id) REFERENCES model(model_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_part_model_model ON part_model(model_id);
+
+CREATE TABLE part_requirement (
+  part_id INTEGER NOT NULL,
+  model_id INTEGER NOT NULL,
+  qty_kbn INTEGER NOT NULL CHECK (qty_kbn >= 0),
+  source_page INTEGER,
+  source_part_number TEXT,
+  source_part_name TEXT,
+  PRIMARY KEY (part_id, model_id),
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (model_id) REFERENCES model(model_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_part_requirement_model ON part_requirement(model_id);
+
+CREATE TABLE material (
+  material_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  material_name TEXT NOT NULL,
+  material_name_norm TEXT NOT NULL UNIQUE
+);
+
+CREATE INDEX idx_material_name ON material(material_name);
+
+CREATE TABLE part_material_layer (
+  part_material_layer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  part_id INTEGER NOT NULL,
+  material_id INTEGER NOT NULL,
+  layer_order INTEGER NOT NULL CHECK (layer_order > 0),
+  weight_g REAL CHECK (weight_g IS NULL OR weight_g >= 0),
+  basis_weight_gsm REAL CHECK (basis_weight_gsm IS NULL OR basis_weight_gsm >= 0),
+  unit TEXT CHECK (unit IS NULL OR unit IN ('g', 'gsm')),
+  UNIQUE (part_id, layer_order),
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (material_id) REFERENCES material(material_id)
+);
+
+CREATE INDEX idx_pml_part ON part_material_layer(part_id);
+CREATE INDEX idx_pml_material ON part_material_layer(material_id);
+
+CREATE TABLE material_tag (
+  material_tag_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tag TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE part_material_tag (
+  part_id INTEGER NOT NULL,
+  material_tag_id INTEGER NOT NULL,
+  PRIMARY KEY (part_id, material_tag_id),
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (material_tag_id) REFERENCES material_tag(material_tag_id) ON DELETE CASCADE
+);
+
+CREATE TABLE part_material_layer_tag (
+  part_material_layer_id INTEGER NOT NULL,
+  material_tag_id INTEGER NOT NULL,
+  PRIMARY KEY (part_material_layer_id, material_tag_id),
+  FOREIGN KEY (part_material_layer_id) REFERENCES part_material_layer(part_material_layer_id) ON DELETE CASCADE,
+  FOREIGN KEY (material_tag_id) REFERENCES material_tag(material_tag_id) ON DELETE CASCADE
+);
+
+CREATE TABLE material_tag_model (
+  material_tag_id INTEGER NOT NULL,
+  model_id INTEGER NOT NULL,
+  PRIMARY KEY (material_tag_id, model_id),
+  FOREIGN KEY (material_tag_id) REFERENCES material_tag(material_tag_id) ON DELETE CASCADE,
+  FOREIGN KEY (model_id) REFERENCES model(model_id) ON DELETE CASCADE
+);
+
+CREATE TABLE image_asset (
+  image_asset_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  part_id INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('ok', 'missing')),
+  sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+  mime TEXT NOT NULL CHECK (mime = 'image/png'),
+  storage_relpath TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
+  width_px INTEGER CHECK (width_px IS NULL OR width_px > 0),
+  height_px INTEGER CHECK (height_px IS NULL OR height_px > 0),
+  format TEXT,
+  color_mode TEXT,
+  transparent_background INTEGER CHECK (transparent_background IS NULL OR transparent_background IN (0, 1)),
+  qc_alpha_border_ratio REAL,
+  qc_content_empty INTEGER CHECK (qc_content_empty IS NULL OR qc_content_empty IN (0, 1)),
+  source_json TEXT,
+  qc_json TEXT,
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+  imported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE (part_id, sha256),
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_image_asset_part ON image_asset(part_id);
+CREATE INDEX idx_image_asset_sha256 ON image_asset(sha256);
+CREATE INDEX idx_image_asset_storage_relpath ON image_asset(storage_relpath);
+CREATE INDEX idx_image_asset_status ON image_asset(status);
+CREATE UNIQUE INDEX uq_image_asset_active_part ON image_asset(part_id) WHERE active = 1;
+
+CREATE TABLE qa_report (
+  qa_report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_id TEXT NOT NULL UNIQUE,
+  report_type TEXT NOT NULL CHECK (report_type IN ('daily', 'monthly')),
+  production_line_id INTEGER NOT NULL,
+  period_year INTEGER CHECK (period_year IS NULL OR (period_year BETWEEN 2000 AND 2100)),
+  period_month INTEGER CHECK (period_month IS NULL OR (period_month BETWEEN 1 AND 12)),
+  report_date TEXT,
+  source_file TEXT,
+  title TEXT,
+  imported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  FOREIGN KEY (production_line_id) REFERENCES production_line(production_line_id)
+);
+
+CREATE INDEX idx_qa_report_line_period ON qa_report(production_line_id, period_year, period_month);
+
+CREATE TABLE qa_defect_type (
+  qa_defect_type_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  defect_type_id TEXT NOT NULL UNIQUE,
+  defect_name TEXT NOT NULL,
+  defect_name_norm TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE qa_report_defect_legend (
+  qa_report_id INTEGER NOT NULL,
+  legend_code TEXT NOT NULL,
+  qa_defect_type_id INTEGER NOT NULL,
+  defect_name_in_report TEXT,
+  PRIMARY KEY (qa_report_id, legend_code),
+  FOREIGN KEY (qa_report_id) REFERENCES qa_report(qa_report_id) ON DELETE CASCADE,
+  FOREIGN KEY (qa_defect_type_id) REFERENCES qa_defect_type(qa_defect_type_id)
+);
+
+CREATE INDEX idx_qa_legend_defect ON qa_report_defect_legend(qa_defect_type_id);
+
+CREATE TABLE qa_part_report_summary (
+  qa_part_report_summary_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  summary_id TEXT NOT NULL UNIQUE,
+  qa_report_id INTEGER NOT NULL,
+  part_id INTEGER NOT NULL,
+  uniq_no_in_report TEXT NOT NULL,
+  total_check INTEGER CHECK (total_check IS NULL OR total_check >= 0),
+  total_ok INTEGER CHECK (total_ok IS NULL OR total_ok >= 0),
+  total_defect INTEGER CHECK (total_defect IS NULL OR total_defect >= 0),
+  source TEXT,
+  UNIQUE (qa_report_id, part_id),
+  FOREIGN KEY (qa_report_id) REFERENCES qa_report(qa_report_id) ON DELETE CASCADE,
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_qa_summary_report_part ON qa_part_report_summary(qa_report_id, part_id);
+
+CREATE TABLE qa_part_defect_observation (
+  qa_part_defect_observation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  observation_id TEXT NOT NULL UNIQUE,
+  qa_report_id INTEGER NOT NULL,
+  part_id INTEGER NOT NULL,
+  uniq_no_in_report TEXT NOT NULL,
+  part_number_in_report TEXT,
+  qa_defect_type_id INTEGER NOT NULL,
+  defect_name_in_report TEXT,
+  qty INTEGER NOT NULL CHECK (qty >= 0),
+  source TEXT,
+  FOREIGN KEY (qa_report_id) REFERENCES qa_report(qa_report_id) ON DELETE CASCADE,
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (qa_defect_type_id) REFERENCES qa_defect_type(qa_defect_type_id)
+);
+
+CREATE INDEX idx_qa_obs_report_part ON qa_part_defect_observation(qa_report_id, part_id);
+CREATE INDEX idx_qa_obs_report_defect ON qa_part_defect_observation(qa_report_id, qa_defect_type_id);
+CREATE INDEX idx_qa_obs_part ON qa_part_defect_observation(part_id);
+
+CREATE TABLE item_defect (
+  item_defect_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  defect_name TEXT NOT NULL,
+  defect_name_norm TEXT NOT NULL UNIQUE,
+  source_line TEXT NOT NULL CHECK (source_line IN ('press', 'sewing', 'mixed')),
+  source_json TEXT
+);
+
+CREATE INDEX idx_item_defect_line ON item_defect(source_line);
+
+CREATE TABLE part_item_defect_stat (
+  part_id INTEGER NOT NULL,
+  item_defect_id INTEGER NOT NULL,
+  source_line TEXT NOT NULL CHECK (source_line IN ('press', 'sewing', 'mixed')),
+  occurrence_qty INTEGER NOT NULL DEFAULT 0 CHECK (occurrence_qty >= 0),
+  affected_days INTEGER NOT NULL DEFAULT 0 CHECK (affected_days >= 0),
+  last_seen_date TEXT,
+  PRIMARY KEY (part_id, item_defect_id, source_line),
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (item_defect_id) REFERENCES item_defect(item_defect_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_part_item_defect_item ON part_item_defect_stat(item_defect_id);
+CREATE INDEX idx_part_item_defect_line ON part_item_defect_stat(source_line);
+
+CREATE TABLE material_item_defect_risk (
+  material_item_defect_risk_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  material_id INTEGER NOT NULL,
+  item_defect_id INTEGER NOT NULL,
+  source_line TEXT NOT NULL CHECK (source_line IN ('press', 'sewing', 'mixed')),
+  risk_score REAL NOT NULL CHECK (risk_score >= 0),
+  affected_parts INTEGER NOT NULL DEFAULT 0 CHECK (affected_parts >= 0),
+  sample_size INTEGER NOT NULL DEFAULT 0 CHECK (sample_size >= 0),
+  UNIQUE (material_id, item_defect_id, source_line),
+  FOREIGN KEY (material_id) REFERENCES material(material_id) ON DELETE CASCADE,
+  FOREIGN KEY (item_defect_id) REFERENCES item_defect(item_defect_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_material_defect_risk_item ON material_item_defect_risk(item_defect_id);
+CREATE INDEX idx_material_defect_risk_material ON material_item_defect_risk(material_id);
+CREATE INDEX idx_material_defect_risk_line ON material_item_defect_risk(source_line);
+
+CREATE TABLE supplier (
+  supplier_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  supplier_name TEXT NOT NULL,
+  supplier_name_norm TEXT NOT NULL UNIQUE,
+  is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
+);
+
+INSERT OR IGNORE INTO supplier(supplier_name, supplier_name_norm, is_active)
+VALUES ('PT Dummy', 'PT DUMMY', 1);
+
+ALTER TABLE material ADD COLUMN supplier_id INTEGER REFERENCES supplier(supplier_id);
+ALTER TABLE material ADD COLUMN client_supplied INTEGER NOT NULL DEFAULT 0 CHECK (client_supplied IN (0, 1));
+
+CREATE INDEX idx_material_supplier ON material(supplier_id);
+CREATE INDEX idx_material_client_supplied ON material(client_supplied);
+
+CREATE TABLE defect_catalog (
+  defect_catalog_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  defect_name TEXT NOT NULL,
+  defect_name_norm TEXT NOT NULL UNIQUE,
+  ng_origin_type TEXT NOT NULL CHECK (ng_origin_type IN ('material', 'process')),
+  line_code TEXT CHECK (line_code IS NULL OR line_code IN ('press', 'sewing', 'mixed'))
+);
+
+CREATE INDEX idx_defect_catalog_origin ON defect_catalog(ng_origin_type);
+CREATE INDEX idx_defect_catalog_line ON defect_catalog(line_code);
+
+CREATE TABLE material_defect_catalog (
+  material_id INTEGER NOT NULL,
+  defect_catalog_id INTEGER NOT NULL,
+  PRIMARY KEY (material_id, defect_catalog_id),
+  FOREIGN KEY (material_id) REFERENCES material(material_id) ON DELETE CASCADE,
+  FOREIGN KEY (defect_catalog_id) REFERENCES defect_catalog(defect_catalog_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_material_defect_catalog_defect ON material_defect_catalog(defect_catalog_id);
+
+CREATE TABLE part_defect_catalog (
+  part_id INTEGER NOT NULL,
+  defect_catalog_id INTEGER NOT NULL,
+  ng_origin_type TEXT NOT NULL CHECK (ng_origin_type IN ('material', 'process')),
+  material_id INTEGER,
+  PRIMARY KEY (part_id, defect_catalog_id),
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (defect_catalog_id) REFERENCES defect_catalog(defect_catalog_id) ON DELETE CASCADE,
+  FOREIGN KEY (material_id) REFERENCES material(material_id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_part_defect_catalog_origin ON part_defect_catalog(part_id, ng_origin_type);
+CREATE INDEX idx_part_defect_catalog_material ON part_defect_catalog(material_id);
+
+CREATE TABLE part_configuration (
+  part_id INTEGER PRIMARY KEY,
+  exclude_from_checksheet INTEGER NOT NULL DEFAULT 0 CHECK (exclude_from_checksheet IN (0, 1)),
+  is_recycled_part INTEGER NOT NULL DEFAULT 0 CHECK (is_recycled_part IN (0, 1)),
+  recycle_note TEXT,
+  FOREIGN KEY (part_id) REFERENCES part(part_id) ON DELETE CASCADE
+);
+
+CREATE TABLE part_recycle_source (
+  recycle_part_id INTEGER NOT NULL,
+  source_part_id INTEGER,
+  source_material_id INTEGER,
+  note TEXT,
+  PRIMARY KEY (recycle_part_id, source_part_id, source_material_id),
+  FOREIGN KEY (recycle_part_id) REFERENCES part(part_id) ON DELETE CASCADE,
+  FOREIGN KEY (source_part_id) REFERENCES part(part_id) ON DELETE SET NULL,
+  FOREIGN KEY (source_material_id) REFERENCES material(material_id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_part_recycle_source_part ON part_recycle_source(recycle_part_id);
+
+PRAGMA user_version = 12;
+PRAGMA foreign_keys = ON;

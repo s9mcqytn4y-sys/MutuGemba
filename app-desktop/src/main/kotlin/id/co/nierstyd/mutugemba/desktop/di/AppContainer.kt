@@ -12,6 +12,7 @@ import id.co.nierstyd.mutugemba.data.bootstrap.PartZipBootstrapper
 import id.co.nierstyd.mutugemba.data.db.DatabaseFactory
 import id.co.nierstyd.mutugemba.data.local.assetstore.LocalAssetRepository
 import id.co.nierstyd.mutugemba.data.local.assetstore.createDesktopHashAssetStore
+import id.co.nierstyd.mutugemba.data.local.db.SqlitePartMasterRepository
 import id.co.nierstyd.mutugemba.data.local.db.SqlitePartRepository
 import id.co.nierstyd.mutugemba.data.local.db.SqliteQaRepository
 import id.co.nierstyd.mutugemba.usecase.BackupDatabaseUseCase
@@ -43,7 +44,16 @@ import id.co.nierstyd.mutugemba.usecase.UpsertDefectTypeUseCase
 import id.co.nierstyd.mutugemba.usecase.asset.GetActiveImageRefUseCase
 import id.co.nierstyd.mutugemba.usecase.asset.LoadImageBytesUseCase
 import id.co.nierstyd.mutugemba.usecase.part.GetPartDetailUseCase
+import id.co.nierstyd.mutugemba.usecase.part.GetPartMasterDetailUseCase
+import id.co.nierstyd.mutugemba.usecase.part.ListDefectMastersUseCase
+import id.co.nierstyd.mutugemba.usecase.part.ListMaterialMastersUseCase
+import id.co.nierstyd.mutugemba.usecase.part.ListPartMastersUseCase
+import id.co.nierstyd.mutugemba.usecase.part.ListSupplierMastersUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ObservePartsUseCase
+import id.co.nierstyd.mutugemba.usecase.part.SaveDefectMasterUseCase
+import id.co.nierstyd.mutugemba.usecase.part.SaveMaterialMasterUseCase
+import id.co.nierstyd.mutugemba.usecase.part.SavePartMasterUseCase
+import id.co.nierstyd.mutugemba.usecase.part.SaveSupplierMasterUseCase
 import id.co.nierstyd.mutugemba.usecase.qa.GetDefectHeatmapUseCase
 import id.co.nierstyd.mutugemba.usecase.qa.GetTopDefectsPerModelMonthlyUseCase
 import java.nio.file.Files
@@ -79,6 +89,7 @@ class AppContainer {
     private val mappingDatabase = MappingDatabaseFactory.create()
     private val hashAssetStore = createDesktopHashAssetStore(AppDataPaths.dataDir())
     private val partRepository = SqlitePartRepository(mappingDatabase)
+    private val partMasterRepository = SqlitePartMasterRepository(mappingDatabase)
     private val qaRepository = SqliteQaRepository(mappingDatabase)
     private val assetRepository = LocalAssetRepository(mappingDatabase, hashAssetStore)
     private val partZipBootstrapper = PartZipBootstrapper(mappingDatabase, hashAssetStore)
@@ -117,6 +128,15 @@ class AppContainer {
     val restoreDatabaseUseCase = RestoreDatabaseUseCase(backupRepository)
     val observePartsUseCase = ObservePartsUseCase(partRepository)
     val getPartDetailUseCase = GetPartDetailUseCase(partRepository)
+    val listPartMastersUseCase = ListPartMastersUseCase(partMasterRepository)
+    val getPartMasterDetailUseCase = GetPartMasterDetailUseCase(partMasterRepository)
+    val savePartMasterUseCase = SavePartMasterUseCase(partMasterRepository)
+    val listMaterialMastersUseCase = ListMaterialMastersUseCase(partMasterRepository)
+    val saveMaterialMasterUseCase = SaveMaterialMasterUseCase(partMasterRepository)
+    val listSupplierMastersUseCase = ListSupplierMastersUseCase(partMasterRepository)
+    val saveSupplierMasterUseCase = SaveSupplierMasterUseCase(partMasterRepository)
+    val listDefectMastersUseCase = ListDefectMastersUseCase(partMasterRepository)
+    val saveDefectMasterUseCase = SaveDefectMasterUseCase(partMasterRepository)
     val getTopDefectsPerModelMonthlyUseCase = GetTopDefectsPerModelMonthlyUseCase(qaRepository)
     val getDefectHeatmapUseCase = GetDefectHeatmapUseCase(qaRepository)
     val getActiveImageRefUseCase = GetActiveImageRefUseCase(assetRepository)

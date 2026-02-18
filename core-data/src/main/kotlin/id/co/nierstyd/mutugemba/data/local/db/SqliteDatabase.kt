@@ -6,7 +6,7 @@ import java.nio.file.Path
 import java.sql.Connection
 import java.sql.DriverManager
 
-private const val TARGET_SCHEMA_VERSION = 11
+private const val TARGET_SCHEMA_VERSION = 12
 
 class SqliteDatabase(
     private val dbFile: Path,
@@ -82,10 +82,10 @@ class SqliteDatabase(
 
     private fun loadSchemaSql(): String =
         javaClass.classLoader
-            .getResourceAsStream("db/schema_v11.sql")
+            .getResourceAsStream("db/schema_v12.sql")
             ?.bufferedReader(Charsets.UTF_8)
             ?.use { it.readText() }
-            ?: error("Missing schema resource: db/schema_v11.sql")
+            ?: error("Missing schema resource: db/schema_v12.sql")
 
     private fun hasColumn(
         connection: Connection,
