@@ -13,6 +13,7 @@ import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.LineCode
 import id.co.nierstyd.mutugemba.domain.MasterDataRepository
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDayDefect
+import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectDayTotal
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
@@ -24,6 +25,7 @@ import java.time.YearMonth
 
 class MonthlyReportUseCasesTest {
     @Test
+    @Suppress("LongMethod")
     fun `aggregate monthly report totals`() {
         val month = YearMonth.of(2026, 2)
         val line =
@@ -75,6 +77,13 @@ class MonthlyReportUseCasesTest {
                 MonthlyPartDefectTotal(1L, 2L, 1),
                 MonthlyPartDefectTotal(2L, 1L, 2),
             )
+        val partDefectDayTotals =
+            listOf(
+                MonthlyPartDefectDayTotal(1L, 1L, day1, 2),
+                MonthlyPartDefectDayTotal(1L, 1L, day2, 1),
+                MonthlyPartDefectDayTotal(1L, 2L, day1, 1),
+                MonthlyPartDefectDayTotal(2L, 1L, day1, 2),
+            )
         val summaries =
             listOf(
                 DailyChecksheetSummary(
@@ -97,6 +106,7 @@ class MonthlyReportUseCasesTest {
                 monthlyParts = parts,
                 monthlyDayDefects = partDayDefects,
                 monthlyDefectTotals = partDefectTotals,
+                monthlyDefectDayTotals = partDefectDayTotals,
                 summaries = summaries,
             )
         val masterRepository = FakeMasterRepository(lines = listOf(line), defectTypes = defectTypes)
@@ -105,7 +115,7 @@ class MonthlyReportUseCasesTest {
         val document = useCase.execute(line.id, month)
 
         assertNotNull(document)
-        assertEquals(2, document.rows.size)
+        assertEquals(3, document.rows.size)
         assertEquals(5, document.totals.dayTotals[0])
         assertEquals(1, document.totals.dayTotals[1])
         assertEquals(listOf(5, 1), document.totals.defectTotals)
@@ -122,6 +132,7 @@ class MonthlyReportUseCasesTest {
                 monthlyParts = emptyList(),
                 monthlyDayDefects = emptyList(),
                 monthlyDefectTotals = emptyList(),
+                monthlyDefectDayTotals = emptyList(),
                 summaries =
                     listOf(
                         DailyChecksheetSummary(
@@ -187,19 +198,26 @@ class MonthlyReportUseCasesTest {
                 MonthlyPartDefectTotal(1L, 1L, 7),
                 MonthlyPartDefectTotal(1L, 2L, 4),
             )
+        val day = month.atDay(1)
+        val defectDayTotals =
+            listOf(
+                MonthlyPartDefectDayTotal(1L, 1L, day, 7),
+                MonthlyPartDefectDayTotal(1L, 2L, day, 4),
+            )
 
         val inspectionRepository =
             MonthlyReportFakeInspectionRepository(
                 monthlyParts = parts,
                 monthlyDayDefects = emptyList(),
                 monthlyDefectTotals = defectTotals,
+                monthlyDefectDayTotals = defectDayTotals,
                 summaries = emptyList(),
             )
         val masterRepository = FakeMasterRepository(lines = listOf(line), defectTypes = defectTypes)
         val document = GetMonthlyReportDocumentUseCase(inspectionRepository, masterRepository).execute(line.id, month)
 
-        val problemItems = document.rows.single().problemItems
-        assertEquals(listOf("OVERCUTTING", "SPUNBOND HARDEN", "SPUNBOUND TERLIPAT"), problemItems)
+        val problemItems = document.rows.map { it.problemItems.single() }
+        assertEquals(listOf("OVERCUTTING", "SPUNBOUND TERLIPAT"), problemItems)
     }
 }
 
@@ -207,6 +225,7 @@ private class MonthlyReportFakeInspectionRepository(
     private val monthlyParts: List<Part>,
     private val monthlyDayDefects: List<MonthlyPartDayDefect>,
     private val monthlyDefectTotals: List<MonthlyPartDefectTotal>,
+    private val monthlyDefectDayTotals: List<MonthlyPartDefectDayTotal>,
     private val summaries: List<DailyChecksheetSummary>,
 ) : InspectionRepository {
     override fun insert(input: InspectionInput): InspectionRecord = error("Not required")
@@ -247,6 +266,11 @@ private class MonthlyReportFakeInspectionRepository(
         lineId: Long,
         month: YearMonth,
     ): List<MonthlyPartDefectTotal> = monthlyDefectTotals
+
+    override fun getMonthlyPartDefectDayTotals(
+        lineId: Long,
+        month: YearMonth,
+    ): List<MonthlyPartDefectDayTotal> = monthlyDefectDayTotals
 
     override fun getMonthlyParts(
         lineId: Long,

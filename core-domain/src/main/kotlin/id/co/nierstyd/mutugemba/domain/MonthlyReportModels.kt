@@ -49,6 +49,13 @@ data class MonthlyPartDefectTotal(
     val totalDefect: Int,
 )
 
+data class MonthlyPartDefectDayTotal(
+    val partId: Long,
+    val defectTypeId: Long,
+    val date: LocalDate,
+    val totalDefect: Int,
+)
+
 object MonthlyReportDocumentNumber {
     fun generate(
         lineCode: LineCode,

@@ -13,6 +13,7 @@ import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
 import id.co.nierstyd.mutugemba.domain.InspectionRepository
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDayDefect
+import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectDayTotal
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import java.time.LocalDate
@@ -185,6 +186,26 @@ class SqlDelightInspectionRepository(
                     partId = key.first,
                     defectTypeId = key.second,
                     totalDefect = values.sumOf { it.second.totalQuantity },
+                )
+            }
+
+    override fun getMonthlyPartDefectDayTotals(
+        lineId: Long,
+        month: YearMonth,
+    ): List<MonthlyPartDefectDayTotal> =
+        database.inspections
+            .filter { it.input.lineId == lineId && YearMonth.from(it.createdDate) == month }
+            .flatMap { row ->
+                row.defects.map { defect ->
+                    Triple(row.input.partId, defect.defectTypeId, row.createdDate) to defect.totalQuantity
+                }
+            }.groupBy { it.first }
+            .map { (key, values) ->
+                MonthlyPartDefectDayTotal(
+                    partId = key.first,
+                    defectTypeId = key.second,
+                    date = key.third,
+                    totalDefect = values.sumOf { it.second },
                 )
             }
 

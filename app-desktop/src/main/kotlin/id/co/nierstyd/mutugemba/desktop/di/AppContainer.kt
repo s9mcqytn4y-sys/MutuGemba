@@ -130,6 +130,7 @@ class AppContainer {
         databaseHandle.driver.close()
     }
 
+    @Suppress("CyclomaticComplexMethod")
     fun generateHighVolumeSimulation(
         days: Int = 45,
         density: Int = 4,
@@ -148,41 +149,55 @@ class AppContainer {
 
         repeat(days.coerceAtLeast(1)) { dayOffset ->
             val date = now.minusDays(dayOffset.toLong())
+            val isWeekend = date.dayOfWeek.value >= 6
             lines.forEach { line ->
                 val lineParts = parts.filter { it.lineCode == line.code }
                 if (lineParts.isEmpty()) return@forEach
-                val batchSize = (lineParts.size * 0.4).toInt().coerceIn(8, lineParts.size)
+                val densityMultiplier =
+                    when {
+                        isWeekend -> 0.35
+                        dayOffset % 7 == 1 -> 0.95
+                        else -> 0.65
+                    }
+                val minBatch = if (isWeekend) 2 else 6
+                val batchSize =
+                    (lineParts.size * densityMultiplier)
+                        .toInt()
+                        .coerceIn(minBatch.coerceAtMost(lineParts.size), lineParts.size)
                 lineParts.shuffled(random).take(batchSize).forEachIndexed { slotIndex, part ->
-                    repeat(density.coerceAtLeast(1)) { densityIndex ->
-                        val candidateDefects =
-                            part.recommendedDefectCodes
-                                .mapNotNull { code -> defectTypes.firstOrNull { it.code == code } }
-                                .ifEmpty {
-                                    defectTypes
-                                        .filter { it.lineCode == null || it.lineCode == line.code }
-                                        .shuffled(random)
-                                        .take(3)
-                                }
+                    val repeatPerPart =
+                        if (isWeekend) {
+                            1
+                        } else {
+                            density.coerceAtLeast(1)
+                        }
+                    repeat(repeatPerPart) { densityIndex ->
+                        val candidateDefects = candidateDefectsForPart(part.id, line.id, defectTypes)
                         if (candidateDefects.isEmpty()) return@repeat
 
-                        val picked =
-                            candidateDefects
-                                .shuffled(random)
-                                .take((1 + random.nextInt(2)).coerceAtMost(candidateDefects.size))
-                        val entries =
-                            picked.map { defect ->
-                                val q1 = random.nextInt(0, 4)
-                                val q2 = random.nextInt(0, 4)
-                                val q3 = random.nextInt(0, 3)
-                                val total = q1 + q2 + q3
-                                id.co.nierstyd.mutugemba.domain.InspectionDefectEntry(
-                                    defectTypeId = defect.id,
-                                    quantity = total.coerceAtLeast(1),
-                                    slots = emptyList(),
-                                )
+                        val pickedCount =
+                            when {
+                                candidateDefects.size == 1 -> 1
+                                random.nextInt(100) < 70 -> 1
+                                else -> 2
                             }
+                        val picked = candidateDefects.shuffled(random).take(pickedCount)
+                        val entries =
+                            picked
+                                .map { defect ->
+                                    val baseQty = if (isWeekend) random.nextInt(0, 3) else random.nextInt(1, 5)
+                                    val spike = if (!isWeekend && random.nextInt(100) < 18) random.nextInt(2, 7) else 0
+                                    id.co.nierstyd.mutugemba.domain.InspectionDefectEntry(
+                                        defectTypeId = defect.id,
+                                        quantity = (baseQty + spike).coerceAtLeast(1),
+                                        slots = emptyList(),
+                                    )
+                                }.filter { it.quantity > 0 }
+                        if (entries.isEmpty()) return@repeat
+
                         val totalDefect = entries.sumOf { it.quantity }.coerceAtLeast(1)
-                        val totalCheck = totalDefect + random.nextInt(8, 40)
+                        val baseCheck = if (isWeekend) random.nextInt(6, 20) else random.nextInt(18, 55)
+                        val totalCheck = (totalDefect + baseCheck).coerceAtLeast(totalDefect)
                         val clock = LocalTime.of((8 + (slotIndex % 8)).coerceAtMost(16), random.nextInt(0, 59))
                         val createdAt = LocalDateTime.of(date, clock).plusMinutes((densityIndex * 7).toLong())
                         inspectionRepository.insert(
@@ -205,6 +220,24 @@ class AppContainer {
             }
         }
         return inserted
+    }
+
+    private fun candidateDefectsForPart(
+        partId: Long,
+        lineId: Long,
+        defectTypes: List<id.co.nierstyd.mutugemba.domain.DefectType>,
+    ): List<id.co.nierstyd.mutugemba.domain.DefectType> {
+        val line = masterDataRepository.getLines().firstOrNull { it.id == lineId }
+        val recommended = database.recommendedDefectTypeIds(partId)
+        val preferred =
+            defectTypes.filter { defect ->
+                defect.id in recommended &&
+                    (line == null || defect.lineCode == null || defect.lineCode == line.code)
+            }
+        if (preferred.isNotEmpty()) return preferred
+        return defectTypes.filter { defect ->
+            line == null || defect.lineCode == null || defect.lineCode == line.code
+        }
     }
 
     fun clearAppCaches(): Boolean =

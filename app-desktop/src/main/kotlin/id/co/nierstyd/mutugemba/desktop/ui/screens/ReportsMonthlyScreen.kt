@@ -666,6 +666,11 @@ private fun MonthlyReportTable(
             filteredRows.sumOf { it.dayValues.getOrNull(index) ?: 0 }
         }
     val filteredGrandTotal = filteredRows.sumOf { it.totalDefect }
+    val groupedRows =
+        filteredRows
+            .groupBy { it.partId }
+            .toList()
+            .sortedBy { (_, rows) -> rows.firstOrNull()?.partNumber.orEmpty() }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
@@ -725,78 +730,74 @@ private fun MonthlyReportTable(
             }
         }
 
-        filteredRows.forEachIndexed { index, row ->
-            val rowBackground = if (index % 2 == 0) NeutralSurface else NeutralLight
-            val problemItems = normalizeProblemItems(row.problemItems)
-            val lineHeight = BodyRowHeight - 16.dp
-            val lineCount = problemItems.size.coerceAtLeast(1)
-            val dynamicBodyHeight = lineHeight * lineCount
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
-                    SketchCell(
-                        sketchPath = row.sketchPath,
-                        width = SketchColumnWidth,
-                        height = dynamicBodyHeight,
-                        backgroundColor = rowBackground,
-                    )
-                    TableBodyCell(
-                        text = formatPartNumber(row.partNumber, row.uniqCode),
-                        width = PartNumberColumnWidth,
-                        height = dynamicBodyHeight,
-                        backgroundColor = rowBackground,
-                        maxLines = 2,
-                    )
-                    Column {
-                        if (problemItems.isEmpty()) {
-                            Row {
-                                TableBodyCell(
-                                    text = AppStrings.Common.Placeholder,
-                                    width = ProblemItemColumnWidth,
-                                    height = lineHeight,
-                                    backgroundColor = rowBackground,
-                                    maxLines = 1,
-                                )
-                            }
-                        } else {
-                            problemItems.forEach { item ->
-                                Row {
-                                    TableBodyCell(
-                                        text = "- $item",
-                                        width = ProblemItemColumnWidth,
-                                        height = lineHeight,
-                                        backgroundColor = rowBackground,
-                                        maxLines = 1,
-                                    )
-                                }
-                            }
-                        }
-                    }
+        groupedRows.forEachIndexed { groupIndex, (_, rowsForPart) ->
+            val partSample = rowsForPart.first()
+            val rowBackground = if (groupIndex % 2 == 0) NeutralSurface else NeutralLight
+            val partDayTotals =
+                days.mapIndexed { dayIndex, _ ->
+                    rowsForPart.sumOf { row -> row.dayValues.getOrElse(dayIndex) { 0 } }
                 }
-                Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                    Column {
-                        repeat(lineCount) { lineIndex ->
-                            Row {
-                                days.forEachIndexed { dayIndex, day ->
-                                    val style = dayStyles.getValue(day)
-                                    val value = row.dayValues.getOrElse(dayIndex) { 0 }
-                                    TableBodyCell(
-                                        text = if (lineIndex == 0) value.toString() else "",
-                                        width = DayColumnWidth,
-                                        height = lineHeight,
-                                        backgroundColor = style.bodyBackground,
-                                        alignCenter = true,
-                                        textColor = style.bodyTextColor,
-                                    )
-                                }
-                                TableBodyCell(
-                                    text = if (lineIndex == 0) row.totalDefect.toString() else "",
-                                    width = TotalColumnWidth,
-                                    height = lineHeight,
-                                    backgroundColor = rowBackground,
-                                    alignCenter = true,
-                                )
-                            }
+            val partTotal = partDayTotals.sum()
+            rowsForPart.forEachIndexed { rowIndex, row ->
+                val itemLabel = normalizeProblemItems(row.problemItems).firstOrNull().orEmpty()
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.width(SketchColumnWidth + PartNumberColumnWidth + ProblemItemColumnWidth)) {
+                        if (rowIndex == 0) {
+                            SketchCell(
+                                sketchPath = partSample.sketchPath,
+                                width = SketchColumnWidth,
+                                height = BodyRowHeight,
+                                backgroundColor = rowBackground,
+                            )
+                            TableBodyCell(
+                                text = formatPartNumber(partSample.partNumber, partSample.uniqCode),
+                                width = PartNumberColumnWidth,
+                                height = BodyRowHeight,
+                                backgroundColor = rowBackground,
+                                maxLines = 3,
+                            )
+                        } else {
+                            TableBodyCell(
+                                text = "",
+                                width = SketchColumnWidth,
+                                height = BodyRowHeight,
+                                backgroundColor = rowBackground,
+                            )
+                            TableBodyCell(
+                                text = "",
+                                width = PartNumberColumnWidth,
+                                height = BodyRowHeight,
+                                backgroundColor = rowBackground,
+                            )
                         }
+                        TableBodyCell(
+                            text = if (itemLabel.isBlank()) AppStrings.Common.Placeholder else "- $itemLabel",
+                            width = ProblemItemColumnWidth,
+                            height = BodyRowHeight,
+                            backgroundColor = rowBackground,
+                            maxLines = 2,
+                        )
+                    }
+                    Row(modifier = Modifier.horizontalScroll(scrollState)) {
+                        days.forEachIndexed { dayIndex, day ->
+                            val style = dayStyles.getValue(day)
+                            val value = row.dayValues.getOrElse(dayIndex) { 0 }
+                            TableBodyCell(
+                                text = value.toString(),
+                                width = DayColumnWidth,
+                                height = BodyRowHeight,
+                                backgroundColor = style.bodyBackground,
+                                alignCenter = true,
+                                textColor = style.bodyTextColor,
+                            )
+                        }
+                        TableBodyCell(
+                            text = row.totalDefect.toString(),
+                            width = TotalColumnWidth,
+                            height = BodyRowHeight,
+                            backgroundColor = rowBackground,
+                            alignCenter = true,
+                        )
                     }
                 }
             }
@@ -810,15 +811,15 @@ private fun MonthlyReportTable(
                         backgroundColor = SubtotalHighlight,
                     )
                     TableSubtotalCell(
-                        text = AppStrings.ReportsMonthly.TableSubtotal,
+                        text = "${AppStrings.ReportsMonthly.TableSubtotal} ${partSample.uniqCode}",
                         width = ProblemItemColumnWidth,
                         height = SubtotalRowHeight,
                         backgroundColor = SubtotalHighlight,
                     )
                 }
                 Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                    row.dayValues.forEachIndexed { index, value ->
-                        val style = dayStyles.getValue(days[index])
+                    partDayTotals.forEachIndexed { dayIndex, value ->
+                        val style = dayStyles.getValue(days[dayIndex])
                         TableSubtotalCell(
                             text = value.toString(),
                             width = DayColumnWidth,
@@ -829,7 +830,7 @@ private fun MonthlyReportTable(
                         )
                     }
                     TableSubtotalCell(
-                        text = row.totalDefect.toString(),
+                        text = partTotal.toString(),
                         width = TotalColumnWidth,
                         height = SubtotalRowHeight,
                         alignCenter = true,
@@ -1308,7 +1309,7 @@ private fun normalizeProblemItems(items: List<String>): List<String> =
     items
         .flatMap { DefectNameSanitizer.expandProblemItems(it) }
         .ifEmpty { items.map(DefectNameSanitizer::normalizeDisplay) }
-        .filter { it.isNotBlank() }
+        .filter(DefectNameSanitizer::isMeaningfulItem)
         .distinct()
         .map(DefectNameSanitizer::normalizeDisplay)
 
