@@ -137,7 +137,7 @@ private fun InspectionScreenContent(
     val partItemStartIndex = 9
 
     LaunchedEffect(feedback) {
-        if (feedback != null) {
+        if (feedback?.type == FeedbackType.INFO || feedback?.type == FeedbackType.SUCCESS) {
             delay(4000)
             state.clearFeedback()
         }
