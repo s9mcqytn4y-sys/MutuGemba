@@ -19,11 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
+import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.InfoCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
-import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
@@ -80,7 +80,7 @@ fun LoginScreen(
             )
         }
 
-        feedback?.let { StatusBanner(feedback = it) }
+        FeedbackHost(feedback = feedback)
 
         Row(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
             Text(

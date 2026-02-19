@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
@@ -201,7 +202,7 @@ fun ReportsMonthlyScreen(
 
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             feedback?.let {
-                StatusBanner(
+                FeedbackHost(
                     feedback = it,
                     onDismiss = { feedback = null },
                     dense = true,

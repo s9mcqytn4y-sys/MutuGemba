@@ -27,11 +27,11 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
 import id.co.nierstyd.mutugemba.desktop.ui.components.ConfirmDialog
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
+import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
-import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
@@ -50,7 +50,6 @@ import id.co.nierstyd.mutugemba.usecase.SetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.SetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -80,13 +79,6 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
     var loadingMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(feedback) {
-        if (feedback != null) {
-            delay(3000)
-            feedback = null
-        }
-    }
-
     LaunchedEffect(Unit) {
         lines = dependencies.getLines.execute()
     }
@@ -100,7 +92,11 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                 title = AppStrings.Settings.Title,
                 subtitle = AppStrings.Settings.Subtitle,
             )
-            feedback?.let { StatusBanner(feedback = it) }
+            FeedbackHost(
+                feedback = feedback,
+                onDismiss = { feedback = null },
+                autoDismissMillis = 3000,
+            )
 
             SettingsSectionCard(
                 title = AppStrings.Settings.RulesTitle,

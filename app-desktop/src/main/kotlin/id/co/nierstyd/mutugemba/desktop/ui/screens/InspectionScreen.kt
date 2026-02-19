@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
+import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
@@ -96,7 +97,6 @@ import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.InspectionDefaults
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.KeyEventDispatcher
@@ -128,7 +128,6 @@ private fun InspectionScreenContent(
     onRecordsSaved: (List<InspectionRecord>) -> Unit,
 ) {
     val parts = state.partsForLine()
-    val feedback = state.feedback
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
@@ -137,13 +136,6 @@ private fun InspectionScreenContent(
     var searchQuery by remember { mutableStateOf("") }
     val searchResults = state.searchCandidates(searchQuery).take(8)
     val partItemStartIndex = 9
-
-    LaunchedEffect(feedback) {
-        if (feedback?.type == FeedbackType.INFO || feedback?.type == FeedbackType.SUCCESS) {
-            delay(4000)
-            state.clearFeedback()
-        }
-    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -225,6 +217,14 @@ private fun InspectionScreenContent(
                 SectionHeader(
                     title = AppStrings.Inspection.Title,
                     subtitle = AppStrings.Inspection.Subtitle,
+                )
+            }
+            item {
+                FeedbackHost(
+                    feedback = state.feedback,
+                    onDismiss = { state.clearFeedback() },
+                    autoDismissMillis = 4000,
+                    onFeedbackShown = { listState.animateScrollToItem(0) },
                 )
             }
 
@@ -320,10 +320,6 @@ private fun InspectionScreenContent(
                         onRemoveDefectFromPart = { state.removeDefectFromPart(part.id, it) },
                     )
                 }
-            }
-
-            item {
-                state.feedback?.let { StatusBanner(feedback = it) }
             }
         }
 

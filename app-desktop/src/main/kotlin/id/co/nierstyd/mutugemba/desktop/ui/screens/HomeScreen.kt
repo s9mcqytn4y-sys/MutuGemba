@@ -36,10 +36,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.ConfirmDialog
+import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
-import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.LineComparisonCard
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.LineComparisonItemUi
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.MonthlyInsightCard
@@ -367,7 +367,7 @@ fun HomeScreen(
                             totalCheck = totalCheckFromSummary,
                             activeLines = activeLinesToday,
                         )
-                        feedback?.let { StatusBanner(feedback = it) }
+                        FeedbackHost(feedback = feedback, onDismiss = { feedback = null })
                     }
                 }
             }

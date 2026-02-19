@@ -15,6 +15,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,8 +31,38 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
+import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+
+@Composable
+fun FeedbackHost(
+    feedback: UserFeedback?,
+    modifier: Modifier = Modifier,
+    onDismiss: (() -> Unit)? = null,
+    dense: Boolean = false,
+    autoDismissMillis: Long? = null,
+    autoDismissTypes: Set<FeedbackType> = setOf(FeedbackType.INFO, FeedbackType.SUCCESS),
+    onFeedbackShown: (suspend () -> Unit)? = null,
+) {
+    LaunchedEffect(feedback?.type, feedback?.message) {
+        val currentFeedback = feedback ?: return@LaunchedEffect
+        onFeedbackShown?.invoke()
+        if (onDismiss != null && autoDismissMillis != null && currentFeedback.type in autoDismissTypes) {
+            delay(autoDismissMillis)
+            onDismiss()
+        }
+    }
+
+    feedback?.let {
+        StatusBanner(
+            feedback = it,
+            modifier = modifier,
+            onDismiss = onDismiss,
+            dense = dense,
+        )
+    }
+}
 
 @Composable
 @Suppress("LongMethod", "CyclomaticComplexMethod")
