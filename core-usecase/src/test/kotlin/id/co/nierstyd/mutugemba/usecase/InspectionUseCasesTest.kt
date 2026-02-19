@@ -131,6 +131,29 @@ class InspectionUseCasesTest {
         assertEquals(1, result.failedParts.size)
         assertEquals(1, result.savedRecords.size)
     }
+
+    @Test
+    fun `allow save when total check is filled without defect`() {
+        val repository = FakeInspectionRepository()
+        val useCase = CreateInspectionRecordUseCase(repository)
+        val input =
+            InspectionInput(
+                kind = InspectionKind.DEFECT,
+                lineId = 1,
+                shiftId = 1,
+                partId = 1,
+                totalCheck = 12,
+                defectTypeId = null,
+                defectQuantity = null,
+                defects = emptyList(),
+                createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            )
+
+        val result = useCase.execute(input, actorRole = UserRole.USER)
+        assertNotNull(result.record)
+        assertEquals(FeedbackType.SUCCESS, result.feedback.type)
+        assertNotNull(repository.lastInserted)
+    }
 }
 
 private class FakeInspectionRepository(

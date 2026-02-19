@@ -117,9 +117,10 @@ class CreateInspectionRecordUseCase(
 
         val totalDefect = defectEntries.sumOf { it.totalQuantity }
         val totalCheck = input.totalCheck
+        val hasTotalCheck = (totalCheck ?: 0) > 0
         val totalCheckInvalid = totalCheck != null && totalCheck < totalDefect
         return when {
-            defectEntries.isEmpty() ->
+            defectEntries.isEmpty() && !hasTotalCheck ->
                 UserFeedback(FeedbackType.ERROR, "Isi jumlah NG terlebih dahulu.")
             defectEntries.any { it.totalQuantity <= 0 } ->
                 UserFeedback(FeedbackType.ERROR, "Jumlah NG harus lebih dari 0.")
