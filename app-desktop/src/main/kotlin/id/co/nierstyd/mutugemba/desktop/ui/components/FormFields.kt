@@ -59,7 +59,10 @@ fun AppTextField(
             colors = defaultTextFieldColors(),
         )
         spec.helperText?.let {
-            Text(text = it, color = NeutralTextMuted)
+            Text(
+                text = it,
+                color = if (spec.isError) androidx.compose.material.MaterialTheme.colors.error else NeutralTextMuted,
+            )
         }
     }
 }

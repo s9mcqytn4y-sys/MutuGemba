@@ -83,7 +83,7 @@ Status implementasi:
 
 ---
 
-### Batch 3 (CRUD hardening + field validation)
+### Batch 3 (CRUD hardening + field validation) - SELESAI
 Tujuan:
 - Validasi/sanitasi per field dengan in-field feedback.
 - Prevent duplikasi pada key domain penting.
@@ -99,6 +99,12 @@ Teknis:
 Validasi:
 - Unit test usecase save/update/delete.
 - Test duplicate & sanitization path.
+
+Status implementasi:
+- Validasi in-field pada editor `Part`, `Bahan`, `Pemasok`, dan `Jenis NG`.
+- Sanitasi input (trim + collapse whitespace) diterapkan sebelum simpan.
+- Guard duplikasi lintas entitas aktif di level UI sebelum memanggil usecase.
+- `AppTextField` reusable ditingkatkan agar helper text error tampil menonjol (warna error).
 
 ---
 

@@ -1059,6 +1059,40 @@ private fun PartEditorTab(
                     selectedPart?.lineCode.equals(defect.lineCode, ignoreCase = true)
             }
         }
+    val normalizedUniq = uniqNo.trim().uppercase()
+    val normalizedPartNumber = partNumber.normalizeHumanInput().uppercase()
+    val normalizedPartName = partName.normalizeHumanInput()
+    val normalizedLineCode = lineCode.trim().lowercase()
+    val uniqDuplicate =
+        normalizedUniq.isNotBlank() &&
+            parts.any { it.uniqNo.equals(normalizedUniq, ignoreCase = true) }
+    val partNumberDuplicate =
+        normalizedPartNumber.isNotBlank() &&
+            parts.any { it.partNumber.equals(normalizedPartNumber, ignoreCase = true) }
+    val uniqError =
+        when {
+            normalizedUniq.isBlank() -> "UNIQ wajib diisi."
+            uniqDuplicate -> "UNIQ sudah dipakai part lain."
+            else -> null
+        }
+    val partNumberError =
+        when {
+            normalizedPartNumber.isBlank() -> "Part Number wajib diisi."
+            partNumberDuplicate -> "Part Number sudah terdaftar."
+            else -> null
+        }
+    val partNameError =
+        when {
+            normalizedPartName.isBlank() -> "Nama part wajib diisi."
+            else -> null
+        }
+    val lineCodeError =
+        when {
+            normalizedLineCode != "press" && normalizedLineCode != "sewing" ->
+                "Line produksi harus `press` atau `sewing`."
+            else -> null
+        }
+    val canSubmit = uniqError == null && partNumberError == null && partNameError == null && lineCodeError == null
 
     LaunchedEffect(parts) {
         if (selectedAssignPartId == null || parts.none { it.id == selectedAssignPartId }) {
@@ -1081,32 +1115,57 @@ private fun PartEditorTab(
         Text("Part aktif: $totalParts", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             AppTextField(
-                spec = FieldSpec(label = "UNIQ"),
+                spec =
+                    FieldSpec(
+                        label = "UNIQ",
+                        helperText = uniqError ?: "Kode unik part. Contoh: B35",
+                        isError = uniqError != null,
+                    ),
                 value = uniqNo,
-                onValueChange = { uniqNo = it },
+                onValueChange = { uniqNo = it.filter { ch -> ch.isLetterOrDigit() || ch == '-' }.uppercase() },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )
             AppTextField(
-                spec = FieldSpec(label = "Part Number"),
+                spec =
+                    FieldSpec(
+                        label = "Part Number",
+                        helperText = partNumberError ?: "Nomor part resmi produksi.",
+                        isError = partNumberError != null,
+                    ),
                 value = partNumber,
-                onValueChange = { partNumber = it },
+                onValueChange = {
+                    partNumber =
+                        it
+                            .filter { ch -> ch.isLetterOrDigit() || ch == '-' || ch == '/' }
+                            .uppercase()
+                },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             AppTextField(
-                spec = FieldSpec(label = "Nama Part"),
+                spec =
+                    FieldSpec(
+                        label = "Nama Part",
+                        helperText = partNameError ?: "Nama part akan tampil di katalog dan laporan.",
+                        isError = partNameError != null,
+                    ),
                 value = partName,
                 onValueChange = { partName = it },
                 modifier = Modifier.weight(1.5f),
                 singleLine = true,
             )
             AppTextField(
-                spec = FieldSpec(label = "Line Produksi (press/sewing)"),
+                spec =
+                    FieldSpec(
+                        label = "Line Produksi (press/sewing)",
+                        helperText = lineCodeError ?: "Pilih line valid: press atau sewing.",
+                        isError = lineCodeError != null,
+                    ),
                 value = lineCode,
-                onValueChange = { lineCode = it },
+                onValueChange = { lineCode = it.filter(Char::isLetter).lowercase() },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )
@@ -1121,7 +1180,16 @@ private fun PartEditorTab(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             PrimaryButton(
                 text = "Simpan Data Part",
-                onClick = { onSavePart(uniqNo, partNumber, partName, lineCode, excluded) },
+                enabled = canSubmit,
+                onClick = {
+                    onSavePart(
+                        normalizedUniq,
+                        normalizedPartNumber,
+                        normalizedPartName,
+                        normalizedLineCode,
+                        excluded,
+                    )
+                },
             )
             SecondaryButton(
                 text = "Reset",
@@ -1339,6 +1407,7 @@ private fun PartEditorTab(
 }
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 private fun MaterialEditorTab(
     materials: List<MaterialMaster>,
     suppliers: List<SupplierMaster>,
@@ -1349,23 +1418,59 @@ private fun MaterialEditorTab(
     var materialName by remember { mutableStateOf("") }
     var supplierRef by remember { mutableStateOf("") }
     var clientSupplied by remember { mutableStateOf(false) }
+    val editingId = materialId.toLongOrNull()
+    val normalizedName = materialName.normalizeHumanInput()
+    val supplierId = supplierRef.toLongOrNull()
+    val materialDuplicate =
+        normalizedName.isNotBlank() &&
+            materials.any { item ->
+                item.id != editingId && item.name.normalizeHumanInput().equals(normalizedName, ignoreCase = true)
+            }
+    val nameError =
+        when {
+            normalizedName.isBlank() -> "Nama bahan wajib diisi."
+            materialDuplicate -> "Nama bahan sudah terdaftar."
+            else -> null
+        }
+    val supplierError =
+        when {
+            supplierRef.isBlank() -> null
+            supplierId == null -> "ID pemasok harus berupa angka."
+            suppliers.none { it.id == supplierId } -> "ID pemasok tidak ditemukan."
+            else -> null
+        }
+    val canSave = nameError == null && supplierError == null
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Material tersedia: ${materials.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         AppTextField(
-            spec = FieldSpec(label = "ID Bahan (kosong = tambah baru)"),
+            spec =
+                FieldSpec(
+                    label = "ID Bahan (kosong = tambah baru)",
+                    helperText = "Isi ID untuk update. Kosongkan untuk tambah baru.",
+                ),
             value = materialId,
             onValueChange = { materialId = it.filter(Char::isDigit) },
             singleLine = true,
         )
         AppTextField(
-            spec = FieldSpec(label = "Nama Material"),
+            spec =
+                FieldSpec(
+                    label = "Nama Material",
+                    helperText = nameError ?: "Nama bahan unik (tidak boleh duplikat).",
+                    isError = nameError != null,
+                ),
             value = materialName,
             onValueChange = { materialName = it },
             singleLine = true,
         )
         AppTextField(
-            spec = FieldSpec(label = "ID Pemasok (opsional)"),
+            spec =
+                FieldSpec(
+                    label = "ID Pemasok (opsional)",
+                    helperText = supplierError ?: "Kosongkan jika bahan belum dipetakan ke pemasok.",
+                    isError = supplierError != null,
+                ),
             value = supplierRef,
             onValueChange = { supplierRef = it.filter(Char::isDigit) },
             singleLine = true,
@@ -1386,11 +1491,12 @@ private fun MaterialEditorTab(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             PrimaryButton(
                 text = "Simpan Data Bahan",
+                enabled = canSave,
                 onClick = {
                     onSaveMaterial(
-                        materialId.toLongOrNull(),
-                        materialName,
-                        supplierRef.toLongOrNull(),
+                        editingId,
+                        normalizedName,
+                        supplierId,
                         clientSupplied,
                     )
                 },
@@ -1441,17 +1547,40 @@ private fun SupplierEditorTab(
 ) {
     var supplierId by remember { mutableStateOf("") }
     var supplierName by remember { mutableStateOf("") }
+    val editingId = supplierId.toLongOrNull()
+    val normalizedName = supplierName.normalizeHumanInput()
+    val supplierDuplicate =
+        normalizedName.isNotBlank() &&
+            suppliers.any { item ->
+                item.id != editingId && item.name.normalizeHumanInput().equals(normalizedName, ignoreCase = true)
+            }
+    val nameError =
+        when {
+            normalizedName.isBlank() -> "Nama pemasok wajib diisi."
+            supplierDuplicate -> "Nama pemasok sudah terdaftar."
+            else -> null
+        }
+    val canSave = nameError == null
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Pemasok: ${suppliers.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         AppTextField(
-            spec = FieldSpec(label = "ID Pemasok (kosong = tambah baru)"),
+            spec =
+                FieldSpec(
+                    label = "ID Pemasok (kosong = tambah baru)",
+                    helperText = "Isi ID untuk update. Kosongkan untuk tambah baru.",
+                ),
             value = supplierId,
             onValueChange = { supplierId = it.filter(Char::isDigit) },
             singleLine = true,
         )
         AppTextField(
-            spec = FieldSpec(label = "Nama Pemasok"),
+            spec =
+                FieldSpec(
+                    label = "Nama Pemasok",
+                    helperText = nameError ?: "Nama pemasok unik dan dipakai lintas material.",
+                    isError = nameError != null,
+                ),
             value = supplierName,
             onValueChange = { supplierName = it },
             singleLine = true,
@@ -1459,7 +1588,8 @@ private fun SupplierEditorTab(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             PrimaryButton(
                 text = "Simpan Data Pemasok",
-                onClick = { onSaveSupplier(supplierId.toLongOrNull(), supplierName) },
+                enabled = canSave,
+                onClick = { onSaveSupplier(editingId, normalizedName) },
             )
             SecondaryButton(
                 text = "Hapus Pemasok",
@@ -1498,6 +1628,7 @@ private fun SupplierEditorTab(
 }
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 private fun DefectEditorTab(
     defects: List<DefectMaster>,
     onSaveDefect: (id: Long?, name: String, originType: NgOriginType, lineCode: String?) -> Unit,
@@ -1507,33 +1638,79 @@ private fun DefectEditorTab(
     var defectName by remember { mutableStateOf("") }
     var originRaw by remember { mutableStateOf("material") }
     var lineCode by remember { mutableStateOf("") }
+    val editingId = defectId.toLongOrNull()
+    val normalizedName = defectName.normalizeHumanInput()
+    val normalizedOrigin = originRaw.trim().lowercase()
+    val normalizedLineCode = lineCode.trim().lowercase().takeIf { it.isNotBlank() }
+    val nameDuplicate =
+        normalizedName.isNotBlank() &&
+            defects.any { item ->
+                item.id != editingId && item.name.normalizeHumanInput().equals(normalizedName, ignoreCase = true)
+            }
+    val nameError =
+        when {
+            normalizedName.isBlank() -> "Nama jenis NG wajib diisi."
+            nameDuplicate -> "Nama jenis NG sudah terdaftar."
+            else -> null
+        }
+    val originError =
+        when (normalizedOrigin) {
+            "material", "process" -> null
+            else -> "Asal NG hanya boleh `material` atau `process`."
+        }
+    val lineError =
+        when {
+            normalizedLineCode == null -> null
+            normalizedLineCode == "press" || normalizedLineCode == "sewing" -> null
+            else -> "Line opsional harus `press` atau `sewing`."
+        }
+    val canSave = nameError == null && originError == null && lineError == null
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Jenis NG: ${defects.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
         AppTextField(
-            spec = FieldSpec(label = "ID Jenis NG (kosong = tambah baru)"),
+            spec =
+                FieldSpec(
+                    label = "ID Jenis NG (kosong = tambah baru)",
+                    helperText = "Isi ID untuk update. Kosongkan untuk tambah baru.",
+                ),
             value = defectId,
             onValueChange = { defectId = it.filter(Char::isDigit) },
             singleLine = true,
         )
         AppTextField(
-            spec = FieldSpec(label = "Nama Jenis NG"),
+            spec =
+                FieldSpec(
+                    label = "Nama Jenis NG",
+                    helperText = nameError ?: "Nama jenis NG unik global (lintas part/bahan).",
+                    isError = nameError != null,
+                ),
             value = defectName,
             onValueChange = { defectName = it },
             singleLine = true,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             AppTextField(
-                spec = FieldSpec(label = "Asal NG (material/process)"),
+                spec =
+                    FieldSpec(
+                        label = "Asal NG (material/process)",
+                        helperText = originError ?: "Pilih sumber NG: material atau process.",
+                        isError = originError != null,
+                    ),
                 value = originRaw,
-                onValueChange = { originRaw = it },
+                onValueChange = { originRaw = it.filter(Char::isLetter).lowercase() },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )
             AppTextField(
-                spec = FieldSpec(label = "Line Produksi (opsional)"),
+                spec =
+                    FieldSpec(
+                        label = "Line Produksi (opsional)",
+                        helperText = lineError ?: "Kosongkan untuk semua line.",
+                        isError = lineError != null,
+                    ),
                 value = lineCode,
-                onValueChange = { lineCode = it },
+                onValueChange = { lineCode = it.filter(Char::isLetter).lowercase() },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )
@@ -1541,12 +1718,13 @@ private fun DefectEditorTab(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             PrimaryButton(
                 text = "Simpan Jenis NG",
+                enabled = canSave,
                 onClick = {
                     onSaveDefect(
-                        defectId.toLongOrNull(),
-                        defectName,
-                        if (originRaw.equals("process", true)) NgOriginType.PROCESS else NgOriginType.MATERIAL,
-                        lineCode.takeIf { it.isNotBlank() },
+                        editingId,
+                        normalizedName,
+                        if (normalizedOrigin == "process") NgOriginType.PROCESS else NgOriginType.MATERIAL,
+                        normalizedLineCode,
                     )
                 },
             )
@@ -1606,3 +1784,5 @@ private fun PartListItem.matchesCatalogQuery(rawQuery: String): Boolean {
         ).joinToString(" ").lowercase()
     return query in searchBucket
 }
+
+private fun String.normalizeHumanInput(): String = trim().replace("\\s+".toRegex(), " ")
