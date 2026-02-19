@@ -20,8 +20,8 @@ import java.time.format.DateTimeFormatter
 
 class InspectionUseCasesTest {
     @Test
-    fun `reject duplicate daily input for non-admin`() {
-        val repository = FakeInspectionRepository(duplicatePartIds = setOf(1L))
+    fun `reject duplicate line daily input for non-admin`() {
+        val repository = FakeInspectionRepository(blockedLineIds = setOf(1L))
         val useCase = CreateInspectionRecordUseCase(repository)
         val defectEntries = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1))
 
@@ -45,8 +45,8 @@ class InspectionUseCasesTest {
     }
 
     @Test
-    fun `allow duplicate daily input for admin`() {
-        val repository = FakeInspectionRepository(duplicatePartIds = setOf(1L))
+    fun `allow duplicate line daily input for admin`() {
+        val repository = FakeInspectionRepository(blockedLineIds = setOf(1L))
         val useCase = CreateInspectionRecordUseCase(repository)
         val defectEntries = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1))
 
@@ -66,6 +66,28 @@ class InspectionUseCasesTest {
         val result = useCase.execute(input, actorRole = UserRole.ADMIN)
         assertNotNull(result.record)
         assertNotNull(repository.lastInserted)
+    }
+
+    @Test
+    fun `line that has no daily input remains allowed`() {
+        val repository = FakeInspectionRepository(blockedLineIds = setOf(1L))
+        val useCase = CreateInspectionRecordUseCase(repository)
+        val input =
+            InspectionInput(
+                kind = InspectionKind.DEFECT,
+                lineId = 2,
+                shiftId = 1,
+                partId = 1,
+                totalCheck = 10,
+                defectTypeId = null,
+                defectQuantity = null,
+                defects = listOf(InspectionDefectEntry(defectTypeId = 1, quantity = 1)),
+                createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            )
+
+        val result = useCase.execute(input, actorRole = UserRole.USER)
+        assertNotNull(result.record)
+        assertEquals(FeedbackType.SUCCESS, result.feedback.type)
     }
 
     @Test
@@ -95,7 +117,7 @@ class InspectionUseCasesTest {
 
     @Test
     fun `batch save returns success when some part fails`() {
-        val repository = FakeInspectionRepository(duplicatePartIds = setOf(2L))
+        val repository = FakeInspectionRepository(blockedLineIds = setOf(2L))
         val singleUseCase = CreateInspectionRecordUseCase(repository)
         val batchUseCase = CreateBatchInspectionRecordsUseCase(singleUseCase)
 
@@ -114,7 +136,7 @@ class InspectionUseCasesTest {
                 ),
                 InspectionInput(
                     kind = InspectionKind.DEFECT,
-                    lineId = 1,
+                    lineId = 2,
                     shiftId = 1,
                     partId = 2,
                     totalCheck = 10,
@@ -157,7 +179,7 @@ class InspectionUseCasesTest {
 }
 
 private class FakeInspectionRepository(
-    private val duplicatePartIds: Set<Long> = emptySet(),
+    private val blockedLineIds: Set<Long> = emptySet(),
 ) : InspectionRepository {
     var lastInserted: InspectionInput? = null
 
@@ -181,7 +203,12 @@ private class FakeInspectionRepository(
         lineId: Long,
         partId: Long,
         date: LocalDate,
-    ): Boolean = duplicatePartIds.contains(partId)
+    ): Boolean = false
+
+    override fun hasInspectionOnLineDate(
+        lineId: Long,
+        date: LocalDate,
+    ): Boolean = blockedLineIds.contains(lineId)
 
     override fun getChecksheetEntriesForDate(
         lineId: Long,

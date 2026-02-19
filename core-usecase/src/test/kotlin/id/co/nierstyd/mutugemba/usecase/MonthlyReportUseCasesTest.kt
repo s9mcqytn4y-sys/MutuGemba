@@ -238,6 +238,11 @@ private class MonthlyReportFakeInspectionRepository(
         date: LocalDate,
     ): Boolean = false
 
+    override fun hasInspectionOnLineDate(
+        lineId: Long,
+        date: LocalDate,
+    ): Boolean = false
+
     override fun getChecksheetEntriesForDate(
         lineId: Long,
         date: LocalDate,

@@ -42,6 +42,15 @@ class SqlDelightInspectionRepository(
                 it.createdDate == date
         }
 
+    override fun hasInspectionOnLineDate(
+        lineId: Long,
+        date: LocalDate,
+    ): Boolean =
+        database.inspections.any {
+            it.input.lineId == lineId &&
+                it.createdDate == date
+        }
+
     override fun getChecksheetEntriesForDate(
         lineId: Long,
         date: LocalDate,

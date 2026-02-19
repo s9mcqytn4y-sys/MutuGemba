@@ -14,6 +14,11 @@ interface InspectionRepository {
         date: LocalDate,
     ): Boolean
 
+    fun hasInspectionOnLineDate(
+        lineId: Long,
+        date: LocalDate,
+    ): Boolean
+
     fun getChecksheetEntriesForDate(
         lineId: Long,
         date: LocalDate,

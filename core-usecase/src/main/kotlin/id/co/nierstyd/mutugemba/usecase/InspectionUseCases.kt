@@ -64,9 +64,8 @@ class CreateInspectionRecordUseCase(
             val hasDuplicate =
                 actorRole != UserRole.ADMIN &&
                     !allowDuplicateSameDay &&
-                    repository.hasInspectionOnDate(
+                    repository.hasInspectionOnLineDate(
                         lineId = normalizedInput.lineId,
-                        partId = normalizedInput.partId,
                         date = createdDate,
                     )
             if (hasDuplicate) {
@@ -75,7 +74,7 @@ class CreateInspectionRecordUseCase(
                 feedback =
                     UserFeedback(
                         FeedbackType.ERROR,
-                        "Data inspeksi tanggal $dateLabel sudah ada. Aturan input ulang hari yang sama sedang aktif.",
+                        "Line ini sudah memiliki input inspeksi pada $dateLabel. Input harian per line hanya boleh satu kali.",
                     )
             } else {
                 val cleanedInput =
