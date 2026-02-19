@@ -1205,32 +1205,78 @@ private fun InspectionSelectorCard(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .background(NeutralLight.copy(alpha = 0.5f), MaterialTheme.shapes.small)
+                        .background(NeutralLight.copy(alpha = 0.45f), MaterialTheme.shapes.small)
                         .padding(Spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                Text(text = "Panduan Singkat", style = MaterialTheme.typography.subtitle2, color = NeutralText)
-                InspectionDataHint()
-                DuplicateRuleHint(allowDuplicate = allowDuplicate)
-                if (lineLocked) {
-                    AppBadge(
-                        text = AppStrings.Inspection.LineLockedBadge,
-                        backgroundColor = StatusWarning,
-                        contentColor = NeutralSurface,
-                    )
-                    Text(
-                        text = AppStrings.Inspection.LineLockedHint,
-                        style = MaterialTheme.typography.body2,
-                        color = NeutralTextMuted,
-                    )
-                }
+                InspectionGuideSection(
+                    allowDuplicate = allowDuplicate,
+                    lineLocked = lineLocked,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InspectionGuideSection(
+    allowDuplicate: Boolean,
+    lineLocked: Boolean,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "Panduan Singkat", style = MaterialTheme.typography.subtitle2, color = NeutralText)
+        AppBadge(
+            text = "3 poin utama",
+            backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
+            contentColor = MaterialTheme.colors.primary,
+        )
+    }
+    InspectionDataHint()
+    DuplicateRuleHint(allowDuplicate = allowDuplicate)
+    QuickActionHint()
+    if (lineLocked) {
+        LockedLineHintCard()
+    } else {
+        Text(
+            text = "Urutan dan aktivasi Jenis NG langsung dipakai saat Konfirmasi & Simpan.",
+            style = MaterialTheme.typography.caption,
+            color = NeutralTextMuted,
+        )
+    }
+}
+
+@Composable
+private fun LockedLineHintCard() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = StatusWarning.copy(alpha = 0.14f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, StatusWarning.copy(alpha = 0.42f)),
+        shape = MaterialTheme.shapes.small,
+        elevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = AppIcons.ErrorOutline,
+                contentDescription = null,
+                tint = StatusWarning,
+                modifier = Modifier.size(16.dp),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "Aksi cepat: Summary, Cari Part (Ctrl+K), dan Konfirmasi ada di kanan bawah.",
+                    text = AppStrings.Inspection.LineLockedBadge,
                     style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
+                    color = NeutralText,
                 )
                 Text(
-                    text = "Urutan/aktif Jenis NG per part akan langsung dipakai saat Konfirmasi & Simpan.",
+                    text = AppStrings.Inspection.LineLockedHint,
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
@@ -1546,34 +1592,70 @@ private fun SearchResultRow(
 
 @Composable
 private fun DuplicateRuleHint(allowDuplicate: Boolean) {
-    val label = if (allowDuplicate) AppStrings.Inspection.DuplicateAllowed else AppStrings.Inspection.DuplicateBlocked
-    val color = if (allowDuplicate) StatusWarning else StatusSuccess
+    val badgeLabel = if (allowDuplicate) "Aturan Longgar" else "Aturan Ketat"
+    val badgeColor = if (allowDuplicate) StatusWarning else StatusSuccess
+    val icon = if (allowDuplicate) AppIcons.ErrorOutline else AppIcons.CheckCircle
+    val title = if (allowDuplicate) AppStrings.Inspection.DuplicateAllowed else AppStrings.Inspection.DuplicateBlocked
+    val hint = if (allowDuplicate) AppStrings.Inspection.DuplicateHintOn else AppStrings.Inspection.DuplicateHintOff
     Row(
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
         AppBadge(
-            text = label,
-            backgroundColor = color,
-            contentColor = NeutralSurface,
+            text = badgeLabel,
+            backgroundColor = badgeColor.copy(alpha = 0.16f),
+            contentColor = badgeColor,
         )
         Icon(
-            imageVector = if (allowDuplicate) AppIcons.ErrorOutline else AppIcons.CheckCircle,
+            imageVector = icon,
             contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(16.dp),
+            tint = badgeColor,
+            modifier = Modifier.size(16.dp).padding(top = 2.dp),
         )
-        val hint =
-            if (allowDuplicate) {
-                AppStrings.Inspection.DuplicateHintOn
-            } else {
-                AppStrings.Inspection.DuplicateHintOff
-            }
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.body2,
-            color = NeutralTextMuted,
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.body2,
+                color = NeutralText,
+            )
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickActionHint() {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalAlignment = Alignment.Top,
+    ) {
+        AppBadge(
+            text = "Aksi Cepat",
+            backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
+            contentColor = MaterialTheme.colors.primary,
         )
+        Icon(
+            imageVector = AppIcons.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colors.primary,
+            modifier = Modifier.size(16.dp).padding(top = 2.dp),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = "Summary, Cari Part (Ctrl+K), dan Konfirmasi ada di kanan bawah.",
+                style = MaterialTheme.typography.body2,
+                color = NeutralText,
+            )
+            Text(
+                text = "Gunakan Ctrl+K untuk langsung fokus ke part yang dicari.",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+        }
     }
 }
 
@@ -1581,18 +1663,31 @@ private fun DuplicateRuleHint(allowDuplicate: Boolean) {
 private fun InspectionDataHint() {
     Row(
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
         AppBadge(
-            text = AppStrings.Inspection.MasterDataHintTitle,
-            backgroundColor = NeutralLight,
-            contentColor = NeutralText,
+            text = "Data Master",
+            backgroundColor = StatusInfo.copy(alpha = 0.16f),
+            contentColor = StatusInfo,
         )
-        Text(
-            text = AppStrings.Inspection.MasterDataHint,
-            style = MaterialTheme.typography.body2,
-            color = NeutralTextMuted,
+        Icon(
+            imageVector = AppIcons.Assignment,
+            contentDescription = null,
+            tint = StatusInfo,
+            modifier = Modifier.size(16.dp).padding(top = 2.dp),
         )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = "Part, material, dan Jenis NG tervalidasi dari data real.",
+                style = MaterialTheme.typography.body2,
+                color = NeutralText,
+            )
+            Text(
+                text = "Referensi berasal dari mapping part dan histori Daily NG.",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+        }
     }
 }
 
