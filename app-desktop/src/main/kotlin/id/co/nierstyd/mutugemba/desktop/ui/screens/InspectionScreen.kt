@@ -67,6 +67,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
+import id.co.nierstyd.mutugemba.desktop.ui.components.GuidanceRow
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
@@ -1597,98 +1598,35 @@ private fun DuplicateRuleHint(allowDuplicate: Boolean) {
     val icon = if (allowDuplicate) AppIcons.ErrorOutline else AppIcons.CheckCircle
     val title = if (allowDuplicate) AppStrings.Inspection.DuplicateAllowed else AppStrings.Inspection.DuplicateBlocked
     val hint = if (allowDuplicate) AppStrings.Inspection.DuplicateHintOn else AppStrings.Inspection.DuplicateHintOff
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        verticalAlignment = Alignment.Top,
-    ) {
-        AppBadge(
-            text = badgeLabel,
-            backgroundColor = badgeColor.copy(alpha = 0.16f),
-            contentColor = badgeColor,
-        )
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = badgeColor,
-            modifier = Modifier.size(16.dp).padding(top = 2.dp),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.body2,
-                color = NeutralText,
-            )
-            Text(
-                text = hint,
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-        }
-    }
+    GuidanceRow(
+        badge = badgeLabel,
+        icon = icon,
+        title = title,
+        description = hint,
+        accent = badgeColor,
+    )
 }
 
 @Composable
 private fun QuickActionHint() {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        verticalAlignment = Alignment.Top,
-    ) {
-        AppBadge(
-            text = "Aksi Cepat",
-            backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
-            contentColor = MaterialTheme.colors.primary,
-        )
-        Icon(
-            imageVector = AppIcons.Search,
-            contentDescription = null,
-            tint = MaterialTheme.colors.primary,
-            modifier = Modifier.size(16.dp).padding(top = 2.dp),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = "Summary, Cari Part (Ctrl+K), dan Konfirmasi ada di kanan bawah.",
-                style = MaterialTheme.typography.body2,
-                color = NeutralText,
-            )
-            Text(
-                text = "Gunakan Ctrl+K untuk langsung fokus ke part yang dicari.",
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-        }
-    }
+    GuidanceRow(
+        badge = "Aksi Cepat",
+        icon = AppIcons.Search,
+        title = "Summary, Cari Part (Ctrl+K), dan Konfirmasi ada di kanan bawah.",
+        description = "Gunakan Ctrl+K untuk langsung fokus ke part yang dicari.",
+        accent = MaterialTheme.colors.primary,
+    )
 }
 
 @Composable
 private fun InspectionDataHint() {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        verticalAlignment = Alignment.Top,
-    ) {
-        AppBadge(
-            text = "Data Master",
-            backgroundColor = StatusInfo.copy(alpha = 0.16f),
-            contentColor = StatusInfo,
-        )
-        Icon(
-            imageVector = AppIcons.Assignment,
-            contentDescription = null,
-            tint = StatusInfo,
-            modifier = Modifier.size(16.dp).padding(top = 2.dp),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = "Part, material, dan Jenis NG tervalidasi dari data real.",
-                style = MaterialTheme.typography.body2,
-                color = NeutralText,
-            )
-            Text(
-                text = "Referensi berasal dari mapping part dan histori Daily NG.",
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
-            )
-        }
-    }
+    GuidanceRow(
+        badge = "Data Master",
+        icon = AppIcons.Assignment,
+        title = "Part, material, dan Jenis NG tervalidasi dari data real.",
+        description = "Referensi berasal dari mapping part dan histori Daily NG.",
+        accent = StatusInfo,
+    )
 }
 
 @Composable

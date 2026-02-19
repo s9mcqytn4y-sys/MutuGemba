@@ -24,21 +24,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
 import id.co.nierstyd.mutugemba.desktop.ui.components.ConfirmDialog
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
+import id.co.nierstyd.mutugemba.desktop.ui.components.GuidanceRow
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
+import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
+import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.usecase.BackupDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
@@ -103,18 +107,13 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                 title = AppStrings.Settings.RulesTitle,
                 subtitle = AppStrings.Settings.RulesSubtitle,
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    AppBadge(
-                        text = AppStrings.Settings.RulesBadge,
-                        backgroundColor = NeutralSurface,
-                        contentColor = NeutralTextMuted,
-                    )
-                    Text(
-                        text = AppStrings.Settings.RulesDescription,
-                        style = MaterialTheme.typography.body2,
-                        color = NeutralTextMuted,
-                    )
-                }
+                GuidanceRow(
+                    badge = AppStrings.Settings.RulesBadge,
+                    icon = AppIcons.Assignment,
+                    title = "Aturan validasi input harian aktif.",
+                    description = AppStrings.Settings.RulesDescription,
+                    accent = StatusInfo,
+                )
             }
 
             SettingsSectionCard(
@@ -201,15 +200,19 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                     onClick = { showResetDialog = true },
                 )
                 Divider(color = NeutralBorder, thickness = 1.dp)
-                Text(
-                    text = AppStrings.Settings.BackupHint,
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
+                GuidanceRow(
+                    badge = "Backup",
+                    icon = AppIcons.Assignment,
+                    title = "Simpan cadangan data sebelum perubahan besar.",
+                    description = AppStrings.Settings.BackupHint,
+                    accent = StatusSuccess,
                 )
-                Text(
-                    text = AppStrings.Settings.RestoreHint,
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
+                GuidanceRow(
+                    badge = "Restore",
+                    icon = AppIcons.ErrorOutline,
+                    title = "Pulihkan data dari file cadangan.",
+                    description = AppStrings.Settings.RestoreHint,
+                    accent = StatusWarning,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SecondaryButton(
@@ -230,10 +233,12 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
                     )
                 }
                 Divider(color = NeutralBorder, thickness = 1.dp)
-                Text(
-                    text = AppStrings.Settings.DevToolsHint,
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
+                GuidanceRow(
+                    badge = "Dev Tools",
+                    icon = AppIcons.ErrorOutline,
+                    title = "Gunakan hanya untuk simulasi QA/pengembangan.",
+                    description = AppStrings.Settings.DevToolsHint,
+                    accent = StatusWarning,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SecondaryButton(

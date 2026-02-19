@@ -43,6 +43,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
+import id.co.nierstyd.mutugemba.desktop.ui.components.GuidanceRow
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
@@ -362,10 +363,12 @@ private fun MonthlyHistoryCard(
                 todayMonth = todayMonth,
                 onMonthChange = onMonthChange,
             )
-            Text(
-                text = AppStrings.Reports.HistoryHint,
-                style = MaterialTheme.typography.caption,
-                color = NeutralTextMuted,
+            GuidanceRow(
+                badge = "Navigasi",
+                icon = AppIcons.CalendarToday,
+                title = "Pilih tanggal untuk membuka dokumen harian.",
+                description = AppStrings.Reports.HistoryHint,
+                accent = StatusInfo,
             )
 
             if (lines.isNotEmpty()) {
