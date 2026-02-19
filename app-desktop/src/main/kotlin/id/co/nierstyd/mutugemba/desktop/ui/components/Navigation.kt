@@ -97,7 +97,8 @@ fun SidebarMenu(
             routes
                 .filter { route ->
                     route == AppRoute.Home ||
-                        route == AppRoute.PartMapping ||
+                        route == AppRoute.PartCatalog ||
+                        route == AppRoute.PartMaster ||
                         route == AppRoute.Inspection ||
                         route == AppRoute.Abnormal
                 }.forEach { route ->
@@ -106,7 +107,8 @@ fun SidebarMenu(
                         icon =
                             when (route) {
                                 AppRoute.Home -> AppIcons.Home
-                                AppRoute.PartMapping -> AppIcons.Inventory
+                                AppRoute.PartCatalog -> AppIcons.Inventory
+                                AppRoute.PartMaster -> AppIcons.Assignment
                                 AppRoute.Inspection -> AppIcons.Inspection
                                 AppRoute.Abnormal -> AppIcons.Abnormal
                                 else -> AppIcons.Reports
@@ -317,7 +319,8 @@ private fun SidebarSubItem(
 private fun AppRoute.navHint(): String =
     when (this) {
         AppRoute.Home -> "Ringkasan KPI harian, pareto, dan trend QC."
-        AppRoute.PartMapping -> "Buka katalog part, galeri detail, dan administrasi data master."
+        AppRoute.PartCatalog -> "Buka katalog part dan galeri detail part produksi."
+        AppRoute.PartMaster -> "Kelola master part, bahan, pemasok, dan Jenis NG."
         AppRoute.Inspection -> "Input checksheet harian untuk line produksi."
         AppRoute.Abnormal -> "Tindak lanjut tiket abnormal: detect, contain, close."
         AppRoute.Reports -> "Review dokumen checksheet harian dan status tanggal."

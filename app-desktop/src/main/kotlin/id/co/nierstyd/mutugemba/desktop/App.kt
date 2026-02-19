@@ -45,6 +45,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreenDependencies
 import id.co.nierstyd.mutugemba.desktop.ui.screens.MasterDataUseCaseBundle
 import id.co.nierstyd.mutugemba.desktop.ui.screens.PartMappingScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.PartMappingScreenDependencies
+import id.co.nierstyd.mutugemba.desktop.ui.screens.PartMappingViewMode
 import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsMonthlyScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.ReportsScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.SettingsScreen
@@ -167,7 +168,7 @@ fun MutuGembaApp() {
                             onRefreshData = refreshData,
                         )
 
-                    AppRoute.PartMapping ->
+                    AppRoute.PartCatalog ->
                         PartMappingScreen(
                             dependencies =
                                 PartMappingScreenDependencies(
@@ -192,6 +193,35 @@ fun MutuGembaApp() {
                                     getActiveImageRef = container.getActiveImageRefUseCase,
                                     loadImageBytes = container.loadImageBytesUseCase,
                                 ),
+                            viewMode = PartMappingViewMode.CATALOG_ONLY,
+                        )
+
+                    AppRoute.PartMaster ->
+                        PartMappingScreen(
+                            dependencies =
+                                PartMappingScreenDependencies(
+                                    observeParts = container.observePartsUseCase,
+                                    getPartDetail = container.getPartDetailUseCase,
+                                    listPartMasters = container.listPartMastersUseCase,
+                                    getPartMasterDetail = container.getPartMasterDetailUseCase,
+                                    savePartMaster = container.savePartMasterUseCase,
+                                    replacePartMaterials = container.replacePartMaterialsUseCase,
+                                    replacePartDefects = container.replacePartDefectsUseCase,
+                                    listMaterialMasters = container.listMaterialMastersUseCase,
+                                    saveMaterialMaster = container.saveMaterialMasterUseCase,
+                                    deleteMaterialMaster = container.deleteMaterialMasterUseCase,
+                                    listSupplierMasters = container.listSupplierMastersUseCase,
+                                    saveSupplierMaster = container.saveSupplierMasterUseCase,
+                                    deleteSupplierMaster = container.deleteSupplierMasterUseCase,
+                                    listDefectMasters = container.listDefectMastersUseCase,
+                                    saveDefectMaster = container.saveDefectMasterUseCase,
+                                    deleteDefectMaster = container.deleteDefectMasterUseCase,
+                                    getTopDefects = container.getTopDefectsPerModelMonthlyUseCase,
+                                    getDefectHeatmap = container.getDefectHeatmapUseCase,
+                                    getActiveImageRef = container.getActiveImageRefUseCase,
+                                    loadImageBytes = container.loadImageBytesUseCase,
+                                ),
+                            viewMode = PartMappingViewMode.MASTER_ONLY,
                         )
 
                     AppRoute.Inspection ->

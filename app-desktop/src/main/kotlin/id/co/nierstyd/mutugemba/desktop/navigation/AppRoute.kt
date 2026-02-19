@@ -7,7 +7,8 @@ enum class AppRoute(
     val label: String,
 ) {
     Home("home", AppStrings.Navigation.Home),
-    PartMapping("part_mapping", AppStrings.Navigation.PartMapping),
+    PartCatalog("part_mapping", AppStrings.Navigation.PartCatalog),
+    PartMaster("part_master", AppStrings.Navigation.PartMaster),
     Inspection("inspection", AppStrings.Navigation.Inspection),
     Abnormal("abnormal", AppStrings.Navigation.Abnormal),
     Reports("reports", AppStrings.Navigation.Reports),

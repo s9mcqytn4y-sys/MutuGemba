@@ -33,6 +33,8 @@ object AppStrings {
 
     object Navigation {
         const val Home = "Beranda"
+        const val PartCatalog = "Katalog Part"
+        const val PartMaster = "Administrasi Master"
         const val PartMapping = "Katalog & Master Part"
         const val Inspection = "Input Inspeksi"
         const val Abnormal = "Tiket Abnormal"

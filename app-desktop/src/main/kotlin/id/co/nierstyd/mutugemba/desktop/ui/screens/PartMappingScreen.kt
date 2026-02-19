@@ -127,8 +127,18 @@ data class PartMappingScreenDependencies(
     val loadImageBytes: LoadImageBytesUseCase,
 )
 
+enum class PartMappingViewMode {
+    ALL,
+    CATALOG_ONLY,
+    MASTER_ONLY,
+}
+
 @Composable
-fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+fun PartMappingScreen(
+    dependencies: PartMappingScreenDependencies,
+    viewMode: PartMappingViewMode = PartMappingViewMode.ALL,
+) {
     val period = remember { YearMonth.now() }
     val scope = rememberCoroutineScope()
 
@@ -139,7 +149,15 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
     var selectedUniqNo by rememberSaveable { mutableStateOf<String?>(null) }
     var partDetail by remember { mutableStateOf<PartDetail?>(null) }
     var partDetailLoading by remember { mutableStateOf(false) }
-    var screenMode by rememberSaveable { mutableStateOf(0) }
+    var screenMode by rememberSaveable {
+        mutableStateOf(
+            when (viewMode) {
+                PartMappingViewMode.ALL -> 0
+                PartMappingViewMode.CATALOG_ONLY -> 0
+                PartMappingViewMode.MASTER_ONLY -> 1
+            },
+        )
+    }
     var managerTabIndex by rememberSaveable { mutableStateOf(0) }
     var catalogQuery by rememberSaveable { mutableStateOf("") }
     var catalogSort by rememberSaveable { mutableStateOf("uniq") }
@@ -257,6 +275,14 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             }
     }
 
+    LaunchedEffect(viewMode) {
+        when (viewMode) {
+            PartMappingViewMode.ALL -> Unit
+            PartMappingViewMode.CATALOG_ONLY -> screenMode = 0
+            PartMappingViewMode.MASTER_ONLY -> screenMode = 1
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -291,17 +317,19 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             dense = true,
         )
 
-        TabRow(selectedTabIndex = screenMode, backgroundColor = NeutralSurface) {
-            Tab(
-                selected = screenMode == 0,
-                onClick = { screenMode = 0 },
-                text = { Text("Katalog Part") },
-            )
-            Tab(
-                selected = screenMode == 1,
-                onClick = { screenMode = 1 },
-                text = { Text("Administrasi Master") },
-            )
+        if (viewMode == PartMappingViewMode.ALL) {
+            TabRow(selectedTabIndex = screenMode, backgroundColor = NeutralSurface) {
+                Tab(
+                    selected = screenMode == 0,
+                    onClick = { screenMode = 0 },
+                    text = { Text("Katalog Part") },
+                )
+                Tab(
+                    selected = screenMode == 1,
+                    onClick = { screenMode = 1 },
+                    text = { Text("Administrasi Master") },
+                )
+            }
         }
 
         if (screenMode == 1) {
