@@ -15,6 +15,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,14 +30,21 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 fun StatusBanner(
     feedback: UserFeedback,
     modifier: Modifier = Modifier,
     onDismiss: (() -> Unit)? = null,
     dense: Boolean = false,
 ) {
+    val receivedAt =
+        remember(feedback.type, feedback.message) {
+            LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+        }
     val accent =
         when (feedback.type) {
             FeedbackType.INFO -> StatusInfo
@@ -102,19 +110,35 @@ fun StatusBanner(
                     )
                 }
                 if (onDismiss != null) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(20.dp)
-                                .clickable { onDismiss() },
-                        contentAlignment = Alignment.Center,
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            imageVector = AppIcons.Close,
-                            contentDescription = AppStrings.Common.Close,
-                            tint = accent,
+                        Text(
+                            text = receivedAt,
+                            style = MaterialTheme.typography.caption,
+                            color = accent.copy(alpha = 0.9f),
                         )
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(20.dp)
+                                    .clickable { onDismiss() },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = AppIcons.Close,
+                                contentDescription = AppStrings.Common.Close,
+                                tint = accent,
+                            )
+                        }
                     }
+                } else {
+                    Text(
+                        text = receivedAt,
+                        style = MaterialTheme.typography.caption,
+                        color = accent.copy(alpha = 0.9f),
+                    )
                 }
             }
             Text(

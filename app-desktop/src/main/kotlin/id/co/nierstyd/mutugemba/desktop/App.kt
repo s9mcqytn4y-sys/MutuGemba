@@ -38,6 +38,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.resources.classpathPainterResource
 import id.co.nierstyd.mutugemba.desktop.ui.screens.AbnormalScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.HomeScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionDefaultsUseCases
+import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionDefectLayoutUseCases
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionPolicyUseCases
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreen
 import id.co.nierstyd.mutugemba.desktop.ui.screens.InspectionScreenDependencies
@@ -179,10 +180,13 @@ fun MutuGembaApp() {
                                     replacePartDefects = container.replacePartDefectsUseCase,
                                     listMaterialMasters = container.listMaterialMastersUseCase,
                                     saveMaterialMaster = container.saveMaterialMasterUseCase,
+                                    deleteMaterialMaster = container.deleteMaterialMasterUseCase,
                                     listSupplierMasters = container.listSupplierMastersUseCase,
                                     saveSupplierMaster = container.saveSupplierMasterUseCase,
+                                    deleteSupplierMaster = container.deleteSupplierMasterUseCase,
                                     listDefectMasters = container.listDefectMastersUseCase,
                                     saveDefectMaster = container.saveDefectMasterUseCase,
+                                    deleteDefectMaster = container.deleteDefectMasterUseCase,
                                     getTopDefects = container.getTopDefectsPerModelMonthlyUseCase,
                                     getDefectHeatmap = container.getDefectHeatmapUseCase,
                                     getActiveImageRef = container.getActiveImageRefUseCase,
@@ -198,6 +202,11 @@ fun MutuGembaApp() {
                                         InspectionDefaultsUseCases(
                                             getDefaults = container.getInspectionDefaultsUseCase,
                                             saveDefaults = container.saveInspectionDefaultsUseCase,
+                                        ),
+                                    defectLayout =
+                                        InspectionDefectLayoutUseCases(
+                                            getLayout = container.getInspectionPartDefectLayoutUseCase,
+                                            saveLayout = container.saveInspectionPartDefectLayoutUseCase,
                                         ),
                                     createInspectionUseCase = container.createInspectionUseCase,
                                     createBatchInspectionUseCase = container.createBatchInspectionUseCase,
@@ -240,6 +249,17 @@ fun MutuGembaApp() {
                                 dailySummaries = dailySummaries,
                                 loadMonthlyReportDocument = loadMonthlyReportDocument,
                                 loadManualHolidays = { container.getManualHolidayDatesUseCase.execute() },
+                                recentArchiveEntries = { container.getReportArchiveEntriesUseCase.execute() },
+                                appendArchiveEntry = { action, line, period, path, createdAt ->
+                                    container.appendReportArchiveEntryUseCase.execute(
+                                        reportType = "MONTHLY",
+                                        action = action,
+                                        line = line,
+                                        period = period,
+                                        filePath = path,
+                                        createdAt = createdAt,
+                                    )
+                                },
                             )
                         }
 

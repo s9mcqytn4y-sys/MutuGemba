@@ -333,7 +333,6 @@ private fun InspectionScreenContent(
         ) {
             InspectionActionsBar(
                 canSave = state.canSave,
-                onSaveRequest = { state.onSaveRequested() },
                 onClearAll = { state.clearAllInputs() },
             )
         }
@@ -343,6 +342,8 @@ private fun InspectionScreenContent(
             summary = state.summaryTotals,
             onToggleSummary = { showSummaryPanel = !showSummaryPanel },
             onOpenSearch = { showSearchModal = true },
+            canSave = state.canSave,
+            onConfirmSave = { state.onSaveRequested() },
         )
     }
 
@@ -494,8 +495,11 @@ private class InspectionFormState(
         shifts = loaded.shifts
         parts = loaded.parts
         defectTypes = loaded.defectTypes
+        partDefectOverrides.clear()
+        partDefectOverrides.putAll(dependencies.defectLayout.getLayout.execute())
         syncSelections()
         ensureInputs()
+        persistDefectLayout()
         isMasterLoading = false
     }
 
@@ -579,6 +583,7 @@ private class InspectionFormState(
             active += defectId
             partDefectOverrides[partId] = active
             ensureInputs()
+            persistDefectLayout()
         }
     }
 
@@ -591,6 +596,7 @@ private class InspectionFormState(
         if (active.remove(defectId)) {
             partDefectOverrides[partId] = active
             ensureInputs()
+            persistDefectLayout()
         }
     }
 
@@ -606,6 +612,7 @@ private class InspectionFormState(
         active[index] = previous
         partDefectOverrides[partId] = active
         ensureInputs()
+        persistDefectLayout()
     }
 
     fun moveDefectDown(
@@ -620,6 +627,7 @@ private class InspectionFormState(
         active[index] = next
         partDefectOverrides[partId] = active
         ensureInputs()
+        persistDefectLayout()
     }
 
     fun totalDefectQuantity(partId: Long): Int = defectTypesForPart(partId).sumOf { defectRowTotal(partId, it.id) }
@@ -688,6 +696,7 @@ private class InspectionFormState(
         dependencies.masterData.upsertDefectType.execute(normalized, line.code)
         defectTypes = dependencies.masterData.getDefectTypes.execute()
         ensureInputs()
+        persistDefectLayout()
         customDefectInput = ""
         feedback = UserFeedback(FeedbackType.SUCCESS, AppStrings.Inspection.customDefectAdded(normalized))
     }
@@ -768,7 +777,6 @@ private class InspectionFormState(
     fun clearAllInputs() {
         totalCheckInputs.keys.toList().forEach { totalCheckInputs[it] = "" }
         defectSlotInputs.keys.toList().forEach { defectSlotInputs[it] = "" }
-        partDefectOverrides.clear()
     }
 
     private fun buildInputs(): List<InspectionInput> {
@@ -919,6 +927,10 @@ private class InspectionFormState(
             ),
         )
     }
+
+    private fun persistDefectLayout() {
+        dependencies.defectLayout.saveLayout.execute(partDefectOverrides.toMap())
+    }
 }
 
 private data class MasterSnapshot(
@@ -1058,10 +1070,27 @@ private fun InspectionSelectorCard(
                 color = NeutralTextMuted,
             )
             androidx.compose.material.Divider(color = NeutralBorder, thickness = 1.dp)
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(text = AppStrings.Inspection.IntroTitle, style = MaterialTheme.typography.subtitle2)
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(NeutralLight.copy(alpha = 0.5f), MaterialTheme.shapes.small)
+                        .padding(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Text(text = "Panduan Singkat", style = MaterialTheme.typography.subtitle2, color = NeutralText)
                 InspectionDataHint()
                 DuplicateRuleHint(allowDuplicate = allowDuplicate)
+                Text(
+                    text = "Aksi cepat: Summary, Cari Part (Ctrl+K), dan Konfirmasi ada di kanan bawah.",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                Text(
+                    text = "Urutan/aktif Jenis NG per part akan langsung dipakai saat Konfirmasi & Simpan.",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
             }
         }
     }
@@ -1079,6 +1108,8 @@ private fun BoxScope.InspectionFloatingActions(
     summary: SummaryTotals,
     onToggleSummary: () -> Unit,
     onOpenSearch: () -> Unit,
+    canSave: Boolean,
+    onConfirmSave: () -> Unit,
 ) {
     Column(
         modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = Spacing.lg, end = Spacing.lg),
@@ -1107,6 +1138,13 @@ private fun BoxScope.InspectionFloatingActions(
                 contentColor = NeutralSurface,
             ) {
                 Icon(imageVector = AppIcons.Search, contentDescription = AppStrings.Inspection.SearchPartLabel)
+            }
+            FloatingActionButton(
+                onClick = { if (canSave) onConfirmSave() },
+                backgroundColor = if (canSave) MaterialTheme.colors.primary else NeutralBorder,
+                contentColor = NeutralSurface,
+            ) {
+                Icon(imageVector = AppIcons.CheckCircle, contentDescription = AppStrings.Actions.ConfirmSave)
             }
         }
     }
@@ -1514,7 +1552,6 @@ private fun InspectionLoadingState() {
 @Composable
 private fun InspectionActionsBar(
     canSave: Boolean,
-    onSaveRequest: () -> Unit,
     onClearAll: () -> Unit,
 ) {
     Row(
@@ -1527,10 +1564,10 @@ private fun InspectionActionsBar(
             onClick = onClearAll,
         )
         Spacer(modifier = Modifier.weight(1f))
-        PrimaryButton(
-            text = AppStrings.Actions.ConfirmSave,
-            onClick = onSaveRequest,
-            enabled = canSave,
+        AppBadge(
+            text = if (canSave) "Siap disimpan" else "Lengkapi data part",
+            backgroundColor = if (canSave) StatusSuccess else NeutralLight,
+            contentColor = if (canSave) NeutralSurface else NeutralTextMuted,
         )
     }
 }

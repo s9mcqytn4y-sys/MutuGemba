@@ -78,6 +78,9 @@ import id.co.nierstyd.mutugemba.usecase.FeedbackType
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
 import id.co.nierstyd.mutugemba.usecase.asset.GetActiveImageRefUseCase
 import id.co.nierstyd.mutugemba.usecase.asset.LoadImageBytesUseCase
+import id.co.nierstyd.mutugemba.usecase.part.DeleteDefectMasterUseCase
+import id.co.nierstyd.mutugemba.usecase.part.DeleteMaterialMasterUseCase
+import id.co.nierstyd.mutugemba.usecase.part.DeleteSupplierMasterUseCase
 import id.co.nierstyd.mutugemba.usecase.part.GetPartDetailUseCase
 import id.co.nierstyd.mutugemba.usecase.part.GetPartMasterDetailUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ListDefectMastersUseCase
@@ -110,10 +113,13 @@ data class PartMappingScreenDependencies(
     val replacePartDefects: ReplacePartDefectsUseCase,
     val listMaterialMasters: ListMaterialMastersUseCase,
     val saveMaterialMaster: SaveMaterialMasterUseCase,
+    val deleteMaterialMaster: DeleteMaterialMasterUseCase,
     val listSupplierMasters: ListSupplierMastersUseCase,
     val saveSupplierMaster: SaveSupplierMasterUseCase,
+    val deleteSupplierMaster: DeleteSupplierMasterUseCase,
     val listDefectMasters: ListDefectMastersUseCase,
     val saveDefectMaster: SaveDefectMasterUseCase,
+    val deleteDefectMaster: DeleteDefectMasterUseCase,
     val getTopDefects: GetTopDefectsPerModelMonthlyUseCase,
     val getDefectHeatmap: GetDefectHeatmapUseCase,
     val getActiveImageRef: GetActiveImageRefUseCase,
@@ -329,28 +335,57 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                         }
                     }
                 },
-                onSaveSupplier = { name ->
+                onSaveSupplier = { id, name ->
                     scope.launch {
                         runCatching {
                             withContext(Dispatchers.IO) {
-                                dependencies.saveSupplierMaster.execute(id = null, name = name)
+                                val normalized = name.trim()
+                                require(normalized.isNotBlank()) { "Nama pemasok wajib diisi." }
+                                dependencies.saveSupplierMaster.execute(id = id, name = normalized)
                                 reloadMasters()
                             }
                         }.onSuccess {
-                            managerInfo = "Data pemasok berhasil disimpan."
+                            managerInfo =
+                                if (id == null) {
+                                    "Data pemasok berhasil ditambahkan."
+                                } else {
+                                    "Data pemasok berhasil diperbarui."
+                                }
                         }.onFailure { throwable ->
                             managerInfo = "Gagal simpan pemasok: ${throwable.message ?: "-"}"
                         }
                     }
                 },
-                onSaveMaterial = { name, supplierId, clientSupplied ->
+                onDeleteSupplier = { id ->
                     scope.launch {
                         runCatching {
                             withContext(Dispatchers.IO) {
+                                require(id > 0L) { "ID pemasok tidak valid." }
+                                dependencies.deleteSupplierMaster.execute(id)
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Pemasok berhasil dihapus."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal hapus pemasok: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
+                onSaveMaterial = { id, name, supplierId, clientSupplied ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                val normalized = name.trim()
+                                require(normalized.isNotBlank()) { "Nama bahan wajib diisi." }
+                                if (supplierId != null) {
+                                    require(masterSuppliers.any { it.id == supplierId }) {
+                                        "ID pemasok tidak ditemukan."
+                                    }
+                                }
                                 dependencies.saveMaterialMaster.execute(
                                     SaveMaterialMasterCommand(
-                                        id = null,
-                                        name = name,
+                                        id = id,
+                                        name = normalized,
                                         supplierId = supplierId,
                                         clientSupplied = clientSupplied,
                                     ),
@@ -358,30 +393,82 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
                                 reloadMasters()
                             }
                         }.onSuccess {
-                            managerInfo = "Data bahan berhasil disimpan."
+                            managerInfo =
+                                if (id == null) {
+                                    "Data bahan berhasil ditambahkan."
+                                } else {
+                                    "Data bahan berhasil diperbarui."
+                                }
                         }.onFailure { throwable ->
                             managerInfo = "Gagal simpan data bahan: ${throwable.message ?: "-"}"
                         }
                     }
                 },
-                onSaveDefect = { name, originType, lineCode ->
+                onDeleteMaterial = { id ->
                     scope.launch {
                         runCatching {
                             withContext(Dispatchers.IO) {
+                                require(id > 0L) { "ID bahan tidak valid." }
+                                dependencies.deleteMaterialMaster.execute(id)
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Bahan berhasil dihapus."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal hapus bahan: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
+                onSaveDefect = { id, name, originType, lineCode ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                val normalized = name.trim()
+                                require(normalized.isNotBlank()) { "Nama Jenis NG wajib diisi." }
+                                val normalizedLine =
+                                    lineCode
+                                        ?.trim()
+                                        ?.lowercase()
+                                        ?.takeIf { it.isNotBlank() }
+                                if (normalizedLine != null) {
+                                    require(normalizedLine == "press" || normalizedLine == "sewing") {
+                                        "Line untuk Jenis NG harus press atau sewing."
+                                    }
+                                }
                                 dependencies.saveDefectMaster.execute(
                                     SaveDefectMasterCommand(
-                                        id = null,
-                                        name = name,
+                                        id = id,
+                                        name = normalized,
                                         originType = originType,
-                                        lineCode = lineCode,
+                                        lineCode = normalizedLine,
                                     ),
                                 )
                                 reloadMasters()
                             }
                         }.onSuccess {
-                            managerInfo = "Jenis NG berhasil disimpan."
+                            managerInfo =
+                                if (id == null) {
+                                    "Jenis NG berhasil ditambahkan."
+                                } else {
+                                    "Jenis NG berhasil diperbarui."
+                                }
                         }.onFailure { throwable ->
                             managerInfo = "Gagal simpan jenis NG: ${throwable.message ?: "-"}"
+                        }
+                    }
+                },
+                onDeleteDefect = { id ->
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                require(id > 0L) { "ID Jenis NG tidak valid." }
+                                dependencies.deleteDefectMaster.execute(id)
+                                reloadMasters()
+                            }
+                        }.onSuccess {
+                            managerInfo = "Jenis NG berhasil dihapus."
+                        }.onFailure { throwable ->
+                            managerInfo = "Gagal hapus Jenis NG: ${throwable.message ?: "-"}"
                         }
                     }
                 },
@@ -933,9 +1020,12 @@ private fun PartMasterManagerPanel(
     defects: List<DefectMaster>,
     infoText: String,
     onSavePart: (uniqNo: String, partNumber: String, partName: String, lineCode: String, excluded: Boolean) -> Unit,
-    onSaveSupplier: (name: String) -> Unit,
-    onSaveMaterial: (name: String, supplierId: Long?, clientSupplied: Boolean) -> Unit,
-    onSaveDefect: (name: String, originType: NgOriginType, lineCode: String?) -> Unit,
+    onSaveSupplier: (id: Long?, name: String) -> Unit,
+    onDeleteSupplier: (id: Long) -> Unit,
+    onSaveMaterial: (id: Long?, name: String, supplierId: Long?, clientSupplied: Boolean) -> Unit,
+    onDeleteMaterial: (id: Long) -> Unit,
+    onSaveDefect: (id: Long?, name: String, originType: NgOriginType, lineCode: String?) -> Unit,
+    onDeleteDefect: (id: Long) -> Unit,
     onAssignPartMaterials: (partId: Long, materialIds: List<Long>) -> Unit,
     onAssignPartDefects: (partId: Long, defectIds: List<Long>) -> Unit,
     loadPartDetail: suspend (Long) -> PartMasterDetail?,
@@ -988,18 +1078,21 @@ private fun PartMasterManagerPanel(
                         materials = materials,
                         suppliers = suppliers,
                         onSaveMaterial = onSaveMaterial,
+                        onDeleteMaterial = onDeleteMaterial,
                     )
 
                 2 ->
                     SupplierEditorTab(
                         suppliers = suppliers,
                         onSaveSupplier = onSaveSupplier,
+                        onDeleteSupplier = onDeleteSupplier,
                     )
 
                 else ->
                     DefectEditorTab(
                         defects = defects,
                         onSaveDefect = onSaveDefect,
+                        onDeleteDefect = onDeleteDefect,
                     )
             }
         }
@@ -1330,14 +1423,22 @@ private fun PartEditorTab(
 private fun MaterialEditorTab(
     materials: List<MaterialMaster>,
     suppliers: List<SupplierMaster>,
-    onSaveMaterial: (name: String, supplierId: Long?, clientSupplied: Boolean) -> Unit,
+    onSaveMaterial: (id: Long?, name: String, supplierId: Long?, clientSupplied: Boolean) -> Unit,
+    onDeleteMaterial: (id: Long) -> Unit,
 ) {
+    var materialId by remember { mutableStateOf("") }
     var materialName by remember { mutableStateOf("") }
     var supplierRef by remember { mutableStateOf("") }
     var clientSupplied by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Material tersedia: ${materials.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        AppTextField(
+            spec = FieldSpec(label = "ID Bahan (kosong = tambah baru)"),
+            value = materialId,
+            onValueChange = { materialId = it.filter(Char::isDigit) },
+            singleLine = true,
+        )
         AppTextField(
             spec = FieldSpec(label = "Nama Material"),
             value = materialName,
@@ -1363,52 +1464,139 @@ private fun MaterialEditorTab(
             style = MaterialTheme.typography.caption,
             color = NeutralTextMuted,
         )
-        PrimaryButton(
-            text = "Simpan Data Bahan",
-            onClick = {
-                onSaveMaterial(
-                    materialName,
-                    supplierRef.toLongOrNull(),
-                    clientSupplied,
-                )
-            },
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            PrimaryButton(
+                text = "Simpan Data Bahan",
+                onClick = {
+                    onSaveMaterial(
+                        materialId.toLongOrNull(),
+                        materialName,
+                        supplierRef.toLongOrNull(),
+                        clientSupplied,
+                    )
+                },
+            )
+            SecondaryButton(
+                text = "Hapus Bahan",
+                onClick = {
+                    val id = materialId.toLongOrNull() ?: return@SecondaryButton
+                    onDeleteMaterial(id)
+                },
+            )
+        }
+        if (materials.isNotEmpty()) {
+            Text("Klik untuk edit cepat:", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            materials.take(8).forEach { item ->
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                materialId = item.id.toString()
+                                materialName = item.name
+                                supplierRef = item.supplierId?.toString().orEmpty()
+                                clientSupplied = item.clientSupplied
+                            },
+                    color = NeutralLight.copy(alpha = 0.4f),
+                    border = BorderStroke(1.dp, NeutralBorder),
+                    shape = MaterialTheme.shapes.small,
+                    elevation = 0.dp,
+                ) {
+                    Text(
+                        text = "${item.id} • ${item.name} • ${item.supplierName ?: "Tanpa pemasok"}",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun SupplierEditorTab(
     suppliers: List<SupplierMaster>,
-    onSaveSupplier: (name: String) -> Unit,
+    onSaveSupplier: (id: Long?, name: String) -> Unit,
+    onDeleteSupplier: (id: Long) -> Unit,
 ) {
+    var supplierId by remember { mutableStateOf("") }
     var supplierName by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Pemasok: ${suppliers.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        AppTextField(
+            spec = FieldSpec(label = "ID Pemasok (kosong = tambah baru)"),
+            value = supplierId,
+            onValueChange = { supplierId = it.filter(Char::isDigit) },
+            singleLine = true,
+        )
         AppTextField(
             spec = FieldSpec(label = "Nama Pemasok"),
             value = supplierName,
             onValueChange = { supplierName = it },
             singleLine = true,
         )
-        PrimaryButton(
-            text = "Simpan Data Pemasok",
-            onClick = { onSaveSupplier(supplierName) },
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            PrimaryButton(
+                text = "Simpan Data Pemasok",
+                onClick = { onSaveSupplier(supplierId.toLongOrNull(), supplierName) },
+            )
+            SecondaryButton(
+                text = "Hapus Pemasok",
+                onClick = {
+                    val id = supplierId.toLongOrNull() ?: return@SecondaryButton
+                    onDeleteSupplier(id)
+                },
+            )
+        }
+        if (suppliers.isNotEmpty()) {
+            Text("Klik untuk edit cepat:", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            suppliers.take(8).forEach { item ->
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                supplierId = item.id.toString()
+                                supplierName = item.name
+                            },
+                    color = NeutralLight.copy(alpha = 0.4f),
+                    border = BorderStroke(1.dp, NeutralBorder),
+                    shape = MaterialTheme.shapes.small,
+                    elevation = 0.dp,
+                ) {
+                    Text(
+                        text = "${item.id} • ${item.name}",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun DefectEditorTab(
     defects: List<DefectMaster>,
-    onSaveDefect: (name: String, originType: NgOriginType, lineCode: String?) -> Unit,
+    onSaveDefect: (id: Long?, name: String, originType: NgOriginType, lineCode: String?) -> Unit,
+    onDeleteDefect: (id: Long) -> Unit,
 ) {
+    var defectId by remember { mutableStateOf("") }
     var defectName by remember { mutableStateOf("") }
     var originRaw by remember { mutableStateOf("material") }
     var lineCode by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Jenis NG: ${defects.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+        AppTextField(
+            spec = FieldSpec(label = "ID Jenis NG (kosong = tambah baru)"),
+            value = defectId,
+            onValueChange = { defectId = it.filter(Char::isDigit) },
+            singleLine = true,
+        )
         AppTextField(
             spec = FieldSpec(label = "Nama Jenis NG"),
             value = defectName,
@@ -1431,16 +1619,53 @@ private fun DefectEditorTab(
                 singleLine = true,
             )
         }
-        PrimaryButton(
-            text = "Simpan Jenis NG",
-            onClick = {
-                onSaveDefect(
-                    defectName,
-                    if (originRaw.equals("process", true)) NgOriginType.PROCESS else NgOriginType.MATERIAL,
-                    lineCode.takeIf { it.isNotBlank() },
-                )
-            },
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            PrimaryButton(
+                text = "Simpan Jenis NG",
+                onClick = {
+                    onSaveDefect(
+                        defectId.toLongOrNull(),
+                        defectName,
+                        if (originRaw.equals("process", true)) NgOriginType.PROCESS else NgOriginType.MATERIAL,
+                        lineCode.takeIf { it.isNotBlank() },
+                    )
+                },
+            )
+            SecondaryButton(
+                text = "Hapus Jenis NG",
+                onClick = {
+                    val id = defectId.toLongOrNull() ?: return@SecondaryButton
+                    onDeleteDefect(id)
+                },
+            )
+        }
+        if (defects.isNotEmpty()) {
+            Text("Klik untuk edit cepat:", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
+            defects.take(8).forEach { item ->
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                defectId = item.id.toString()
+                                defectName = item.name
+                                originRaw = if (item.originType == NgOriginType.PROCESS) "process" else "material"
+                                lineCode = item.lineCode.orEmpty()
+                            },
+                    color = NeutralLight.copy(alpha = 0.4f),
+                    border = BorderStroke(1.dp, NeutralBorder),
+                    shape = MaterialTheme.shapes.small,
+                    elevation = 0.dp,
+                ) {
+                    Text(
+                        text = "${item.id} • ${item.name} • ${item.originType}",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -20,6 +20,8 @@ object AppSettingsKeys {
     const val DEV_DEMO_MODE = "dev.demoMode"
     const val DEV_USE_DUMMY_DATA = "dev.useDummyData"
     const val MANUAL_HOLIDAY_DATES = "calendar.manualHolidayDates"
+    const val INSPECTION_PART_DEFECT_LAYOUT = "inspection.partDefectLayout"
+    const val REPORT_ARCHIVE_ENTRIES = "report.archive.entries"
     const val SESSION_USER_ID = "session.userId"
     const val SESSION_USER_NAME = "session.userName"
     const val SESSION_EMPLOYEE_ID = "session.employeeId"

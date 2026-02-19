@@ -17,26 +17,13 @@ import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectDayTotal
 import id.co.nierstyd.mutugemba.domain.MonthlyPartDefectTotal
 import id.co.nierstyd.mutugemba.domain.Part
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.YearMonth
 
 class SqlDelightInspectionRepository(
     private val database: InMemoryDatabase,
 ) : InspectionRepository,
     CacheInvalidator {
-    override fun insert(input: InspectionInput): InspectionRecord {
-        val record = database.toRecord(input)
-        val defects = normalizedDefects(input)
-        val createdDate = parseDate(input.createdAt)
-        database.inspections +=
-            StoredInspection(
-                input = input,
-                record = record,
-                createdDate = createdDate,
-                defects = defects,
-            )
-        return record
-    }
+    override fun insert(input: InspectionInput): InspectionRecord = database.insertInspection(input)
 
     override fun getRecent(limit: Long): List<InspectionRecord> =
         database.inspections
@@ -224,23 +211,6 @@ class SqlDelightInspectionRepository(
     override fun clearCache() {
         // Nothing to clear for in-memory fallback.
     }
-
-    private fun normalizedDefects(input: InspectionInput): List<InspectionDefectEntry> =
-        if (input.defects.isNotEmpty()) {
-            input.defects
-        } else {
-            val defectTypeId = input.defectTypeId
-            val defectQuantity = input.defectQuantity
-            if (defectTypeId != null && defectQuantity != null && defectQuantity > 0) {
-                listOf(InspectionDefectEntry(defectTypeId, defectQuantity))
-            } else {
-                emptyList()
-            }
-        }
-
-    private fun parseDate(createdAt: String): LocalDate =
-        runCatching { LocalDateTime.parse(createdAt).toLocalDate() }
-            .getOrDefault(LocalDate.now())
 
     private fun StoredInspection.toChecksheetEntry(parts: List<Part>): ChecksheetEntry {
         val part = parts.firstOrNull { it.id == input.partId }

@@ -1,6 +1,10 @@
 package id.co.nierstyd.mutugemba.desktop.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -12,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,8 +24,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -28,6 +33,7 @@ import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.data.AppDataPaths
@@ -45,6 +52,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.CompactNumberField
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
+import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
@@ -64,6 +72,10 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.name
+
+private val InspectionTableHeaderHeight = 46.dp
+private val InspectionTableRowHeight = 56.dp
+private val InspectionTableFooterHeight = 44.dp
 
 @Composable
 @Suppress("LongParameterList")
@@ -99,7 +111,12 @@ internal fun PartChecksheetCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
         elevation = 0.dp,
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(),
+        ) {
             PartHeader(
                 part = part,
                 totalCheck = totalCheckInput,
@@ -188,6 +205,7 @@ private fun PartHeader(
             PartInputStatus.INCOMPLETE -> NeutralBorder
             PartInputStatus.EMPTY -> NeutralBorder
         }
+    val expandRotation by animateFloatAsState(targetValue = if (expanded) 180f else 0f)
     Row(
         modifier =
             Modifier
@@ -267,7 +285,10 @@ private fun PartHeader(
                             imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
                             contentDescription = null,
                             tint = MaterialTheme.colors.primary,
-                            modifier = Modifier.size(18.dp),
+                            modifier =
+                                Modifier
+                                    .size(18.dp)
+                                    .graphicsLayer { rotationZ = expandRotation },
                         )
                     }
                     Row(
@@ -323,7 +344,7 @@ private fun PartStatChip(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.heightIn(min = 64.dp),
+        modifier = modifier.heightIn(min = 86.dp),
         color = NeutralLight,
         shape = MaterialTheme.shapes.small,
         border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
@@ -396,7 +417,7 @@ private fun InlineCustomDefectRow(
     availableDefects: List<DefectType>,
     onAddExisting: (Long) -> Unit,
 ) {
-    var selectedExisting by remember(availableDefects) { mutableStateOf<DropdownOption?>(null) }
+    var selectedExisting by remember { mutableStateOf<DropdownOption?>(null) }
     val existingOptions =
         remember(availableDefects) {
             availableDefects.map { defect ->
@@ -406,9 +427,15 @@ private fun InlineCustomDefectRow(
                 )
             }
         }
+    val selectedExistingResolved =
+        remember(selectedExisting, existingOptions) {
+            selectedExisting?.let { selected ->
+                existingOptions.firstOrNull { option -> option.id == selected.id } ?: selected
+            }
+        }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = NeutralLight,
+        color = NeutralLight.copy(alpha = 0.55f),
         shape = MaterialTheme.shapes.small,
         border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
         elevation = 0.dp,
@@ -418,74 +445,117 @@ private fun InlineCustomDefectRow(
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.Top,
         ) {
-            Column(
+            AddExistingDefectCard(
+                currentLine = currentLine,
+                existingOptions = existingOptions,
+                selectedExisting = selectedExistingResolved,
+                onSelectExisting = { selectedExisting = it },
+                onAddExisting = {
+                    selectedExisting?.let { selected ->
+                        onAddExisting(selected.id)
+                        selectedExisting = null
+                    }
+                },
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-            ) {
-                Text(
-                    text = "Tambah Jenis NG ($currentLine)",
-                    style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
-                )
-                AppDropdown(
-                    label = "Pilih dari daftar Jenis NG",
-                    options = existingOptions,
-                    selectedOption = selectedExisting,
-                    onSelected = { selectedExisting = it },
-                    placeholder = "Pilih Jenis NG existing",
-                    enabled = existingOptions.isNotEmpty(),
-                    helperText =
-                        if (existingOptions.isEmpty()) {
-                            "Semua Jenis NG sudah aktif untuk part ini."
-                        } else {
-                            "Pilih untuk menambah cepat tanpa mengetik ulang."
-                        },
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    DefectActionIcon(
-                        icon = AppIcons.Add,
-                        contentDescription = "Tambah Jenis NG existing",
-                        enabled = selectedExisting != null,
-                        onClick = {
-                            selectedExisting?.let { selected ->
-                                onAddExisting(selected.id)
-                                selectedExisting = null
-                            }
-                        },
-                    )
-                }
-            }
-            Column(
+            )
+            AddCustomDefectCard(
+                value = value,
+                onValueChange = onValueChange,
+                onAdd = onAdd,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-            ) {
-                Text(
-                    text = "Atau buat Jenis NG baru",
-                    style = MaterialTheme.typography.caption,
-                    color = NeutralTextMuted,
-                )
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    singleLine = true,
-                    placeholder = { Text(AppStrings.Inspection.CustomDefectPlaceholder) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    DefectActionIcon(
-                        icon = AppIcons.Add,
-                        contentDescription = "Tambah Jenis NG baru",
-                        enabled = value.isNotBlank(),
-                        onClick = onAdd,
-                    )
-                }
-            }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddExistingDefectCard(
+    currentLine: String,
+    existingOptions: List<DropdownOption>,
+    selectedExisting: DropdownOption?,
+    onSelectExisting: (DropdownOption) -> Unit,
+    onAddExisting: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.heightIn(min = 190.dp),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.small,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text(
+                text = "Tambah Jenis NG untuk $currentLine",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            AppDropdown(
+                label = "Pilih Jenis NG dari daftar",
+                options = existingOptions,
+                selectedOption = selectedExisting,
+                onSelected = onSelectExisting,
+                placeholder = "Pilih Jenis NG",
+                enabled = existingOptions.isNotEmpty(),
+                helperText =
+                    if (existingOptions.isEmpty()) {
+                        "Semua Jenis NG pada daftar sudah aktif di part ini."
+                    } else {
+                        "Pilih item untuk menambahkan lebih cepat tanpa mengetik ulang."
+                    },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.weight(1f, fill = true))
+            SecondaryButton(
+                text = "Tambahkan ke tabel",
+                onClick = onAddExisting,
+                enabled = selectedExisting != null,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddCustomDefectCard(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.heightIn(min = 190.dp),
+        color = NeutralSurface,
+        shape = MaterialTheme.shapes.small,
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text(
+                text = "Atau buat Jenis NG baru",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                placeholder = { Text(AppStrings.Inspection.CustomDefectPlaceholder) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.weight(1f, fill = true))
+            SecondaryButton(
+                text = "Simpan Jenis NG baru",
+                onClick = onAdd,
+                enabled = value.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -573,6 +643,11 @@ private fun DefectTableGrid(
     onMoveDown: (Long) -> Unit,
     onRemove: (Long) -> Unit,
 ) {
+    val visibleDefects =
+        defectTypes.filter { defect ->
+            DefectNameSanitizer.isMeaningfulItem(normalizeDefectName(defect.name))
+        }
+
     fun slotValue(
         defectId: Long,
         slot: InspectionTimeSlot,
@@ -585,9 +660,14 @@ private fun DefectTableGrid(
 
     fun rowTotal(defectId: Long): Int = timeSlots.sumOf { slotQuantity(defectId, it) }
 
-    fun columnTotal(slot: InspectionTimeSlot): Int = defectTypes.sumOf { defect -> slotQuantity(defect.id, slot) }
+    fun columnTotal(slot: InspectionTimeSlot): Int = visibleDefects.sumOf { defect -> slotQuantity(defect.id, slot) }
 
-    val totalNg = defectTypes.sumOf { defect -> rowTotal(defect.id) }
+    val totalNg = visibleDefects.sumOf { defect -> rowTotal(defect.id) }
+    val previousOrderState = remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
+    val currentOrder = remember(visibleDefects) { visibleDefects.mapIndexed { idx, item -> item.id to idx }.toMap() }
+    LaunchedEffect(currentOrder) {
+        previousOrderState.value = currentOrder
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         TableHeaderRow(timeSlots = timeSlots)
@@ -597,11 +677,26 @@ private fun DefectTableGrid(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(max = 260.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .background(NeutralSurface),
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                defectTypes.forEachIndexed { index, defect ->
-                    Row(modifier = Modifier.fillMaxWidth()) {
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                itemsIndexed(visibleDefects, key = { _, defect -> defect.id }) { index, defect ->
+                    val previousIndex = previousOrderState.value[defect.id] ?: index
+                    val verticalShift = remember(defect.id) { Animatable(0f) }
+                    LaunchedEffect(index, previousIndex) {
+                        if (previousIndex != index) {
+                            verticalShift.snapTo((previousIndex - index) * InspectionTableRowHeight.value)
+                            verticalShift.animateTo(0f, animationSpec = tween(durationMillis = 220))
+                        } else {
+                            verticalShift.animateTo(0f, animationSpec = tween(durationMillis = 160))
+                        }
+                    }
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer { translationY = verticalShift.value },
+                    ) {
                         TableCell(text = normalizeDefectName(defect.name), weight = 1.4f)
                         timeSlots.forEach { slot ->
                             TableInputCell(
@@ -621,13 +716,13 @@ private fun DefectTableGrid(
                             DefectActionIcon(
                                 icon = AppIcons.ArrowDown,
                                 contentDescription = "Geser ke bawah",
-                                enabled = index < defectTypes.lastIndex,
+                                enabled = index < visibleDefects.lastIndex,
                                 onClick = { onMoveDown(defect.id) },
                             )
                             DefectActionIcon(
                                 icon = AppIcons.Delete,
                                 contentDescription = "Hapus Jenis NG",
-                                enabled = defectTypes.size > 1,
+                                enabled = visibleDefects.size > 1,
                                 onClick = { onRemove(defect.id) },
                                 tint = StatusError,
                             )
@@ -645,6 +740,12 @@ private fun DefectTableGrid(
             TableFooterCell(text = totalNg.toString(), weight = 0.7f, alignCenter = true)
             TableFooterCell(text = "", weight = 0.85f)
         }
+        Text(
+            text = "Perubahan urutan/aktif Jenis NG langsung dipakai saat Konfirmasi & Simpan.",
+            style = MaterialTheme.typography.caption,
+            color = NeutralTextMuted,
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
     }
 }
 
@@ -673,10 +774,11 @@ private fun RowScope.TableHeaderCell(
                 .weight(weight)
                 .border(1.dp, NeutralBorder)
                 .background(NeutralLight)
-                .padding(Spacing.sm),
+                .height(InspectionTableHeaderHeight)
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = NeutralText)
+        Text(text, color = NeutralText, style = MaterialTheme.typography.body2)
     }
 }
 
@@ -692,7 +794,8 @@ private fun RowScope.TableCell(
                 .weight(weight)
                 .border(1.dp, NeutralBorder)
                 .background(NeutralSurface)
-                .padding(Spacing.sm),
+                .height(InspectionTableRowHeight)
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
         contentAlignment = if (alignCenter) Alignment.Center else Alignment.CenterStart,
     ) {
         Text(text, color = NeutralText)
@@ -711,7 +814,8 @@ private fun RowScope.TableInputCell(
                 .weight(weight)
                 .border(1.dp, NeutralBorder)
                 .background(NeutralSurface)
-                .padding(Spacing.xs),
+                .heightIn(min = InspectionTableRowHeight)
+                .padding(horizontal = Spacing.xs, vertical = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
         CompactNumberField(
@@ -734,7 +838,8 @@ private fun RowScope.TableFooterCell(
                 .weight(weight)
                 .border(1.dp, NeutralBorder)
                 .background(NeutralLight)
-                .padding(Spacing.sm),
+                .height(InspectionTableFooterHeight)
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
         contentAlignment = if (alignCenter) Alignment.Center else Alignment.CenterStart,
     ) {
         Text(text, color = NeutralText)
@@ -752,6 +857,7 @@ private fun RowScope.TableActionCell(
                 .weight(weight)
                 .border(1.dp, NeutralBorder)
                 .background(NeutralSurface)
+                .height(InspectionTableRowHeight)
                 .padding(horizontal = Spacing.xs, vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,

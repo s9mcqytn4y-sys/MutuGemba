@@ -15,6 +15,7 @@ import id.co.nierstyd.mutugemba.data.local.assetstore.createDesktopHashAssetStor
 import id.co.nierstyd.mutugemba.data.local.db.SqlitePartMasterRepository
 import id.co.nierstyd.mutugemba.data.local.db.SqlitePartRepository
 import id.co.nierstyd.mutugemba.data.local.db.SqliteQaRepository
+import id.co.nierstyd.mutugemba.usecase.AppendReportArchiveEntryUseCase
 import id.co.nierstyd.mutugemba.usecase.BackupDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
@@ -23,6 +24,7 @@ import id.co.nierstyd.mutugemba.usecase.GetDailyChecksheetDetailUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDefectTypesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetDevQcLineUseCase
 import id.co.nierstyd.mutugemba.usecase.GetInspectionDefaultsUseCase
+import id.co.nierstyd.mutugemba.usecase.GetInspectionPartDefectLayoutUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLastVisitedPageUseCase
 import id.co.nierstyd.mutugemba.usecase.GetLinesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetManualHolidayDatesUseCase
@@ -32,10 +34,12 @@ import id.co.nierstyd.mutugemba.usecase.GetMonthlyDefectSummaryUseCase
 import id.co.nierstyd.mutugemba.usecase.GetMonthlyReportDocumentUseCase
 import id.co.nierstyd.mutugemba.usecase.GetPartsUseCase
 import id.co.nierstyd.mutugemba.usecase.GetRecentInspectionsUseCase
+import id.co.nierstyd.mutugemba.usecase.GetReportArchiveEntriesUseCase
 import id.co.nierstyd.mutugemba.usecase.GetShiftsUseCase
 import id.co.nierstyd.mutugemba.usecase.ResetDataUseCase
 import id.co.nierstyd.mutugemba.usecase.RestoreDatabaseUseCase
 import id.co.nierstyd.mutugemba.usecase.SaveInspectionDefaultsUseCase
+import id.co.nierstyd.mutugemba.usecase.SaveInspectionPartDefectLayoutUseCase
 import id.co.nierstyd.mutugemba.usecase.SaveManualHolidayDatesUseCase
 import id.co.nierstyd.mutugemba.usecase.SetAllowDuplicateInspectionUseCase
 import id.co.nierstyd.mutugemba.usecase.SetDevQcLineUseCase
@@ -43,6 +47,9 @@ import id.co.nierstyd.mutugemba.usecase.SetLastVisitedPageUseCase
 import id.co.nierstyd.mutugemba.usecase.UpsertDefectTypeUseCase
 import id.co.nierstyd.mutugemba.usecase.asset.GetActiveImageRefUseCase
 import id.co.nierstyd.mutugemba.usecase.asset.LoadImageBytesUseCase
+import id.co.nierstyd.mutugemba.usecase.part.DeleteDefectMasterUseCase
+import id.co.nierstyd.mutugemba.usecase.part.DeleteMaterialMasterUseCase
+import id.co.nierstyd.mutugemba.usecase.part.DeleteSupplierMasterUseCase
 import id.co.nierstyd.mutugemba.usecase.part.GetPartDetailUseCase
 import id.co.nierstyd.mutugemba.usecase.part.GetPartMasterDetailUseCase
 import id.co.nierstyd.mutugemba.usecase.part.ListDefectMastersUseCase
@@ -100,12 +107,16 @@ class AppContainer {
     val setLastPageUseCase = SetLastVisitedPageUseCase(settingsRepository)
     val getInspectionDefaultsUseCase = GetInspectionDefaultsUseCase(settingsRepository)
     val saveInspectionDefaultsUseCase = SaveInspectionDefaultsUseCase(settingsRepository)
+    val getInspectionPartDefectLayoutUseCase = GetInspectionPartDefectLayoutUseCase(settingsRepository)
+    val saveInspectionPartDefectLayoutUseCase = SaveInspectionPartDefectLayoutUseCase(settingsRepository)
     val getAllowDuplicateInspectionUseCase = GetAllowDuplicateInspectionUseCase(settingsRepository)
     val setAllowDuplicateInspectionUseCase = SetAllowDuplicateInspectionUseCase(settingsRepository)
     val getDevQcLineUseCase = GetDevQcLineUseCase(settingsRepository)
     val setDevQcLineUseCase = SetDevQcLineUseCase(settingsRepository)
     val getManualHolidayDatesUseCase = GetManualHolidayDatesUseCase(settingsRepository)
     val saveManualHolidayDatesUseCase = SaveManualHolidayDatesUseCase(settingsRepository)
+    val getReportArchiveEntriesUseCase = GetReportArchiveEntriesUseCase(settingsRepository)
+    val appendReportArchiveEntryUseCase = AppendReportArchiveEntryUseCase(settingsRepository)
 
     val createInspectionUseCase = CreateInspectionRecordUseCase(inspectionRepository)
     val createBatchInspectionUseCase = CreateBatchInspectionRecordsUseCase(createInspectionUseCase)
@@ -137,10 +148,13 @@ class AppContainer {
     val replacePartDefectsUseCase = ReplacePartDefectsUseCase(partMasterRepository)
     val listMaterialMastersUseCase = ListMaterialMastersUseCase(partMasterRepository)
     val saveMaterialMasterUseCase = SaveMaterialMasterUseCase(partMasterRepository)
+    val deleteMaterialMasterUseCase = DeleteMaterialMasterUseCase(partMasterRepository)
     val listSupplierMastersUseCase = ListSupplierMastersUseCase(partMasterRepository)
     val saveSupplierMasterUseCase = SaveSupplierMasterUseCase(partMasterRepository)
+    val deleteSupplierMasterUseCase = DeleteSupplierMasterUseCase(partMasterRepository)
     val listDefectMastersUseCase = ListDefectMastersUseCase(partMasterRepository)
     val saveDefectMasterUseCase = SaveDefectMasterUseCase(partMasterRepository)
+    val deleteDefectMasterUseCase = DeleteDefectMasterUseCase(partMasterRepository)
     val getTopDefectsPerModelMonthlyUseCase = GetTopDefectsPerModelMonthlyUseCase(qaRepository)
     val getDefectHeatmapUseCase = GetDefectHeatmapUseCase(qaRepository)
     val getActiveImageRefUseCase = GetActiveImageRefUseCase(assetRepository)
@@ -154,7 +168,7 @@ class AppContainer {
         databaseHandle.driver.close()
     }
 
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     fun generateHighVolumeSimulation(
         days: Int = 45,
         density: Int = 4,
@@ -171,74 +185,81 @@ class AppContainer {
         val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
         var inserted = 0
 
-        repeat(days.coerceAtLeast(1)) { dayOffset ->
-            val date = now.minusDays(dayOffset.toLong())
-            val isWeekend = date.dayOfWeek.value >= 6
-            lines.forEach { line ->
-                val lineParts = parts.filter { it.lineCode == line.code }
-                if (lineParts.isEmpty()) return@forEach
-                val densityMultiplier =
-                    when {
-                        isWeekend -> 0.35
-                        dayOffset % 7 == 1 -> 0.95
-                        else -> 0.65
-                    }
-                val minBatch = if (isWeekend) 2 else 6
-                val batchSize =
-                    (lineParts.size * densityMultiplier)
-                        .toInt()
-                        .coerceIn(minBatch.coerceAtMost(lineParts.size), lineParts.size)
-                lineParts.shuffled(random).take(batchSize).forEachIndexed { slotIndex, part ->
-                    val repeatPerPart =
-                        if (isWeekend) {
-                            1
-                        } else {
-                            density.coerceAtLeast(1)
+        database.withBulkMutation {
+            repeat(days.coerceAtLeast(1)) { dayOffset ->
+                val date = now.minusDays(dayOffset.toLong())
+                val isWeekend = date.dayOfWeek.value >= 6
+                lines.forEach { line ->
+                    val lineParts = parts.filter { it.lineCode == line.code }
+                    if (lineParts.isEmpty()) return@forEach
+                    val densityMultiplier =
+                        when {
+                            isWeekend -> 0.35
+                            dayOffset % 7 == 1 -> 0.95
+                            else -> 0.65
                         }
-                    repeat(repeatPerPart) { densityIndex ->
-                        val candidateDefects = candidateDefectsForPart(part.id, line.id, defectTypes)
-                        if (candidateDefects.isEmpty()) return@repeat
-
-                        val pickedCount =
-                            when {
-                                candidateDefects.size == 1 -> 1
-                                random.nextInt(100) < 70 -> 1
-                                else -> 2
+                    val minBatch = if (isWeekend) 2 else 6
+                    val batchSize =
+                        (lineParts.size * densityMultiplier)
+                            .toInt()
+                            .coerceIn(minBatch.coerceAtMost(lineParts.size), lineParts.size)
+                    lineParts.shuffled(random).take(batchSize).forEachIndexed { slotIndex, part ->
+                        val repeatPerPart =
+                            if (isWeekend) {
+                                1
+                            } else {
+                                density.coerceAtLeast(1)
                             }
-                        val picked = candidateDefects.shuffled(random).take(pickedCount)
-                        val entries =
-                            picked
-                                .map { defect ->
-                                    val baseQty = if (isWeekend) random.nextInt(0, 3) else random.nextInt(1, 5)
-                                    val spike = if (!isWeekend && random.nextInt(100) < 18) random.nextInt(2, 7) else 0
-                                    id.co.nierstyd.mutugemba.domain.InspectionDefectEntry(
-                                        defectTypeId = defect.id,
-                                        quantity = (baseQty + spike).coerceAtLeast(1),
-                                        slots = emptyList(),
-                                    )
-                                }.filter { it.quantity > 0 }
-                        if (entries.isEmpty()) return@repeat
+                        repeat(repeatPerPart) { densityIndex ->
+                            val candidateDefects = candidateDefectsForPart(part.id, line.id, defectTypes)
+                            if (candidateDefects.isEmpty()) return@repeat
 
-                        val totalDefect = entries.sumOf { it.quantity }.coerceAtLeast(1)
-                        val baseCheck = if (isWeekend) random.nextInt(6, 20) else random.nextInt(18, 55)
-                        val totalCheck = (totalDefect + baseCheck).coerceAtLeast(totalDefect)
-                        val clock = LocalTime.of((8 + (slotIndex % 8)).coerceAtMost(16), random.nextInt(0, 59))
-                        val createdAt = LocalDateTime.of(date, clock).plusMinutes((densityIndex * 7).toLong())
-                        inspectionRepository.insert(
-                            id.co.nierstyd.mutugemba.domain.InspectionInput(
-                                kind = id.co.nierstyd.mutugemba.domain.InspectionKind.DEFECT,
-                                lineId = line.id,
-                                shiftId = shiftId,
-                                partId = part.id,
-                                totalCheck = totalCheck,
-                                defectTypeId = null,
-                                defectQuantity = null,
-                                defects = entries,
-                                picName = "Simulasi-${line.name}",
-                                createdAt = createdAt.format(formatter),
-                            ),
-                        )
-                        inserted += 1
+                            val pickedCount =
+                                when {
+                                    candidateDefects.size == 1 -> 1
+                                    random.nextInt(100) < 70 -> 1
+                                    else -> 2
+                                }
+                            val picked = candidateDefects.shuffled(random).take(pickedCount)
+                            val entries =
+                                picked
+                                    .map { defect ->
+                                        val baseQty = if (isWeekend) random.nextInt(0, 3) else random.nextInt(1, 5)
+                                        val spike =
+                                            if (!isWeekend && random.nextInt(100) < 18) {
+                                                random.nextInt(2, 7)
+                                            } else {
+                                                0
+                                            }
+                                        id.co.nierstyd.mutugemba.domain.InspectionDefectEntry(
+                                            defectTypeId = defect.id,
+                                            quantity = (baseQty + spike).coerceAtLeast(1),
+                                            slots = emptyList(),
+                                        )
+                                    }.filter { it.quantity > 0 }
+                            if (entries.isEmpty()) return@repeat
+
+                            val totalDefect = entries.sumOf { it.quantity }.coerceAtLeast(1)
+                            val baseCheck = if (isWeekend) random.nextInt(6, 20) else random.nextInt(18, 55)
+                            val totalCheck = (totalDefect + baseCheck).coerceAtLeast(totalDefect)
+                            val clock = LocalTime.of((8 + (slotIndex % 8)).coerceAtMost(16), random.nextInt(0, 59))
+                            val createdAt = LocalDateTime.of(date, clock).plusMinutes((densityIndex * 7).toLong())
+                            inspectionRepository.insert(
+                                id.co.nierstyd.mutugemba.domain.InspectionInput(
+                                    kind = id.co.nierstyd.mutugemba.domain.InspectionKind.DEFECT,
+                                    lineId = line.id,
+                                    shiftId = shiftId,
+                                    partId = part.id,
+                                    totalCheck = totalCheck,
+                                    defectTypeId = null,
+                                    defectQuantity = null,
+                                    defects = entries,
+                                    picName = "Simulasi-${line.name}",
+                                    createdAt = createdAt.format(formatter),
+                                ),
+                            )
+                            inserted += 1
+                        }
                     }
                 }
             }

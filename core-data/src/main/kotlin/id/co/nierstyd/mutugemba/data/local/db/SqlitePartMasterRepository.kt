@@ -15,6 +15,7 @@ import id.co.nierstyd.mutugemba.domain.model.SupplierMaster
 import id.co.nierstyd.mutugemba.domain.repository.PartMasterRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.sql.SQLException
 import java.sql.Statement
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -385,67 +386,71 @@ class SqlitePartMasterRepository(
 
     override suspend fun saveMaterial(command: SaveMaterialMasterCommand): Long =
         withContext(Dispatchers.IO) {
-            database.write { connection ->
-                val normalized = normalizeText(command.name)
-                if (command.id == null) {
-                    connection
-                        .prepareStatement(
-                            """
-                            INSERT INTO material(material_name, material_name_norm, supplier_id, client_supplied)
-                            VALUES(?, ?, ?, ?)
-                            """.trimIndent(),
-                            Statement.RETURN_GENERATED_KEYS,
-                        ).use { statement ->
-                            statement.setString(1, command.name.trim())
-                            statement.setString(2, normalized)
-                            val supplierId = command.supplierId
-                            if (supplierId == null) {
-                                statement.setNull(3, java.sql.Types.INTEGER)
-                            } else {
-                                statement.setLong(3, supplierId)
+            runCatching {
+                database.write { connection ->
+                    val normalized = normalizeText(command.name)
+                    if (command.id == null) {
+                        connection
+                            .prepareStatement(
+                                """
+                                INSERT INTO material(material_name, material_name_norm, supplier_id, client_supplied)
+                                VALUES(?, ?, ?, ?)
+                                """.trimIndent(),
+                                Statement.RETURN_GENERATED_KEYS,
+                            ).use { statement ->
+                                statement.setString(1, command.name.trim())
+                                statement.setString(2, normalized)
+                                val supplierId = command.supplierId
+                                if (supplierId == null) {
+                                    statement.setNull(3, java.sql.Types.INTEGER)
+                                } else {
+                                    statement.setLong(3, supplierId)
+                                }
+                                statement.setInt(4, if (command.clientSupplied) 1 else 0)
+                                statement.executeUpdate()
+                                statement.generatedKeys.use { rs ->
+                                    check(rs.next()) { "Gagal menyimpan bahan." }
+                                    rs.getLong(1)
+                                }
                             }
-                            statement.setInt(4, if (command.clientSupplied) 1 else 0)
-                            statement.executeUpdate()
-                            statement.generatedKeys.use { rs ->
-                                check(rs.next()) { "Gagal menyimpan material." }
-                                rs.getLong(1)
+                    } else {
+                        val existingId = requireNotNull(command.id)
+                        connection
+                            .prepareStatement(
+                                """
+                                UPDATE material
+                                SET material_name = ?, material_name_norm = ?, supplier_id = ?, client_supplied = ?
+                                WHERE material_id = ?
+                                """.trimIndent(),
+                            ).use { statement ->
+                                statement.setString(1, command.name.trim())
+                                statement.setString(2, normalized)
+                                val supplierId = command.supplierId
+                                if (supplierId == null) {
+                                    statement.setNull(3, java.sql.Types.INTEGER)
+                                } else {
+                                    statement.setLong(3, supplierId)
+                                }
+                                statement.setInt(4, if (command.clientSupplied) 1 else 0)
+                                statement.setLong(5, existingId)
+                                statement.executeUpdate()
                             }
-                        }
-                } else {
-                    val existingId = requireNotNull(command.id)
-                    connection
-                        .prepareStatement(
-                            """
-                            UPDATE material
-                            SET material_name = ?, material_name_norm = ?, supplier_id = ?, client_supplied = ?
-                            WHERE material_id = ?
-                            """.trimIndent(),
-                        ).use { statement ->
-                            statement.setString(1, command.name.trim())
-                            statement.setString(2, normalized)
-                            val supplierId = command.supplierId
-                            if (supplierId == null) {
-                                statement.setNull(3, java.sql.Types.INTEGER)
-                            } else {
-                                statement.setLong(3, supplierId)
-                            }
-                            statement.setInt(4, if (command.clientSupplied) 1 else 0)
-                            statement.setLong(5, existingId)
-                            statement.executeUpdate()
-                        }
-                    existingId
+                        existingId
+                    }
                 }
-            }
+            }.getOrElse { throwable -> throw throwable.toFriendlyPersistenceException("Bahan") }
         }
 
     override suspend fun deleteMaterial(materialId: Long): Boolean =
         withContext(Dispatchers.IO) {
-            database.write { connection ->
-                connection.prepareStatement("DELETE FROM material WHERE material_id = ?").use { statement ->
-                    statement.setLong(1, materialId)
-                    statement.executeUpdate() > 0
+            runCatching {
+                database.write { connection ->
+                    connection.prepareStatement("DELETE FROM material WHERE material_id = ?").use { statement ->
+                        statement.setLong(1, materialId)
+                        statement.executeUpdate() > 0
+                    }
                 }
-            }
+            }.getOrElse { throwable -> throw throwable.toFriendlyPersistenceException("Bahan") }
         }
 
     override suspend fun listSuppliers(): List<SupplierMaster> =
@@ -481,52 +486,56 @@ class SqlitePartMasterRepository(
         name: String,
     ): Long =
         withContext(Dispatchers.IO) {
-            database.write { connection ->
-                val normalized = normalizeText(name)
-                if (id == null) {
-                    connection
-                        .prepareStatement(
-                            """
-                            INSERT INTO supplier(supplier_name, supplier_name_norm, is_active)
-                            VALUES(?, ?, 1)
-                            """.trimIndent(),
-                            Statement.RETURN_GENERATED_KEYS,
-                        ).use { statement ->
-                            statement.setString(1, name.trim())
-                            statement.setString(2, normalized)
-                            statement.executeUpdate()
-                            statement.generatedKeys.use { rs ->
-                                check(rs.next()) { "Gagal menyimpan supplier." }
-                                rs.getLong(1)
+            runCatching {
+                database.write { connection ->
+                    val normalized = normalizeText(name)
+                    if (id == null) {
+                        connection
+                            .prepareStatement(
+                                """
+                                INSERT INTO supplier(supplier_name, supplier_name_norm, is_active)
+                                VALUES(?, ?, 1)
+                                """.trimIndent(),
+                                Statement.RETURN_GENERATED_KEYS,
+                            ).use { statement ->
+                                statement.setString(1, name.trim())
+                                statement.setString(2, normalized)
+                                statement.executeUpdate()
+                                statement.generatedKeys.use { rs ->
+                                    check(rs.next()) { "Gagal menyimpan pemasok." }
+                                    rs.getLong(1)
+                                }
                             }
-                        }
-                } else {
-                    connection
-                        .prepareStatement(
-                            """
-                            UPDATE supplier
-                            SET supplier_name = ?, supplier_name_norm = ?
-                            WHERE supplier_id = ?
-                            """.trimIndent(),
-                        ).use { statement ->
-                            statement.setString(1, name.trim())
-                            statement.setString(2, normalized)
-                            statement.setLong(3, id)
-                            statement.executeUpdate()
-                        }
-                    id
+                    } else {
+                        connection
+                            .prepareStatement(
+                                """
+                                UPDATE supplier
+                                SET supplier_name = ?, supplier_name_norm = ?
+                                WHERE supplier_id = ?
+                                """.trimIndent(),
+                            ).use { statement ->
+                                statement.setString(1, name.trim())
+                                statement.setString(2, normalized)
+                                statement.setLong(3, id)
+                                statement.executeUpdate()
+                            }
+                        id
+                    }
                 }
-            }
+            }.getOrElse { throwable -> throw throwable.toFriendlyPersistenceException("Pemasok") }
         }
 
     override suspend fun deleteSupplier(supplierId: Long): Boolean =
         withContext(Dispatchers.IO) {
-            database.write { connection ->
-                connection.prepareStatement("DELETE FROM supplier WHERE supplier_id = ?").use { statement ->
-                    statement.setLong(1, supplierId)
-                    statement.executeUpdate() > 0
+            runCatching {
+                database.write { connection ->
+                    connection.prepareStatement("DELETE FROM supplier WHERE supplier_id = ?").use { statement ->
+                        statement.setLong(1, supplierId)
+                        statement.executeUpdate() > 0
+                    }
                 }
-            }
+            }.getOrElse { throwable -> throw throwable.toFriendlyPersistenceException("Pemasok") }
         }
 
     override suspend fun listDefects(): List<DefectMaster> =
@@ -560,57 +569,61 @@ class SqlitePartMasterRepository(
 
     override suspend fun saveDefect(command: SaveDefectMasterCommand): Long =
         withContext(Dispatchers.IO) {
-            database.write { connection ->
-                val normalized = normalizeText(command.name)
-                if (command.id == null) {
-                    connection
-                        .prepareStatement(
-                            """
-                            INSERT INTO defect_catalog(defect_name, defect_name_norm, ng_origin_type, line_code)
-                            VALUES(?, ?, ?, ?)
-                            """.trimIndent(),
-                            Statement.RETURN_GENERATED_KEYS,
-                        ).use { statement ->
-                            statement.setString(1, command.name.trim())
-                            statement.setString(2, normalized)
-                            statement.setString(3, command.originType.toDbValue())
-                            statement.setString(4, command.lineCode?.lowercase(Locale.getDefault()))
-                            statement.executeUpdate()
-                            statement.generatedKeys.use { rs ->
-                                check(rs.next()) { "Gagal menyimpan item defect." }
-                                rs.getLong(1)
+            runCatching {
+                database.write { connection ->
+                    val normalized = normalizeText(command.name)
+                    if (command.id == null) {
+                        connection
+                            .prepareStatement(
+                                """
+                                INSERT INTO defect_catalog(defect_name, defect_name_norm, ng_origin_type, line_code)
+                                VALUES(?, ?, ?, ?)
+                                """.trimIndent(),
+                                Statement.RETURN_GENERATED_KEYS,
+                            ).use { statement ->
+                                statement.setString(1, command.name.trim())
+                                statement.setString(2, normalized)
+                                statement.setString(3, command.originType.toDbValue())
+                                statement.setString(4, command.lineCode?.lowercase(Locale.getDefault()))
+                                statement.executeUpdate()
+                                statement.generatedKeys.use { rs ->
+                                    check(rs.next()) { "Gagal menyimpan Jenis NG." }
+                                    rs.getLong(1)
+                                }
                             }
-                        }
-                } else {
-                    val existingId = requireNotNull(command.id)
-                    connection
-                        .prepareStatement(
-                            """
-                            UPDATE defect_catalog
-                            SET defect_name = ?, defect_name_norm = ?, ng_origin_type = ?, line_code = ?
-                            WHERE defect_catalog_id = ?
-                            """.trimIndent(),
-                        ).use { statement ->
-                            statement.setString(1, command.name.trim())
-                            statement.setString(2, normalized)
-                            statement.setString(3, command.originType.toDbValue())
-                            statement.setString(4, command.lineCode?.lowercase(Locale.getDefault()))
-                            statement.setLong(5, existingId)
-                            statement.executeUpdate()
-                        }
-                    existingId
+                    } else {
+                        val existingId = requireNotNull(command.id)
+                        connection
+                            .prepareStatement(
+                                """
+                                UPDATE defect_catalog
+                                SET defect_name = ?, defect_name_norm = ?, ng_origin_type = ?, line_code = ?
+                                WHERE defect_catalog_id = ?
+                                """.trimIndent(),
+                            ).use { statement ->
+                                statement.setString(1, command.name.trim())
+                                statement.setString(2, normalized)
+                                statement.setString(3, command.originType.toDbValue())
+                                statement.setString(4, command.lineCode?.lowercase(Locale.getDefault()))
+                                statement.setLong(5, existingId)
+                                statement.executeUpdate()
+                            }
+                        existingId
+                    }
                 }
-            }
+            }.getOrElse { throwable -> throw throwable.toFriendlyPersistenceException("Jenis NG") }
         }
 
     override suspend fun deleteDefect(defectId: Long): Boolean =
         withContext(Dispatchers.IO) {
-            database.write { connection ->
-                connection.prepareStatement("DELETE FROM defect_catalog WHERE defect_catalog_id = ?").use { statement ->
-                    statement.setLong(1, defectId)
-                    statement.executeUpdate() > 0
+            runCatching {
+                database.write { connection ->
+                    connection.prepareStatement("DELETE FROM defect_catalog WHERE defect_catalog_id = ?").use { statement ->
+                        statement.setLong(1, defectId)
+                        statement.executeUpdate() > 0
+                    }
                 }
-            }
+            }.getOrElse { throwable -> throw throwable.toFriendlyPersistenceException("Jenis NG") }
         }
 }
 
@@ -636,3 +649,14 @@ private fun NgOriginType.toDbValue(): String = if (this == NgOriginType.MATERIAL
 
 private fun String.toNgOriginType(): NgOriginType =
     if (equals("material", true)) NgOriginType.MATERIAL else NgOriginType.PROCESS
+
+private fun Throwable.toFriendlyPersistenceException(entity: String): Throwable {
+    val sqlMessage = (this as? SQLException)?.message?.lowercase(Locale.getDefault()).orEmpty()
+    return when {
+        sqlMessage.contains("unique") ->
+            IllegalArgumentException("$entity sudah ada. Gunakan nama yang berbeda.")
+        sqlMessage.contains("foreign key") ->
+            IllegalArgumentException("$entity masih dipakai relasi data lain, tidak bisa diubah/hapus.")
+        else -> this
+    }
+}

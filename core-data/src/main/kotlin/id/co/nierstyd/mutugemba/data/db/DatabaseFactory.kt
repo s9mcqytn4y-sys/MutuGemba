@@ -14,9 +14,15 @@ class DatabaseDriver {
 }
 
 object DatabaseFactory {
+    private fun runtimeStateFile(databaseFile: Path): Path =
+        databaseFile
+            .resolveSibling("${databaseFile.fileName}.runtime.json")
+            .toAbsolutePath()
+            .normalize()
+
     fun createDatabaseHandle(databaseFile: Path): DatabaseHandle =
         DatabaseHandle(
-            database = InMemoryDatabase(databaseFile),
+            database = InMemoryDatabase(runtimeStateFile(databaseFile)),
             driver = DatabaseDriver(),
         )
 }

@@ -9,10 +9,12 @@ import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
 import id.co.nierstyd.mutugemba.domain.InspectionInput
 import id.co.nierstyd.mutugemba.domain.InspectionRecord
+import id.co.nierstyd.mutugemba.domain.InspectionTimeSlot
 import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.LineCode
 import id.co.nierstyd.mutugemba.domain.Part
 import id.co.nierstyd.mutugemba.domain.Shift
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
@@ -27,8 +29,11 @@ data class StoredInspection(
 )
 
 class InMemoryDatabase(
-    val databaseFile: Path,
+    private val stateFile: Path,
 ) {
+    val stateFilePath: Path
+        get() = stateFile
+
     private val json = Json { ignoreUnknownKeys = true }
     private val idGenerator = AtomicLong(0)
     private val extractedRoot = AppDataPaths.defaultPartAssetsExtractedDir()
@@ -110,6 +115,12 @@ class InMemoryDatabase(
         }
 
     val inspections = mutableListOf<StoredInspection>()
+    private var bulkMutationDepth: Int = 0
+    private var pendingFlush: Boolean = false
+
+    init {
+        loadState()
+    }
 
     fun toRecord(input: InspectionInput): InspectionRecord {
         val line = lines.firstOrNull { it.id == input.lineId }
@@ -128,9 +139,26 @@ class InMemoryDatabase(
         )
     }
 
+    @Synchronized
+    fun insertInspection(input: InspectionInput): InspectionRecord {
+        val record = toRecord(input)
+        val createdDate = parseCreatedDate(input.createdAt)
+        val defects = normalizeDefects(input)
+        inspections +=
+            StoredInspection(
+                input = input,
+                record = record,
+                createdDate = createdDate,
+                defects = defects,
+            )
+        markDirtyAndMaybePersist()
+        return record
+    }
+
     fun clearAll() {
         inspections.clear()
         idGenerator.set(0)
+        markDirtyAndMaybePersist()
     }
 
     private fun recommendedDefectCodesForPart(
@@ -331,7 +359,182 @@ class InMemoryDatabase(
             )
         customDefectTypes += created
         customDefectCodesByLine.getOrPut(lineCode) { linkedSetOf() }.add(created.code)
+        markDirtyAndMaybePersist()
         return created
+    }
+
+    @Synchronized
+    fun <T> withBulkMutation(block: () -> T): T {
+        bulkMutationDepth += 1
+        return try {
+            block()
+        } finally {
+            bulkMutationDepth = (bulkMutationDepth - 1).coerceAtLeast(0)
+            if (bulkMutationDepth == 0 && pendingFlush) {
+                persistState()
+                pendingFlush = false
+            }
+        }
+    }
+
+    private fun parseCreatedDate(raw: String): LocalDate =
+        runCatching {
+            java.time.LocalDateTime
+                .parse(raw)
+                .toLocalDate()
+        }.getOrDefault(LocalDate.now())
+
+    private fun normalizeDefects(input: InspectionInput): List<InspectionDefectEntry> =
+        if (input.defects.isNotEmpty()) {
+            input.defects
+        } else {
+            val defectTypeId = input.defectTypeId
+            val defectQuantity = input.defectQuantity
+            if (defectTypeId != null && defectQuantity != null && defectQuantity > 0) {
+                listOf(InspectionDefectEntry(defectTypeId, defectQuantity))
+            } else {
+                emptyList()
+            }
+        }
+
+    @Synchronized
+    private fun loadState() {
+        if (!Files.exists(stateFile)) return
+        val state =
+            runCatching {
+                json.decodeFromString(LocalStatePayload.serializer(), Files.readString(stateFile))
+            }.getOrNull() ?: return
+
+        val customByCode = baseDefectTypes.associateBy { it.code } + customDefectTypes.associateBy { it.code }
+        state.customDefects.forEach { saved ->
+            if (customByCode.containsKey(saved.code)) return@forEach
+            customDefectTypes +=
+                DefectType(
+                    id = saved.id,
+                    code = saved.code,
+                    name = saved.name,
+                    category = "CUSTOM",
+                    severity = DefectSeverity.NORMAL,
+                    lineCode =
+                        when (saved.lineCode) {
+                            LineCode.PRESS.name -> LineCode.PRESS
+                            LineCode.SEWING.name -> LineCode.SEWING
+                            else -> null
+                        },
+                )
+        }
+
+        inspections.clear()
+        inspections +=
+            state.inspections.map { saved ->
+                val defects =
+                    saved.defects.map { savedDefect ->
+                        InspectionDefectEntry(
+                            defectTypeId = savedDefect.defectTypeId,
+                            quantity = savedDefect.quantity,
+                            slots =
+                                savedDefect.slots.map { slot ->
+                                    id.co.nierstyd.mutugemba.domain.InspectionDefectSlot(
+                                        slot = InspectionTimeSlot.fromCode(slot.slotCode),
+                                        quantity = slot.quantity,
+                                    )
+                                },
+                        )
+                    }
+                val input =
+                    InspectionInput(
+                        kind =
+                            id.co.nierstyd.mutugemba.domain.InspectionKind
+                                .valueOf(saved.kind),
+                        lineId = saved.lineId,
+                        shiftId = saved.shiftId,
+                        partId = saved.partId,
+                        totalCheck = saved.totalCheck,
+                        defectTypeId = null,
+                        defectQuantity = null,
+                        defects = defects,
+                        picName = saved.picName,
+                        createdAt = saved.createdAt,
+                    )
+                val record =
+                    InspectionRecord(
+                        id = saved.recordId,
+                        kind = input.kind,
+                        lineName = lines.firstOrNull { it.id == input.lineId }?.name ?: "-",
+                        shiftName = shifts.firstOrNull { it.id == input.shiftId }?.name ?: "-",
+                        partName = parts.firstOrNull { it.id == input.partId }?.name ?: "-",
+                        partNumber = parts.firstOrNull { it.id == input.partId }?.partNumber ?: "-",
+                        totalCheck = saved.totalCheck,
+                        createdAt = saved.createdAt,
+                    )
+                StoredInspection(
+                    input = input,
+                    record = record,
+                    createdDate = parseCreatedDate(saved.createdAt),
+                    defects = defects,
+                )
+            }
+
+        val maxInspectionId = inspections.maxOfOrNull { it.record.id } ?: 0L
+        val maxDefectId = (baseDefectTypes + customDefectTypes).maxOfOrNull { it.id } ?: 0L
+        idGenerator.set(maxInspectionId)
+        nextDefectId.set(maxDefectId + 1L)
+    }
+
+    @Synchronized
+    private fun persistState() {
+        runCatching {
+            Files.createDirectories(stateFile.parent)
+            val payload =
+                LocalStatePayload(
+                    inspections =
+                        inspections.map { row ->
+                            SavedInspection(
+                                recordId = row.record.id,
+                                kind = row.input.kind.name,
+                                lineId = row.input.lineId,
+                                shiftId = row.input.shiftId,
+                                partId = row.input.partId,
+                                totalCheck = row.input.totalCheck,
+                                picName = row.input.picName,
+                                createdAt = row.input.createdAt,
+                                defects =
+                                    row.defects.map { defect ->
+                                        SavedDefectEntry(
+                                            defectTypeId = defect.defectTypeId,
+                                            quantity = defect.totalQuantity,
+                                            slots =
+                                                defect.slots.map { slot ->
+                                                    SavedDefectSlot(
+                                                        slotCode = slot.slot.code,
+                                                        quantity = slot.quantity,
+                                                    )
+                                                },
+                                        )
+                                    },
+                            )
+                        },
+                    customDefects =
+                        customDefectTypes.map { defect ->
+                            SavedCustomDefect(
+                                id = defect.id,
+                                code = defect.code,
+                                name = defect.name,
+                                lineCode = defect.lineCode?.name,
+                            )
+                        },
+                )
+            Files.writeString(stateFile, json.encodeToString(LocalStatePayload.serializer(), payload))
+        }
+    }
+
+    @Synchronized
+    private fun markDirtyAndMaybePersist() {
+        if (bulkMutationDepth > 0) {
+            pendingFlush = true
+            return
+        }
+        persistState()
     }
 
     private fun sortDefectCodesSmart(codes: List<String>): List<String> =
@@ -454,6 +657,46 @@ class InMemoryDatabase(
             !looksLikePartNumber
     }
 }
+
+@Serializable
+private data class LocalStatePayload(
+    val inspections: List<SavedInspection> = emptyList(),
+    val customDefects: List<SavedCustomDefect> = emptyList(),
+)
+
+@Serializable
+private data class SavedInspection(
+    val recordId: Long,
+    val kind: String,
+    val lineId: Long,
+    val shiftId: Long,
+    val partId: Long,
+    val totalCheck: Int?,
+    val picName: String,
+    val createdAt: String,
+    val defects: List<SavedDefectEntry> = emptyList(),
+)
+
+@Serializable
+private data class SavedDefectEntry(
+    val defectTypeId: Long,
+    val quantity: Int,
+    val slots: List<SavedDefectSlot> = emptyList(),
+)
+
+@Serializable
+private data class SavedDefectSlot(
+    val slotCode: String,
+    val quantity: Int,
+)
+
+@Serializable
+private data class SavedCustomDefect(
+    val id: Long,
+    val code: String,
+    val name: String,
+    val lineCode: String?,
+)
 
 private data class DefectSpec(
     val code: String,

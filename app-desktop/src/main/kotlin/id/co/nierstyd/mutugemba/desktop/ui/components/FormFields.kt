@@ -5,6 +5,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.material.TextFieldDefaults
@@ -19,11 +20,13 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
 import id.co.nierstyd.mutugemba.desktop.ui.theme.BrandBlue
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralBorder
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralLight
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralSurface
+import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralText
 import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 
 @Composable
@@ -87,7 +90,7 @@ fun CompactNumberField(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
-    val displayValue = if (isFocused && value == "0") "" else value
+    val displayValue = value
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -96,15 +99,25 @@ fun CompactNumberField(
             value = displayValue,
             onValueChange = { input -> onValueChange(filterNumberInput(input, false)) },
             placeholder = {
-                if (!isFocused && value.isBlank()) {
-                    Text(placeholder)
+                if (displayValue.isBlank()) {
+                    Text(
+                        text = placeholder,
+                        style = androidx.compose.material.MaterialTheme.typography.body1,
+                        color = NeutralTextMuted,
+                        textAlign = TextAlign.Center,
+                    )
                 }
             },
             singleLine = true,
-            textStyle = TextStyle(textAlign = TextAlign.Center),
+            textStyle =
+                TextStyle(
+                    textAlign = TextAlign.Center,
+                    color = NeutralText,
+                ),
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .background(
                         if (isFocused) NeutralLight else NeutralSurface,
                         androidx.compose.material.MaterialTheme.shapes.small,

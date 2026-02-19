@@ -158,3 +158,45 @@ class SaveManualHolidayDatesUseCase(
         settingsRepository.putString(AppSettingsKeys.MANUAL_HOLIDAY_DATES, value)
     }
 }
+
+class GetInspectionPartDefectLayoutUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(): Map<Long, List<Long>> {
+        val raw = settingsRepository.getString(AppSettingsKeys.INSPECTION_PART_DEFECT_LAYOUT).orEmpty()
+        if (raw.isBlank()) return emptyMap()
+        return raw
+            .split("|")
+            .mapNotNull { chunk ->
+                val parts = chunk.split("=")
+                if (parts.size != 2) return@mapNotNull null
+                val partId = parts[0].toLongOrNull() ?: return@mapNotNull null
+                val defectIds =
+                    parts[1]
+                        .split(",")
+                        .mapNotNull { it.toLongOrNull() }
+                        .distinct()
+                if (defectIds.isEmpty()) return@mapNotNull null
+                partId to defectIds
+            }.toMap()
+    }
+}
+
+class SaveInspectionPartDefectLayoutUseCase(
+    private val settingsRepository: SettingsRepository,
+) {
+    fun execute(overrides: Map<Long, List<Long>>) {
+        val value =
+            overrides
+                .toSortedMap()
+                .mapNotNull { (partId, defectIds) ->
+                    val ordered = defectIds.filter { it > 0 }.distinct()
+                    if (ordered.isEmpty()) {
+                        null
+                    } else {
+                        "$partId=${ordered.joinToString(",")}"
+                    }
+                }.joinToString("|")
+        settingsRepository.putString(AppSettingsKeys.INSPECTION_PART_DEFECT_LAYOUT, value)
+    }
+}

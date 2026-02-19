@@ -5,6 +5,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.Connection
 import java.sql.DriverManager
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private const val TARGET_SCHEMA_VERSION = 12
 private const val DEFAULT_SUPPLIER_NAME = "PT Mitra Prima Sentosa"
@@ -50,6 +53,19 @@ class SqliteDatabase(
     }
 
     private fun migrateIfNeeded() {
+        runCatching { migrateInternal() }.onFailure { throwable ->
+            val message = throwable.message?.lowercase(Locale.getDefault()).orEmpty()
+            if (message.contains("not a database")) {
+                logger.warn("Database file invalid. Backup corrupted file and rebuild schema.")
+                backupCorruptedDatabase()
+                migrateInternal()
+            } else {
+                throw throwable
+            }
+        }
+    }
+
+    private fun migrateInternal() {
         withConnection(readOnly = false) { connection ->
             val currentVersion =
                 connection.createStatement().use { statement ->
@@ -65,7 +81,7 @@ class SqliteDatabase(
                 return@withConnection
             }
 
-            if (hasNormalizedSchema && currentVersion >= 11) {
+            if (hasNormalizedSchema && (currentVersion >= 11 || !hasAdvancedMasterSchema)) {
                 logger.info(
                     "Repairing supplemental schema objects for version {} (target {}).",
                     currentVersion,
@@ -103,6 +119,13 @@ class SqliteDatabase(
                 throw it
             }
         }
+    }
+
+    private fun backupCorruptedDatabase() {
+        if (!Files.exists(dbFile)) return
+        val stamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(LocalDateTime.now())
+        val backupPath = dbFile.resolveSibling("${dbFile.fileName}.corrupted-$stamp.bak")
+        Files.move(dbFile, backupPath)
     }
 
     private fun loadSchemaSql(): String =

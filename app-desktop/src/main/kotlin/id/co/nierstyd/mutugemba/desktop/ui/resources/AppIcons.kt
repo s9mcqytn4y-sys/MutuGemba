@@ -3,7 +3,6 @@ package id.co.nierstyd.mutugemba.desktop.ui.resources
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -55,5 +54,4 @@ object AppIcons {
     val ArrowUp: ImageVector = Icons.Filled.ArrowUpward
     val ArrowDown: ImageVector = Icons.Filled.ArrowDownward
     val Delete: ImageVector = Icons.Filled.DeleteOutline
-    val Add: ImageVector = Icons.Filled.Add
 }

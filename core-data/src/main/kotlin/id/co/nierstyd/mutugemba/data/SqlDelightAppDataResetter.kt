@@ -13,7 +13,7 @@ class SqlDelightAppDataResetter(
         runCatching {
             database.clearAll()
             driver.close()
-            Files.deleteIfExists(database.databaseFile)
+            Files.deleteIfExists(database.stateFilePath)
             true
         }.getOrDefault(false)
 }

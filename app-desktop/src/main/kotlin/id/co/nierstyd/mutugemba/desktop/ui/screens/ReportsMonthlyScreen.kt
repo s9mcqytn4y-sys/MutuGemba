@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import id.co.nierstyd.mutugemba.data.AppDataPaths
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
@@ -68,6 +69,7 @@ import id.co.nierstyd.mutugemba.domain.Line
 import id.co.nierstyd.mutugemba.domain.MonthlyReportDocument
 import id.co.nierstyd.mutugemba.domain.MonthlyReportRow
 import id.co.nierstyd.mutugemba.usecase.FeedbackType
+import id.co.nierstyd.mutugemba.usecase.ReportArchiveEntry
 import id.co.nierstyd.mutugemba.usecase.UserFeedback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -114,6 +116,8 @@ fun ReportsMonthlyScreen(
     dailySummaries: List<DailyChecksheetSummary>,
     loadMonthlyReportDocument: (Long, YearMonth) -> MonthlyReportDocument?,
     loadManualHolidays: () -> Set<LocalDate>,
+    recentArchiveEntries: () -> List<ReportArchiveEntry>,
+    appendArchiveEntry: (action: String, line: String, period: String, filePath: String, createdAt: String) -> Unit,
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -129,6 +133,8 @@ fun ReportsMonthlyScreen(
     var state by remember { mutableStateOf<MonthlyReportUiState>(MonthlyReportUiState.Loading) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     var feedback by remember { mutableStateOf<UserFeedback?>(null) }
+    var pendingAction by remember { mutableStateOf<PendingAction?>(null) }
+    var archiveItems by remember { mutableStateOf<List<ReportArchiveEntry>>(emptyList()) }
     val scope = rememberCoroutineScope()
     val summaryByDate =
         remember(dailySummaries, month, selectedLineId) {
@@ -140,6 +146,7 @@ fun ReportsMonthlyScreen(
 
     LaunchedEffect(Unit) {
         manualHolidays = loadManualHolidays()
+        archiveItems = recentArchiveEntries()
     }
 
     LaunchedEffect(lines) {
@@ -180,49 +187,11 @@ fun ReportsMonthlyScreen(
             onMonthChange = { target -> month = if (target.isAfter(todayMonth)) todayMonth else target },
             onPrint = {
                 val document = (state as? MonthlyReportUiState.Loaded)?.document ?: return@MonthlyReportToolbar
-                scope.launch {
-                    val result =
-                        withContext(Dispatchers.IO) {
-                            runCatching {
-                                exportMonthlyPdf(document, manualHolidays)
-                            }
-                        }
-                    result
-                        .onSuccess { path ->
-                            val printed =
-                                runCatching {
-                                    if (Desktop.isDesktopSupported()) {
-                                        Desktop.getDesktop().print(path.toFile())
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                }.getOrElse { false }
-                            feedback =
-                                if (printed) {
-                                    UserFeedback(FeedbackType.SUCCESS, AppStrings.ReportsMonthly.PrintSuccess)
-                                } else {
-                                    UserFeedback(FeedbackType.ERROR, AppStrings.ReportsMonthly.PrintFailed)
-                                }
-                        }.onFailure {
-                            feedback = UserFeedback(FeedbackType.ERROR, AppStrings.ReportsMonthly.PrintFailed)
-                        }
-                }
+                pendingAction = PendingAction.Print(document)
             },
             onExport = {
                 val document = (state as? MonthlyReportUiState.Loaded)?.document ?: return@MonthlyReportToolbar
-                scope.launch {
-                    val result =
-                        withContext(Dispatchers.IO) {
-                            runCatching { exportMonthlyPdf(document, manualHolidays) }
-                        }
-                    feedback =
-                        if (result.isSuccess) {
-                            UserFeedback(FeedbackType.SUCCESS, AppStrings.ReportsMonthly.ExportSuccess)
-                        } else {
-                            UserFeedback(FeedbackType.ERROR, AppStrings.ReportsMonthly.ExportFailed)
-                        }
-                }
+                pendingAction = PendingAction.Export(document)
             },
         )
 
@@ -233,6 +202,9 @@ fun ReportsMonthlyScreen(
                     onDismiss = { feedback = null },
                     dense = true,
                 )
+            }
+            if (archiveItems.isNotEmpty()) {
+                ArchiveCompactCard(entries = archiveItems.take(3))
             }
         }
 
@@ -247,6 +219,153 @@ fun ReportsMonthlyScreen(
                     manualHolidays = manualHolidays,
                     summaryByDate = summaryByDate,
                 )
+        }
+    }
+
+    pendingAction?.let { action ->
+        ReportActionPreviewDialog(
+            action = action,
+            onDismiss = { pendingAction = null },
+            onConfirm = {
+                pendingAction = null
+                scope.launch {
+                    val result =
+                        withContext(Dispatchers.IO) {
+                            runCatching { exportMonthlyPdf(action.document, manualHolidays) }
+                        }
+                    result
+                        .onSuccess { path ->
+                            val isPrint = action is PendingAction.Print
+                            val success =
+                                if (isPrint) {
+                                    runCatching {
+                                        if (Desktop.isDesktopSupported()) {
+                                            Desktop.getDesktop().print(path.toFile())
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    }.getOrElse { false }
+                                } else {
+                                    true
+                                }
+                            if (success) {
+                                val line = action.document.header.lineName
+                                val period =
+                                    action.document.header.month
+                                        .toString()
+                                appendArchiveEntry(
+                                    if (isPrint) "PRINT" else "EXPORT",
+                                    line,
+                                    period,
+                                    path.toAbsolutePath().toString(),
+                                    LocalDateTime.now().toString(),
+                                )
+                                archiveItems = recentArchiveEntries()
+                                feedback =
+                                    if (isPrint) {
+                                        UserFeedback(FeedbackType.SUCCESS, AppStrings.ReportsMonthly.PrintSuccess)
+                                    } else {
+                                        UserFeedback(FeedbackType.SUCCESS, AppStrings.ReportsMonthly.ExportSuccess)
+                                    }
+                            } else {
+                                feedback = UserFeedback(FeedbackType.ERROR, AppStrings.ReportsMonthly.PrintFailed)
+                            }
+                        }.onFailure {
+                            feedback =
+                                if (action is PendingAction.Print) {
+                                    UserFeedback(FeedbackType.ERROR, AppStrings.ReportsMonthly.PrintFailed)
+                                } else {
+                                    UserFeedback(FeedbackType.ERROR, AppStrings.ReportsMonthly.ExportFailed)
+                                }
+                        }
+                }
+            },
+        )
+    }
+}
+
+private sealed class PendingAction(
+    val document: MonthlyReportDocument,
+) {
+    class Print(
+        document: MonthlyReportDocument,
+    ) : PendingAction(document)
+
+    class Export(
+        document: MonthlyReportDocument,
+    ) : PendingAction(document)
+}
+
+@Composable
+private fun ReportActionPreviewDialog(
+    action: PendingAction,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val title = if (action is PendingAction.Print) "Pratinjau Cetak" else "Pratinjau Ekspor PDF"
+    val subtitle =
+        if (action is PendingAction.Print) {
+            "Dokumen akan dibuat lalu dikirim ke printer default."
+        } else {
+            "Dokumen akan dibuat ke folder ekspor lokal."
+        }
+    Dialog(onCloseRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = NeutralSurface,
+            border = BorderStroke(1.dp, NeutralBorder),
+            modifier = Modifier.widthIn(min = 420.dp, max = 560.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(title, style = MaterialTheme.typography.h6)
+                Text(subtitle, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+                Text(
+                    "Line: ${action.document.header.lineName} • Periode: ${action.document.header.month}",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
+                    SecondaryButton(
+                        text = "Batal",
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                    )
+                    PrimaryButton(
+                        text = "Lanjutkan",
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArchiveCompactCard(entries: List<ReportArchiveEntry>) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.small,
+        color = NeutralLight.copy(alpha = 0.6f),
+        border = BorderStroke(1.dp, NeutralBorder),
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text("Arsip Laporan Terbaru", style = MaterialTheme.typography.subtitle2)
+            entries.forEach { entry ->
+                Text(
+                    text = "${entry.action} • ${entry.line} • ${entry.period}",
+                    style = MaterialTheme.typography.caption,
+                    color = NeutralTextMuted,
+                )
+            }
         }
     }
 }
