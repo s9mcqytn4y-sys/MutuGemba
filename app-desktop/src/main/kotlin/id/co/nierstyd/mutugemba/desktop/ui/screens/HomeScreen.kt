@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppAccordionIndicator
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.ConfirmDialog
 import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
@@ -869,11 +870,10 @@ private fun DailyLineStatusCard(
                         style = MaterialTheme.typography.caption,
                         color = MaterialTheme.colors.primary,
                     )
-                    Icon(
-                        imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
-                        contentDescription = null,
-                        tint = MaterialTheme.colors.primary,
-                        modifier = Modifier.size(16.dp),
+                    AppAccordionIndicator(
+                        expanded = expanded,
+                        accent = MaterialTheme.colors.primary,
+                        size = 20.dp,
                     )
                 }
             }

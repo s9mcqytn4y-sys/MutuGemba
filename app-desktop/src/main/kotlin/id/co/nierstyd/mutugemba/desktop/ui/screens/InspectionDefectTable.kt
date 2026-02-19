@@ -3,8 +3,6 @@ package id.co.nierstyd.mutugemba.desktop.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -47,6 +45,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.data.AppDataPaths
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppAccordionIndicator
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppNumberField
@@ -212,7 +211,6 @@ private fun PartHeader(
             PartInputStatus.INCOMPLETE -> NeutralBorder
             PartInputStatus.EMPTY -> NeutralBorder
         }
-    val expandRotation by animateFloatAsState(targetValue = if (expanded) 180f else 0f)
     Row(
         modifier =
             Modifier
@@ -288,14 +286,9 @@ private fun PartHeader(
                                 color = NeutralTextMuted,
                             )
                         }
-                        Icon(
-                            imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
-                            contentDescription = null,
-                            tint = MaterialTheme.colors.primary,
-                            modifier =
-                                Modifier
-                                    .size(18.dp)
-                                    .graphicsLayer { rotationZ = expandRotation },
+                        AppAccordionIndicator(
+                            expanded = expanded,
+                            accent = MaterialTheme.colors.primary,
                         )
                     }
                     Row(
@@ -656,7 +649,7 @@ private fun findExtractedImageCandidate(
 }
 
 @Composable
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 private fun DefectTableGrid(
     defectTypes: List<DefectType>,
     timeSlots: List<InspectionTimeSlot>,
@@ -711,9 +704,19 @@ private fun DefectTableGrid(
                     LaunchedEffect(index, previousIndex) {
                         if (previousIndex != index) {
                             verticalShift.snapTo((previousIndex - index) * InspectionTableRowHeight.value)
-                            verticalShift.animateTo(0f, animationSpec = tween(durationMillis = 220))
+                            verticalShift.animateTo(
+                                0f,
+                                animationSpec =
+                                    androidx.compose.animation.core
+                                        .tween(durationMillis = 220),
+                            )
                         } else {
-                            verticalShift.animateTo(0f, animationSpec = tween(durationMillis = 160))
+                            verticalShift.animateTo(
+                                0f,
+                                animationSpec =
+                                    androidx.compose.animation.core
+                                        .tween(durationMillis = 160),
+                            )
                         }
                     }
                     Row(

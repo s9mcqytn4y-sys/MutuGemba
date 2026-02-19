@@ -276,11 +276,10 @@ private fun SidebarSectionHeader(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Icon(
-            imageVector = if (expanded) AppIcons.ExpandLess else AppIcons.ExpandMore,
-            contentDescription = null,
-            tint = textColor,
-            modifier = Modifier.size(16.dp),
+        AppAccordionIndicator(
+            expanded = expanded,
+            accent = textColor,
+            size = 20.dp,
         )
     }
 }
