@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,6 +69,8 @@ import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionTimeSlot
 import id.co.nierstyd.mutugemba.domain.Part
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -565,8 +568,19 @@ private fun rememberImageBitmap(
     path: String?,
     uniqCode: String,
     partNumber: String,
+): ImageBitmap? {
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, path, uniqCode, partNumber) {
+        value = loadImageBitmap(path = path, uniqCode = uniqCode, partNumber = partNumber)
+    }
+    return bitmap
+}
+
+private suspend fun loadImageBitmap(
+    path: String?,
+    uniqCode: String,
+    partNumber: String,
 ): ImageBitmap? =
-    remember(path, uniqCode, partNumber) {
+    withContext(Dispatchers.IO) {
         try {
             val normalizedInput = path?.replace('\\', '/')
             val direct =
@@ -600,7 +614,7 @@ private fun rememberImageBitmap(
             val existing =
                 candidates.firstOrNull { candidate ->
                     Files.exists(candidate) && Files.isRegularFile(candidate)
-                } ?: return@remember null
+                } ?: return@withContext null
             val bytes = Files.readAllBytes(existing)
             org.jetbrains.skia.Image
                 .makeFromEncoded(bytes)
