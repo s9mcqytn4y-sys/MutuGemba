@@ -743,27 +743,7 @@ private class InspectionFormState(
                 inputs = inputs,
                 allowDuplicateSameDay = allowDuplicate,
             )
-        val failedDetails =
-            result.failedParts.mapNotNull { failed ->
-                val part = partsForLine().firstOrNull { it.id == failed.partId } ?: return@mapNotNull null
-                val reason = failed.feedback.message
-                AppStrings.Inspection.failedPartLine(part.partNumber, part.name, reason)
-            }
-        feedback =
-            if (failedDetails.isNotEmpty()) {
-                val type =
-                    if (result.feedback.type == FeedbackType.ERROR) {
-                        FeedbackType.ERROR
-                    } else {
-                        FeedbackType.WARNING
-                    }
-                UserFeedback(
-                    type,
-                    AppStrings.Inspection.partialSaveFailed(failedDetails.joinToString("\n")),
-                )
-            } else {
-                result.feedback
-            }
+        feedback = result.feedback
         showConfirmDialog = false
         if (result.savedRecords.isNotEmpty()) {
             onRecordsSaved(result.savedRecords)

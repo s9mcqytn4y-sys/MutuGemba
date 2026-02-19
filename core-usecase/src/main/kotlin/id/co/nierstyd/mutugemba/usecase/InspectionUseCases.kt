@@ -171,8 +171,8 @@ class CreateBatchInspectionRecordsUseCase(
                     UserFeedback(FeedbackType.ERROR, "Semua data gagal disimpan. Periksa input.")
                 else ->
                     UserFeedback(
-                        FeedbackType.WARNING,
-                        "Sebagian data tersimpan ($saved part). Ada $failed part gagal disimpan.",
+                        FeedbackType.SUCCESS,
+                        "Data inspeksi tersimpan ($saved part). Part lain dilewati.",
                     )
             }
 

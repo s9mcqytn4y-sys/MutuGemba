@@ -94,7 +94,7 @@ class InspectionUseCasesTest {
     }
 
     @Test
-    fun `batch save returns warning when some part fails`() {
+    fun `batch save returns success when some part fails`() {
         val repository = FakeInspectionRepository(duplicatePartIds = setOf(2L))
         val singleUseCase = CreateInspectionRecordUseCase(repository)
         val batchUseCase = CreateBatchInspectionRecordsUseCase(singleUseCase)
@@ -127,7 +127,7 @@ class InspectionUseCasesTest {
 
         val result = batchUseCase.execute(inputs)
 
-        assertEquals(FeedbackType.WARNING, result.feedback.type)
+        assertEquals(FeedbackType.SUCCESS, result.feedback.type)
         assertEquals(1, result.failedParts.size)
         assertEquals(1, result.savedRecords.size)
     }
