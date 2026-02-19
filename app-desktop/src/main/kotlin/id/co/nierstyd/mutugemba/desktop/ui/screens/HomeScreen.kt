@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -107,7 +108,7 @@ fun HomeScreen(
             ?.let { DateTimeFormats.formatTimestampWithZone(it.createdAt) }
     var showLineDetail by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
-    var feedback by remember { mutableStateOf<UserFeedback?>(null) }
+    var feedback by remember { mutableStateOf<UserFeedback?>(null, neverEqualPolicy()) }
 
     val summariesToday = dailySummaries.filter { it.date == today }
     val totalDefectToday = summariesToday.sumOf { it.totalDefect }

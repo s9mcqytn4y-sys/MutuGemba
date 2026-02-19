@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -73,7 +74,7 @@ fun SettingsScreen(dependencies: SettingsScreenDependencies) {
     var showResetDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
     var allowDuplicate by remember { mutableStateOf(dependencies.getAllowDuplicateInspection.execute()) }
-    var feedback by remember { mutableStateOf<UserFeedback?>(null) }
+    var feedback by remember { mutableStateOf<UserFeedback?>(null, neverEqualPolicy()) }
     var lines by remember { mutableStateOf<List<Line>>(emptyList()) }
     var selectedDevLineId by remember { mutableStateOf<Long?>(dependencies.getDevQcLine.execute()) }
     var loadingMessage by remember { mutableStateOf<String?>(null) }

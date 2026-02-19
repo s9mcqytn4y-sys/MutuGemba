@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -133,7 +134,7 @@ fun ReportsMonthlyScreen(
     var selectedLineId by remember(lines) { mutableStateOf(lines.firstOrNull()?.id) }
     var state by remember { mutableStateOf<MonthlyReportUiState>(MonthlyReportUiState.Loading) }
     var manualHolidays by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
-    var feedback by remember { mutableStateOf<UserFeedback?>(null) }
+    var feedback by remember { mutableStateOf<UserFeedback?>(null, neverEqualPolicy()) }
     var pendingAction by remember { mutableStateOf<PendingAction?>(null) }
     var archiveItems by remember { mutableStateOf<List<ReportArchiveEntry>>(emptyList()) }
     val scope = rememberCoroutineScope()

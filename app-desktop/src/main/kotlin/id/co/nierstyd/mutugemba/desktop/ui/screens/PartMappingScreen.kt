@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
+import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
@@ -573,8 +574,9 @@ fun PartMappingScreen(dependencies: PartMappingScreenDependencies) {
             }
 
             loadError?.let { message ->
-                StatusBanner(
+                FeedbackHost(
                     feedback = UserFeedback(FeedbackType.ERROR, "Gagal memuat part: $message"),
+                    onDismiss = { loadError = null },
                     dense = true,
                 )
             }

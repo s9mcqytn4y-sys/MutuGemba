@@ -1,5 +1,6 @@
 ﻿package id.co.nierstyd.mutugemba.desktop.ui.screens
 
+import id.co.nierstyd.mutugemba.usecase.CheckLineAlreadyInputUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
 import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
@@ -25,6 +26,7 @@ data class InspectionDefectLayoutUseCases(
 
 data class InspectionPolicyUseCases(
     val getAllowDuplicate: GetAllowDuplicateInspectionUseCase,
+    val checkLineAlreadyInput: CheckLineAlreadyInputUseCase,
 )
 
 data class MasterDataUseCaseBundle(

@@ -130,6 +130,15 @@ class CreateInspectionRecordUseCase(
     }
 }
 
+class CheckLineAlreadyInputUseCase(
+    private val repository: InspectionRepository,
+) {
+    fun execute(
+        lineId: Long,
+        date: LocalDate = LocalDate.now(),
+    ): Boolean = repository.hasInspectionOnLineDate(lineId = lineId, date = date)
+}
+
 class CreateBatchInspectionRecordsUseCase(
     private val createInspectionRecordUseCase: CreateInspectionRecordUseCase,
 ) {

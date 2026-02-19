@@ -30,6 +30,11 @@ internal data class SummaryTotals(
     val totalParts: Int = 0,
 )
 
+internal data class InspectionActionState(
+    val canEditInputs: Boolean,
+    val canSave: Boolean,
+)
+
 internal enum class PartInputStatus {
     EMPTY,
     INCOMPLETE,

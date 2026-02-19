@@ -42,11 +42,11 @@ import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppRadioGroup
 import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
+import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SectionHeader
 import id.co.nierstyd.mutugemba.desktop.ui.components.SkeletonBlock
-import id.co.nierstyd.mutugemba.desktop.ui.components.StatusBanner
 import id.co.nierstyd.mutugemba.desktop.ui.components.analytics.buildLineColors
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppIcons
 import id.co.nierstyd.mutugemba.desktop.ui.resources.AppStrings
@@ -399,7 +399,7 @@ private fun MonthlyHistoryCard(
             }
 
             if (showInfo) {
-                StatusBanner(
+                FeedbackHost(
                     feedback =
                         id.co.nierstyd.mutugemba.usecase.UserFeedback(
                             id.co.nierstyd.mutugemba.usecase.FeedbackType.INFO,

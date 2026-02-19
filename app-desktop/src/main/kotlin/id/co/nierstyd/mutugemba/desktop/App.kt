@@ -213,6 +213,7 @@ fun MutuGembaApp() {
                                     policies =
                                         InspectionPolicyUseCases(
                                             getAllowDuplicate = container.getAllowDuplicateInspectionUseCase,
+                                            checkLineAlreadyInput = container.checkLineAlreadyInputUseCase,
                                         ),
                                     masterData =
                                         MasterDataUseCaseBundle(

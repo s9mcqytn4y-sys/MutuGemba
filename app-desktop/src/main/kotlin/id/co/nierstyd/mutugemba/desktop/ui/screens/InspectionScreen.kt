@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -59,6 +62,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.zIndex
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
 import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
@@ -219,14 +223,6 @@ private fun InspectionScreenContent(
                     subtitle = AppStrings.Inspection.Subtitle,
                 )
             }
-            item {
-                FeedbackHost(
-                    feedback = state.feedback,
-                    onDismiss = { state.clearFeedback() },
-                    autoDismissMillis = 4000,
-                    onFeedbackShown = { listState.animateScrollToItem(0) },
-                )
-            }
 
             item {
                 InspectionIntroCard()
@@ -272,6 +268,7 @@ private fun InspectionScreenContent(
                     lineCode = state.selectedLineCodeName,
                     lineHint = state.lineHint,
                     allowDuplicate = state.isDuplicateAllowed(),
+                    lineLocked = state.isLineLockedForToday,
                 )
             }
 
@@ -318,8 +315,32 @@ private fun InspectionScreenContent(
                         onMoveDefectUp = { state.moveDefectUp(part.id, it) },
                         onMoveDefectDown = { state.moveDefectDown(part.id, it) },
                         onRemoveDefectFromPart = { state.removeDefectFromPart(part.id, it) },
+                        inputsEnabled = !state.isLineLockedForToday,
                     )
                 }
+            }
+        }
+
+        Box(
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .widthIn(max = 620.dp)
+                    .padding(top = 96.dp, start = Spacing.md, end = Spacing.md)
+                    .zIndex(2f),
+        ) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colors.surface.copy(alpha = 0.98f),
+                border = BorderStroke(1.dp, NeutralBorder.copy(alpha = 0.7f)),
+                elevation = 8.dp,
+            ) {
+                FeedbackHost(
+                    feedback = state.feedback,
+                    modifier = Modifier.padding(Spacing.xs),
+                    onDismiss = { state.clearFeedback() },
+                    autoDismissMillis = 4000,
+                )
             }
         }
 
@@ -329,7 +350,11 @@ private fun InspectionScreenContent(
             onToggleSummary = { showSummaryPanel = !showSummaryPanel },
             onOpenSearch = { showSearchModal = true },
             onClearAll = { state.clearAllInputs() },
-            canSave = state.canSave,
+            actionState =
+                InspectionActionState(
+                    canEditInputs = !state.isLineLockedForToday,
+                    canSave = state.canSave,
+                ),
             onConfirmSave = { state.onSaveRequested() },
         )
     }
@@ -383,9 +408,11 @@ private class InspectionFormState(
     var isMasterLoading by mutableStateOf(false)
         private set
 
-    var feedback by mutableStateOf<UserFeedback?>(null)
+    var feedback by mutableStateOf<UserFeedback?>(null, neverEqualPolicy())
         private set
     var showConfirmDialog by mutableStateOf(false)
+        private set
+    var isLineLockedForToday by mutableStateOf(false)
         private set
 
     val defectSlotInputs = mutableStateMapOf<PartDefectSlotKey, String>()
@@ -455,7 +482,7 @@ private class InspectionFormState(
             }
 
     val canSave: Boolean
-        get() = selectedLine != null && filledPartSummaries.isNotEmpty() && !hasInvalidTotals
+        get() = selectedLine != null && !isLineLockedForToday && filledPartSummaries.isNotEmpty() && !hasInvalidTotals
 
     private val selectedLine: Line?
         get() = lines.firstOrNull { it.id == selectedLineId }
@@ -486,6 +513,7 @@ private class InspectionFormState(
         syncSelections()
         ensureInputs()
         persistDefectLayout()
+        refreshLineLockState()
         isMasterLoading = false
     }
 
@@ -560,6 +588,7 @@ private class InspectionFormState(
         partId: Long,
         defectId: Long,
     ) {
+        if (isLineLockedForToday) return
         val active = defectTypesForPart(partId).map { it.id }.toMutableList()
         if (defectId !in active) {
             active += defectId
@@ -575,6 +604,7 @@ private class InspectionFormState(
         partId: Long,
         defectId: Long,
     ) {
+        if (isLineLockedForToday) return
         val active = defectTypesForPart(partId).map { it.id }.toMutableList()
         if (active.size <= 1) {
             feedback = UserFeedback(FeedbackType.WARNING, "Minimal satu Jenis NG harus tetap aktif.")
@@ -593,6 +623,7 @@ private class InspectionFormState(
         partId: Long,
         defectId: Long,
     ) {
+        if (isLineLockedForToday) return
         val active = defectTypesForPart(partId).map { it.id }.toMutableList()
         val index = active.indexOf(defectId)
         if (index <= 0) {
@@ -612,6 +643,7 @@ private class InspectionFormState(
         partId: Long,
         defectId: Long,
     ) {
+        if (isLineLockedForToday) return
         val active = defectTypesForPart(partId).map { it.id }.toMutableList()
         val index = active.indexOf(defectId)
         if (index == -1 || index >= active.lastIndex) {
@@ -657,6 +689,7 @@ private class InspectionFormState(
         partId: Long,
         value: String,
     ) {
+        if (isLineLockedForToday) return
         totalCheckInputs[partId] = sanitizeCountInput(value)
     }
 
@@ -666,6 +699,7 @@ private class InspectionFormState(
         slot: InspectionTimeSlot,
         value: String,
     ) {
+        if (isLineLockedForToday) return
         defectSlotInputs[PartDefectSlotKey(partId, defectId, slot)] = sanitizeCountInput(value)
     }
 
@@ -675,6 +709,7 @@ private class InspectionFormState(
         partId: Long,
         value: String,
     ) {
+        if (isLineLockedForToday) return
         customDefectInputs[partId] = value.take(80)
     }
 
@@ -713,6 +748,11 @@ private class InspectionFormState(
 
     fun onSaveRequested() {
         feedback = null
+        refreshLineLockState()
+        if (isLineLockedForToday) {
+            feedback = UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.LineLockedError)
+            return
+        }
         if (selectedLine == null || selectedShift == null) {
             feedback = UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.ErrorLineRequired)
             return
@@ -753,11 +793,13 @@ private class InspectionFormState(
         }
         if (result.feedback.type == FeedbackType.SUCCESS) {
             clearAllInputs()
+            refreshLineLockState()
         }
         saveDefaults()
     }
 
     fun clearAllInputs() {
+        if (isLineLockedForToday) return
         val hasAnyInput =
             totalCheckInputs.values.any { it.isNotBlank() } ||
                 defectSlotInputs.values.any { it.isNotBlank() }
@@ -925,6 +967,20 @@ private class InspectionFormState(
 
     private fun persistDefectLayout() {
         dependencies.defectLayout.saveLayout.execute(partDefectOverrides.toMap())
+    }
+
+    private fun refreshLineLockState() {
+        val lineId = selectedLine?.id
+        val allowDuplicate = dependencies.policies.getAllowDuplicate.execute()
+        isLineLockedForToday =
+            if (lineId == null || allowDuplicate) {
+                false
+            } else {
+                dependencies.policies.checkLineAlreadyInput.execute(
+                    lineId = lineId,
+                    date = today,
+                )
+            }
     }
 }
 
@@ -1115,6 +1171,7 @@ private fun InspectionSelectorCard(
     lineCode: String,
     lineHint: String,
     allowDuplicate: Boolean,
+    lineLocked: Boolean,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1155,6 +1212,18 @@ private fun InspectionSelectorCard(
                 Text(text = "Panduan Singkat", style = MaterialTheme.typography.subtitle2, color = NeutralText)
                 InspectionDataHint()
                 DuplicateRuleHint(allowDuplicate = allowDuplicate)
+                if (lineLocked) {
+                    AppBadge(
+                        text = AppStrings.Inspection.LineLockedBadge,
+                        backgroundColor = StatusWarning,
+                        contentColor = NeutralSurface,
+                    )
+                    Text(
+                        text = AppStrings.Inspection.LineLockedHint,
+                        style = MaterialTheme.typography.body2,
+                        color = NeutralTextMuted,
+                    )
+                }
                 Text(
                     text = "Aksi cepat: Summary, Cari Part (Ctrl+K), dan Konfirmasi ada di kanan bawah.",
                     style = MaterialTheme.typography.caption,
@@ -1183,7 +1252,7 @@ private fun BoxScope.InspectionFloatingActions(
     onToggleSummary: () -> Unit,
     onOpenSearch: () -> Unit,
     onClearAll: () -> Unit,
-    canSave: Boolean,
+    actionState: InspectionActionState,
     onConfirmSave: () -> Unit,
 ) {
     Column(
@@ -1201,8 +1270,8 @@ private fun BoxScope.InspectionFloatingActions(
 
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             FloatingActionButton(
-                onClick = onClearAll,
-                backgroundColor = NeutralSurface,
+                onClick = { if (actionState.canEditInputs) onClearAll() },
+                backgroundColor = if (actionState.canEditInputs) NeutralSurface else NeutralBorder,
                 contentColor = NeutralText,
             ) {
                 Icon(imageVector = AppIcons.Delete, contentDescription = AppStrings.Actions.ClearAll)
@@ -1222,8 +1291,8 @@ private fun BoxScope.InspectionFloatingActions(
                 Icon(imageVector = AppIcons.Search, contentDescription = AppStrings.Inspection.SearchPartLabel)
             }
             FloatingActionButton(
-                onClick = { if (canSave) onConfirmSave() },
-                backgroundColor = if (canSave) MaterialTheme.colors.primary else NeutralBorder,
+                onClick = { if (actionState.canSave) onConfirmSave() },
+                backgroundColor = if (actionState.canSave) MaterialTheme.colors.primary else NeutralBorder,
                 contentColor = NeutralSurface,
             ) {
                 Icon(imageVector = AppIcons.CheckCircle, contentDescription = AppStrings.Actions.ConfirmSave)

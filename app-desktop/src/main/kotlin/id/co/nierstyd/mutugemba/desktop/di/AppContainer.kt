@@ -17,6 +17,7 @@ import id.co.nierstyd.mutugemba.data.local.db.SqlitePartRepository
 import id.co.nierstyd.mutugemba.data.local.db.SqliteQaRepository
 import id.co.nierstyd.mutugemba.usecase.AppendReportArchiveEntryUseCase
 import id.co.nierstyd.mutugemba.usecase.BackupDatabaseUseCase
+import id.co.nierstyd.mutugemba.usecase.CheckLineAlreadyInputUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateBatchInspectionRecordsUseCase
 import id.co.nierstyd.mutugemba.usecase.CreateInspectionRecordUseCase
 import id.co.nierstyd.mutugemba.usecase.GetAllowDuplicateInspectionUseCase
@@ -120,6 +121,7 @@ class AppContainer {
 
     val createInspectionUseCase = CreateInspectionRecordUseCase(inspectionRepository)
     val createBatchInspectionUseCase = CreateBatchInspectionRecordsUseCase(createInspectionUseCase)
+    val checkLineAlreadyInputUseCase = CheckLineAlreadyInputUseCase(inspectionRepository)
     val getRecentInspectionsUseCase = GetRecentInspectionsUseCase(inspectionRepository)
     val getDailySummariesUseCase = GetMonthlyDailyChecksheetSummariesUseCase(inspectionRepository)
     val getDailyDetailUseCase = GetDailyChecksheetDetailUseCase(inspectionRepository)

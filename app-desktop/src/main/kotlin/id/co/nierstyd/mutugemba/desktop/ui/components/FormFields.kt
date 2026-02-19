@@ -87,6 +87,7 @@ fun CompactNumberField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = AppStrings.Common.Zero,
+    enabled: Boolean = true,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -109,6 +110,7 @@ fun CompactNumberField(
                 }
             },
             singleLine = true,
+            enabled = enabled,
             textStyle =
                 TextStyle(
                     textAlign = TextAlign.Center,

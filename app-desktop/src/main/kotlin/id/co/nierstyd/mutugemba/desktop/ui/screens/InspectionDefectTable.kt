@@ -105,6 +105,7 @@ internal fun PartChecksheetCard(
     onMoveDefectUp: (Long) -> Unit,
     onMoveDefectDown: (Long) -> Unit,
     onRemoveDefectFromPart: (Long) -> Unit,
+    inputsEnabled: Boolean = true,
 ) {
     val borderColor = if (expanded) MaterialTheme.colors.primary else NeutralBorder
     Surface(
@@ -148,6 +149,7 @@ internal fun PartChecksheetCard(
                                     helperText =
                                         AppStrings.Inspection.totalCheckHelper(!totalCheckInvalid),
                                     isError = totalCheckInvalid,
+                                    enabled = inputsEnabled,
                                 ),
                             value = totalCheckInput,
                             onValueChange = onTotalCheckChanged,
@@ -174,6 +176,7 @@ internal fun PartChecksheetCard(
                         onMoveUp = onMoveDefectUp,
                         onMoveDown = onMoveDefectDown,
                         onRemove = onRemoveDefectFromPart,
+                        enabled = inputsEnabled,
                     )
                     InlineCustomDefectRow(
                         value = customDefectInput,
@@ -182,6 +185,7 @@ internal fun PartChecksheetCard(
                         currentLine = currentLine,
                         availableDefects = availableDefectTypes,
                         onAddExisting = onAddDefectToPart,
+                        enabled = inputsEnabled,
                     )
                 }
             }
@@ -419,6 +423,7 @@ private fun InlineCustomDefectRow(
     currentLine: String,
     availableDefects: List<DefectType>,
     onAddExisting: (Long) -> Unit,
+    enabled: Boolean,
 ) {
     var selectedExisting by remember { mutableStateOf<DropdownOption?>(null) }
     val existingOptions =
@@ -459,12 +464,14 @@ private fun InlineCustomDefectRow(
                         selectedExisting = null
                     }
                 },
+                enabled = enabled,
                 modifier = Modifier.weight(1f),
             )
             AddCustomDefectCard(
                 value = value,
                 onValueChange = onValueChange,
                 onAdd = onAdd,
+                enabled = enabled,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -478,6 +485,7 @@ private fun AddExistingDefectCard(
     selectedExisting: DropdownOption?,
     onSelectExisting: (DropdownOption) -> Unit,
     onAddExisting: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -502,7 +510,7 @@ private fun AddExistingDefectCard(
                 selectedOption = selectedExisting,
                 onSelected = onSelectExisting,
                 placeholder = "Pilih Jenis NG",
-                enabled = existingOptions.isNotEmpty(),
+                enabled = enabled && existingOptions.isNotEmpty(),
                 helperText =
                     if (existingOptions.isEmpty()) {
                         "Semua Jenis NG pada daftar sudah aktif di part ini."
@@ -515,7 +523,7 @@ private fun AddExistingDefectCard(
             SecondaryButton(
                 text = "Tambahkan ke tabel",
                 onClick = onAddExisting,
-                enabled = selectedExisting != null,
+                enabled = enabled && selectedExisting != null,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -527,6 +535,7 @@ private fun AddCustomDefectCard(
     value: String,
     onValueChange: (String) -> Unit,
     onAdd: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -549,6 +558,7 @@ private fun AddCustomDefectCard(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
+                enabled = enabled,
                 placeholder = { Text(AppStrings.Inspection.CustomDefectPlaceholder) },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -556,7 +566,7 @@ private fun AddCustomDefectCard(
             SecondaryButton(
                 text = "Simpan Jenis NG baru",
                 onClick = onAdd,
-                enabled = value.isNotBlank(),
+                enabled = enabled && value.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -656,6 +666,7 @@ private fun DefectTableGrid(
     onMoveUp: (Long) -> Unit,
     onMoveDown: (Long) -> Unit,
     onRemove: (Long) -> Unit,
+    enabled: Boolean,
 ) {
     val visibleDefects =
         defectTypes.filter { defect ->
@@ -717,6 +728,7 @@ private fun DefectTableGrid(
                                 value = slotValue(defect.id, slot),
                                 onValueChange = { input -> onValueChange(defect.id, slot, input) },
                                 weight = 1f,
+                                enabled = enabled,
                             )
                         }
                         TableCell(text = rowTotal(defect.id).toString(), weight = 0.7f, alignCenter = true)
@@ -724,19 +736,19 @@ private fun DefectTableGrid(
                             DefectActionIcon(
                                 icon = AppIcons.ArrowUp,
                                 contentDescription = "Geser ke atas",
-                                enabled = index > 0,
+                                enabled = enabled && index > 0,
                                 onClick = { onMoveUp(defect.id) },
                             )
                             DefectActionIcon(
                                 icon = AppIcons.ArrowDown,
                                 contentDescription = "Geser ke bawah",
-                                enabled = index < visibleDefects.lastIndex,
+                                enabled = enabled && index < visibleDefects.lastIndex,
                                 onClick = { onMoveDown(defect.id) },
                             )
                             DefectActionIcon(
                                 icon = AppIcons.Delete,
                                 contentDescription = "Hapus Jenis NG",
-                                enabled = visibleDefects.size > 1,
+                                enabled = enabled && visibleDefects.size > 1,
                                 onClick = { onRemove(defect.id) },
                                 tint = StatusError,
                             )
@@ -821,6 +833,7 @@ private fun RowScope.TableInputCell(
     value: String,
     onValueChange: (String) -> Unit,
     weight: Float,
+    enabled: Boolean,
 ) {
     Box(
         modifier =
@@ -836,6 +849,7 @@ private fun RowScope.TableInputCell(
             value = value,
             onValueChange = onValueChange,
             placeholder = AppStrings.Common.Zero,
+            enabled = enabled,
         )
     }
 }
