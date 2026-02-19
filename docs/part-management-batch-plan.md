@@ -108,7 +108,7 @@ Status implementasi:
 
 ---
 
-### Batch 4 (material-defect-part impact graph)
+### Batch 4 (material-defect-part impact graph) - SELESAI
 Tujuan:
 - Menyesuaikan catatan bisnis bahwa NG terutama berasal dari material/proses.
 - Menampilkan dampak material terhadap part dan supplier secara eksplisit.
@@ -124,6 +124,13 @@ Teknis:
 Validasi:
 - SQL query perf check (index usage).
 - Golden-path UI checks.
+
+Status implementasi:
+- Panel cerdas relasi dampak ditambahkan di halaman `Data Master`.
+- Relasi diturunkan dari data real `PartMasterDetail`:
+  material -> jenis NG (origin material) -> part terdampak -> pemasok.
+- Filter dropdown material dan pemasok tersedia untuk analisa cepat.
+- Smart label otomatis tampil saat nama jenis NG yang sama muncul di lebih dari satu material.
 
 ---
 

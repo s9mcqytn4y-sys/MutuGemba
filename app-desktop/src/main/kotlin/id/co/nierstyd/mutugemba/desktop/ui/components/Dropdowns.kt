@@ -38,6 +38,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.NeutralTextMuted
 import id.co.nierstyd.mutugemba.desktop.ui.theme.Spacing
 
 @Composable
+@Suppress("LongParameterList")
 fun AppDropdown(
     label: String,
     options: List<DropdownOption>,
@@ -47,6 +48,7 @@ fun AppDropdown(
     placeholder: String = AppStrings.Common.Select,
     enabled: Boolean = true,
     helperText: String? = null,
+    isError: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
@@ -61,6 +63,7 @@ fun AppDropdown(
                 onValueChange = {},
                 readOnly = true,
                 enabled = enabled,
+                isError = isError,
                 label = { Text(label) },
                 placeholder = { Text(placeholder) },
                 singleLine = true,
@@ -101,7 +104,7 @@ fun AppDropdown(
             )
         }
         helperText?.let {
-            Text(text = it, color = NeutralTextMuted)
+            Text(text = it, color = if (isError) MaterialTheme.colors.error else NeutralTextMuted)
         }
     }
 }

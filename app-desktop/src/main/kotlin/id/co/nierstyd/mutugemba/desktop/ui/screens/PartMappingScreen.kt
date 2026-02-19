@@ -45,7 +45,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
+import id.co.nierstyd.mutugemba.desktop.ui.components.AppDropdown
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
+import id.co.nierstyd.mutugemba.desktop.ui.components.DropdownOption
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
@@ -928,7 +930,7 @@ private fun PartRequirementTable(requirements: List<Pair<String, Int>>) {
     }
 }
 
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 @Composable
 internal fun PartMasterManagerPanel(
     tabIndex: Int,
@@ -949,6 +951,31 @@ internal fun PartMasterManagerPanel(
     onAssignPartDefects: (partId: Long, defectIds: List<Long>) -> Unit,
     loadPartDetail: suspend (Long) -> PartMasterDetail?,
 ) {
+    var impactRows by remember { mutableStateOf<List<MaterialImpactRow>>(emptyList()) }
+    var impactLoading by remember { mutableStateOf(true) }
+    var impactError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(parts, materials, suppliers, defects) {
+        impactLoading = true
+        impactError = null
+        runCatching {
+            withContext(Dispatchers.IO) {
+                buildMaterialImpactRows(
+                    parts = parts,
+                    materials = materials,
+                    defects = defects,
+                    loadPartDetail = loadPartDetail,
+                )
+            }
+        }.onSuccess { rows ->
+            impactRows = rows
+        }.onFailure { throwable ->
+            impactRows = emptyList()
+            impactError = throwable.message ?: "Gagal menyusun panel relasi dampak."
+        }
+        impactLoading = false
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = NeutralSurface,
@@ -1014,6 +1041,12 @@ internal fun PartMasterManagerPanel(
                         onDeleteDefect = onDeleteDefect,
                     )
             }
+            MaterialImpactPanel(
+                rows = impactRows,
+                suppliers = suppliers,
+                loading = impactLoading,
+                error = impactError,
+            )
         }
     }
 }
@@ -1093,6 +1126,20 @@ private fun PartEditorTab(
             else -> null
         }
     val canSubmit = uniqError == null && partNumberError == null && partNameError == null && lineCodeError == null
+    val lineOptions =
+        remember {
+            listOf(
+                DropdownOption(1L, "press", "Line press"),
+                DropdownOption(2L, "sewing", "Line sewing"),
+            )
+        }
+    val exclusionOptions =
+        remember {
+            listOf(
+                DropdownOption(0L, "Tidak (0)", "Part tetap masuk checksheet."),
+                DropdownOption(1L, "Ya (1)", "Part tidak dimunculkan di checksheet."),
+            )
+        }
 
     LaunchedEffect(parts) {
         if (selectedAssignPartId == null || parts.none { it.id == selectedAssignPartId }) {
@@ -1157,24 +1204,22 @@ private fun PartEditorTab(
                 modifier = Modifier.weight(1.5f),
                 singleLine = true,
             )
-            AppTextField(
-                spec =
-                    FieldSpec(
-                        label = "Line Produksi (press/sewing)",
-                        helperText = lineCodeError ?: "Pilih line valid: press atau sewing.",
-                        isError = lineCodeError != null,
-                    ),
-                value = lineCode,
-                onValueChange = { lineCode = it.filter(Char::isLetter).lowercase() },
+            AppDropdown(
+                label = "Line Produksi",
+                options = lineOptions,
+                selectedOption = lineOptions.firstOrNull { it.label == normalizedLineCode },
+                onSelected = { option -> lineCode = option.label },
                 modifier = Modifier.weight(1f),
-                singleLine = true,
+                helperText = lineCodeError ?: "Pilih line produksi untuk part ini.",
+                isError = lineCodeError != null,
             )
-            AppTextField(
-                spec = FieldSpec(label = "Kecualikan dari Checksheet (0/1)"),
-                value = if (excluded) "1" else "0",
-                onValueChange = { excluded = it == "1" },
+            AppDropdown(
+                label = "Kecualikan dari Checksheet",
+                options = exclusionOptions,
+                selectedOption = exclusionOptions.firstOrNull { it.id == if (excluded) 1L else 0L },
+                onSelected = { option -> excluded = option.id == 1L },
                 modifier = Modifier.weight(1f),
-                singleLine = true,
+                helperText = "Atur apakah part ini tampil di checksheet harian.",
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -1440,6 +1485,23 @@ private fun MaterialEditorTab(
             else -> null
         }
     val canSave = nameError == null && supplierError == null
+    val supplierOptions =
+        remember(suppliers) {
+            listOf(DropdownOption(0L, "Tanpa pemasok", "Material belum dipetakan ke pemasok")) +
+                suppliers.map { supplier ->
+                    DropdownOption(
+                        id = supplier.id,
+                        label = "${supplier.id} - ${supplier.name}",
+                    )
+                }
+        }
+    val clientOptions =
+        remember {
+            listOf(
+                DropdownOption(0L, "Tidak (0)", "Material reguler."),
+                DropdownOption(1L, "Ya (1)", "Material titipan klien."),
+            )
+        }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Material tersedia: ${materials.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
@@ -1464,22 +1526,39 @@ private fun MaterialEditorTab(
             onValueChange = { materialName = it },
             singleLine = true,
         )
-        AppTextField(
-            spec =
-                FieldSpec(
-                    label = "ID Pemasok (opsional)",
-                    helperText = supplierError ?: "Kosongkan jika bahan belum dipetakan ke pemasok.",
-                    isError = supplierError != null,
-                ),
-            value = supplierRef,
-            onValueChange = { supplierRef = it.filter(Char::isDigit) },
-            singleLine = true,
-        )
-        AppTextField(
-            spec = FieldSpec(label = "Bahan Titipan Klien (0/1)"),
-            value = if (clientSupplied) "1" else "0",
-            onValueChange = { clientSupplied = it == "1" },
-            singleLine = true,
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            AppTextField(
+                spec =
+                    FieldSpec(
+                        label = "ID Pemasok (opsional)",
+                        helperText = supplierError ?: "Bisa diisi manual atau pilih dropdown.",
+                        isError = supplierError != null,
+                    ),
+                value = supplierRef,
+                onValueChange = { supplierRef = it.filter(Char::isDigit) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            AppDropdown(
+                label = "Pilih Pemasok",
+                options = supplierOptions,
+                selectedOption =
+                    supplierOptions.firstOrNull { option ->
+                        option.id == (supplierId ?: 0L)
+                    },
+                onSelected = { option ->
+                    supplierRef = if (option.id == 0L) "" else option.id.toString()
+                },
+                modifier = Modifier.weight(1f),
+                helperText = "Pemilihan cepat pemasok.",
+            )
+        }
+        AppDropdown(
+            label = "Bahan Titipan Klien",
+            options = clientOptions,
+            selectedOption = clientOptions.firstOrNull { it.id == if (clientSupplied) 1L else 0L },
+            onSelected = { option -> clientSupplied = option.id == 1L },
+            helperText = "Atur status bahan titipan klien.",
         )
         Text(
             "Referensi Pemasok: ${
@@ -1665,6 +1744,21 @@ private fun DefectEditorTab(
             else -> "Line opsional harus `press` atau `sewing`."
         }
     val canSave = nameError == null && originError == null && lineError == null
+    val originOptions =
+        remember {
+            listOf(
+                DropdownOption(0L, "material", "NG yang dipicu oleh material/bahan."),
+                DropdownOption(1L, "process", "NG yang dipicu proses produksi."),
+            )
+        }
+    val lineOptions =
+        remember {
+            listOf(
+                DropdownOption(0L, "Semua line", "Berlaku untuk seluruh line."),
+                DropdownOption(1L, "press", "Khusus line press."),
+                DropdownOption(2L, "sewing", "Khusus line sewing."),
+            )
+        }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text("Jenis NG: ${defects.size}", style = MaterialTheme.typography.caption, color = NeutralTextMuted)
@@ -1690,29 +1784,31 @@ private fun DefectEditorTab(
             singleLine = true,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-            AppTextField(
-                spec =
-                    FieldSpec(
-                        label = "Asal NG (material/process)",
-                        helperText = originError ?: "Pilih sumber NG: material atau process.",
-                        isError = originError != null,
-                    ),
-                value = originRaw,
-                onValueChange = { originRaw = it.filter(Char::isLetter).lowercase() },
+            AppDropdown(
+                label = "Asal NG",
+                options = originOptions,
+                selectedOption = originOptions.firstOrNull { it.label == normalizedOrigin },
+                onSelected = { option -> originRaw = option.label },
                 modifier = Modifier.weight(1f),
-                singleLine = true,
+                helperText = originError ?: "Pilih sumber NG: material atau process.",
+                isError = originError != null,
             )
-            AppTextField(
-                spec =
-                    FieldSpec(
-                        label = "Line Produksi (opsional)",
-                        helperText = lineError ?: "Kosongkan untuk semua line.",
-                        isError = lineError != null,
-                    ),
-                value = lineCode,
-                onValueChange = { lineCode = it.filter(Char::isLetter).lowercase() },
+            AppDropdown(
+                label = "Line Produksi",
+                options = lineOptions,
+                selectedOption =
+                    lineOptions.firstOrNull {
+                        when {
+                            normalizedLineCode == null -> it.id == 0L
+                            else -> it.label == normalizedLineCode
+                        }
+                    },
+                onSelected = { option ->
+                    lineCode = if (option.id == 0L) "" else option.label
+                },
                 modifier = Modifier.weight(1f),
-                singleLine = true,
+                helperText = lineError ?: "Kosongkan jika berlaku untuk semua line.",
+                isError = lineError != null,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -1764,6 +1860,310 @@ private fun DefectEditorTab(
             }
         }
     }
+}
+
+private data class MaterialImpactDefectRow(
+    val defectName: String,
+    val impactedPartCount: Int,
+    val sharedAcrossMaterialCount: Int,
+)
+
+private data class MaterialImpactRow(
+    val materialId: Long,
+    val materialName: String,
+    val supplierId: Long?,
+    val supplierLabel: String,
+    val impactedPartIds: Set<Long>,
+    val impactedPartLabels: List<String>,
+    val defects: List<MaterialImpactDefectRow>,
+)
+
+@Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+private fun MaterialImpactPanel(
+    rows: List<MaterialImpactRow>,
+    suppliers: List<SupplierMaster>,
+    loading: Boolean,
+    error: String?,
+) {
+    var selectedMaterialId by remember { mutableStateOf<Long?>(null) }
+    var selectedSupplierId by remember { mutableStateOf<Long?>(null) }
+
+    val materialOptions =
+        remember(rows) {
+            listOf(DropdownOption(-1L, "Semua bahan", "Lihat relasi seluruh material.")) +
+                rows.map { row ->
+                    DropdownOption(
+                        id = row.materialId,
+                        label = row.materialName,
+                        helper = "Pemasok: ${row.supplierLabel}",
+                    )
+                }
+        }
+    val supplierOptions =
+        remember(suppliers) {
+            listOf(DropdownOption(-1L, "Semua pemasok", "Tanpa filter pemasok")) +
+                suppliers.map { supplier ->
+                    DropdownOption(supplier.id, supplier.name)
+                }
+        }
+
+    val filteredRows =
+        rows.filter { row ->
+            val byMaterial = selectedMaterialId == null || row.materialId == selectedMaterialId
+            val bySupplier = selectedSupplierId == null || row.supplierId == selectedSupplierId
+            byMaterial && bySupplier
+        }
+    val uniquePartCount = filteredRows.flatMap { it.impactedPartIds }.toSet().size
+    val uniqueDefectCount = filteredRows.flatMap { row -> row.defects.map { it.defectName } }.toSet().size
+    val sharedDefectCount =
+        filteredRows.flatMap { row -> row.defects.filter { it.sharedAcrossMaterialCount > 1 } }.count()
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = NeutralLight.copy(alpha = 0.35f),
+        border = BorderStroke(1.dp, NeutralBorder),
+        shape = MaterialTheme.shapes.small,
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Text(
+                text = "Panel Cerdas Relasi Dampak",
+                style = MaterialTheme.typography.body1,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Material -> Jenis NG -> Part -> Pemasok (sumber data master real-time).",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                AppDropdown(
+                    label = "Filter Material",
+                    options = materialOptions,
+                    selectedOption =
+                        materialOptions.firstOrNull {
+                            it.id == (selectedMaterialId ?: -1L)
+                        },
+                    onSelected = { option ->
+                        selectedMaterialId = if (option.id == -1L) null else option.id
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                AppDropdown(
+                    label = "Filter Pemasok",
+                    options = supplierOptions,
+                    selectedOption =
+                        supplierOptions.firstOrNull {
+                            it.id == (selectedSupplierId ?: -1L)
+                        },
+                    onSelected = { option ->
+                        selectedSupplierId = if (option.id == -1L) null else option.id
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                AppBadge(
+                    text = "Bahan ${filteredRows.size}",
+                    backgroundColor = NeutralSurface,
+                    contentColor = NeutralText,
+                )
+                AppBadge(
+                    text = "Jenis NG $uniqueDefectCount",
+                    backgroundColor = NeutralSurface,
+                    contentColor = NeutralText,
+                )
+                AppBadge(
+                    text = "Part terdampak $uniquePartCount",
+                    backgroundColor = NeutralSurface,
+                    contentColor = NeutralText,
+                )
+                AppBadge(
+                    text = "Nama NG ganda $sharedDefectCount",
+                    backgroundColor = NeutralSurface,
+                    contentColor = MaterialTheme.colors.primary,
+                )
+            }
+
+            when {
+                loading -> {
+                    Text(
+                        text = "Menyusun relasi dampak material...",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                }
+
+                error != null -> {
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.caption,
+                        color = MaterialTheme.colors.error,
+                    )
+                }
+
+                filteredRows.isEmpty() -> {
+                    Text(
+                        text = "Belum ada relasi dampak material yang bisa ditampilkan.",
+                        style = MaterialTheme.typography.caption,
+                        color = NeutralTextMuted,
+                    )
+                }
+
+                else -> {
+                    filteredRows.take(6).forEach { row ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = NeutralSurface,
+                            border = BorderStroke(1.dp, NeutralBorder),
+                            shape = MaterialTheme.shapes.small,
+                            elevation = 0.dp,
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = row.materialName,
+                                        style = MaterialTheme.typography.body2,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    AppBadge(
+                                        text = row.supplierLabel,
+                                        backgroundColor = NeutralLight,
+                                        contentColor = NeutralTextMuted,
+                                    )
+                                }
+                                val partPreview = row.impactedPartLabels.take(4).joinToString(" | ")
+                                val partSuffix = if (row.impactedPartLabels.size > 4) " ..." else ""
+                                Text(
+                                    text = "Part terdampak: $partPreview$partSuffix",
+                                    style = MaterialTheme.typography.caption,
+                                    color = NeutralTextMuted,
+                                )
+                                row.defects.take(5).forEach { defect ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = defect.defectName,
+                                            style = MaterialTheme.typography.caption,
+                                            color = NeutralText,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        AppBadge(
+                                            text = "Part ${defect.impactedPartCount}",
+                                            backgroundColor = NeutralLight,
+                                            contentColor = NeutralTextMuted,
+                                        )
+                                        if (defect.sharedAcrossMaterialCount > 1) {
+                                            AppBadge(
+                                                text = "Nama sama di ${defect.sharedAcrossMaterialCount} bahan",
+                                                backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
+                                                contentColor = MaterialTheme.colors.primary,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Suppress("CyclomaticComplexMethod", "NestedBlockDepth")
+private suspend fun buildMaterialImpactRows(
+    parts: List<PartMasterListItem>,
+    materials: List<MaterialMaster>,
+    defects: List<DefectMaster>,
+    loadPartDetail: suspend (Long) -> PartMasterDetail?,
+): List<MaterialImpactRow> {
+    if (parts.isEmpty() || materials.isEmpty()) return emptyList()
+    val partMap = parts.associateBy { it.id }
+    val materialById = materials.associateBy { it.id }
+    val defectById = defects.associateBy { it.id }
+    val details = parts.mapNotNull { part -> loadPartDetail(part.id) }
+
+    val materialDefectPartMap = mutableMapOf<Long, MutableMap<String, MutableSet<Long>>>()
+    details.forEach { detail ->
+        val partMaterialIds = detail.materials.map { it.materialId }.toSet()
+        if (partMaterialIds.isEmpty()) return@forEach
+
+        detail.defects
+            .filter { it.originType == NgOriginType.MATERIAL }
+            .forEach { assignment ->
+                val defectName =
+                    defectById[assignment.defectId]?.name?.normalizeHumanInput()
+                        ?: assignment.defectName.normalizeHumanInput()
+                val targetMaterialIds =
+                    if (assignment.materialId != null) {
+                        listOfNotNull(assignment.materialId)
+                    } else {
+                        partMaterialIds.toList()
+                    }
+                targetMaterialIds.forEach { materialId ->
+                    if (!materialById.containsKey(materialId)) return@forEach
+                    materialDefectPartMap
+                        .getOrPut(materialId) { mutableMapOf() }
+                        .getOrPut(defectName) { mutableSetOf() }
+                        .add(detail.id)
+                }
+            }
+    }
+
+    val defectSpreadMap = mutableMapOf<String, MutableSet<Long>>()
+    materialDefectPartMap.forEach { (materialId, defectMap) ->
+        defectMap.keys.forEach { defectName ->
+            defectSpreadMap.getOrPut(defectName) { mutableSetOf() }.add(materialId)
+        }
+    }
+
+    return materials
+        .sortedBy { it.name.lowercase() }
+        .map { material ->
+            val defectMap = materialDefectPartMap[material.id].orEmpty()
+            val impactedPartIds = defectMap.values.flatten().toSet()
+            val defectRows =
+                defectMap.entries
+                    .sortedByDescending { it.value.size }
+                    .map { (defectName, partIds) ->
+                        MaterialImpactDefectRow(
+                            defectName = defectName,
+                            impactedPartCount = partIds.size,
+                            sharedAcrossMaterialCount = defectSpreadMap[defectName]?.size ?: 1,
+                        )
+                    }
+            MaterialImpactRow(
+                materialId = material.id,
+                materialName = material.name,
+                supplierId = material.supplierId,
+                supplierLabel = material.supplierName ?: "Tanpa pemasok",
+                impactedPartIds = impactedPartIds,
+                impactedPartLabels =
+                    impactedPartIds
+                        .mapNotNull { partId ->
+                            partMap[partId]?.let { part -> "${part.uniqNo}/${part.partNumber}" }
+                        }.sorted(),
+                defects = defectRows,
+            )
+        }.filter { row ->
+            row.defects.isNotEmpty() || row.impactedPartIds.isNotEmpty()
+        }
 }
 
 private fun decodeImageBitmap(bytes: ByteArray?): ImageBitmap? {
