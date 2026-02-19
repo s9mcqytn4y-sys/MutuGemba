@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -49,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -234,6 +236,7 @@ private fun InspectionScreenContent(
                 SectionLabel(
                     title = AppStrings.Inspection.ContextTitle,
                     subtitle = AppStrings.Inspection.ContextSubtitle,
+                    icon = AppIcons.CalendarToday,
                 )
             }
 
@@ -259,6 +262,7 @@ private fun InspectionScreenContent(
                 SectionLabel(
                     title = AppStrings.Inspection.LineTitle,
                     subtitle = AppStrings.Inspection.LineSubtitle,
+                    icon = AppIcons.Apartment,
                 )
             }
 
@@ -275,6 +279,7 @@ private fun InspectionScreenContent(
                 SectionLabel(
                     title = AppStrings.Inspection.PartTitle,
                     subtitle = AppStrings.Inspection.PartSubtitle,
+                    icon = AppIcons.FactCheck,
                 )
             }
 
@@ -334,6 +339,7 @@ private fun InspectionScreenContent(
             InspectionActionsBar(
                 canSave = state.canSave,
                 onClearAll = { state.clearAllInputs() },
+                onConfirmSave = { state.onSaveRequested() },
             )
         }
 
@@ -940,33 +946,65 @@ private fun HeaderContextCard(
         Row(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            ContextStatItem(
+                icon = AppIcons.CalendarToday,
+                title = AppStrings.Inspection.HeaderDate,
+                value = dateLabel,
+                modifier = Modifier.weight(1f),
+            )
+            ContextStatItem(
+                icon = AppIcons.Assignment,
+                title = AppStrings.Inspection.HeaderPic,
+                value = picName,
+                modifier = Modifier.weight(1f),
+            )
+            ContextStatItem(
+                icon = AppIcons.FactCheck,
+                title = AppStrings.Inspection.HeaderShift,
+                value = shiftLabel,
+                alignEnd = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContextStatItem(
+    icon: ImageVector,
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    alignEnd: Boolean = false,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(
-                    text = AppStrings.Inspection.HeaderDate,
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
-                )
-                Text(text = dateLabel, style = MaterialTheme.typography.h6)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(
-                    text = AppStrings.Inspection.HeaderPic,
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
-                )
-                Text(text = picName, style = MaterialTheme.typography.subtitle1)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs), horizontalAlignment = Alignment.End) {
-                Text(
-                    text = AppStrings.Inspection.HeaderShift,
-                    style = MaterialTheme.typography.body2,
-                    color = NeutralTextMuted,
-                )
-                Text(text = shiftLabel, style = MaterialTheme.typography.subtitle1)
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = NeutralTextMuted,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
         }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.subtitle1,
+            color = NeutralText,
+        )
     }
 }
 
@@ -974,10 +1012,30 @@ private fun HeaderContextCard(
 private fun SectionLabel(
     title: String,
     subtitle: String,
+    icon: ImageVector,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Text(text = title, style = MaterialTheme.typography.subtitle1)
-        Text(text = subtitle, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Surface(
+            color = MaterialTheme.colors.primary.copy(alpha = 0.12f),
+            shape = MaterialTheme.shapes.small,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colors.primary.copy(alpha = 0.22f)),
+            elevation = 0.dp,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colors.primary,
+                modifier = Modifier.padding(Spacing.xs).size(18.dp),
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Text(text = title, style = MaterialTheme.typography.subtitle1, color = NeutralText)
+            Text(text = subtitle, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
+        }
     }
 }
 
@@ -994,11 +1052,27 @@ private fun InspectionIntroCard() {
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(text = AppStrings.Inspection.IntroTitle, style = MaterialTheme.typography.subtitle1)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = AppIcons.FactCheck,
+                    contentDescription = null,
+                    tint = MaterialTheme.colors.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(text = AppStrings.Inspection.IntroTitle, style = MaterialTheme.typography.subtitle1)
+                AppBadge(
+                    text = "3 langkah",
+                    backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
+                    contentColor = MaterialTheme.colors.primary,
+                )
+            }
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                IntroStepRow(step = "1", text = AppStrings.Inspection.IntroStep1)
-                IntroStepRow(step = "2", text = AppStrings.Inspection.IntroStep2)
-                IntroStepRow(step = "3", text = AppStrings.Inspection.IntroStep3)
+                IntroStepRow(step = "1", text = AppStrings.Inspection.IntroStep1, icon = AppIcons.CalendarToday)
+                IntroStepRow(step = "2", text = AppStrings.Inspection.IntroStep2, icon = AppIcons.Apartment)
+                IntroStepRow(step = "3", text = AppStrings.Inspection.IntroStep3, icon = AppIcons.CheckCircle)
             }
         }
     }
@@ -1008,12 +1082,23 @@ private fun InspectionIntroCard() {
 private fun IntroStepRow(
     step: String,
     text: String,
+    icon: ImageVector,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         AppBadge(
             text = step,
             backgroundColor = NeutralLight,
             contentColor = NeutralText,
+        )
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = NeutralTextMuted,
+            modifier = Modifier.size(16.dp),
         )
         Text(text = text, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
     }
@@ -1046,7 +1131,7 @@ private fun InspectionSelectorCard(
                     backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
                     contentColor = MaterialTheme.colors.primary,
                 )
-                Text("$lineName ($lineCode)", style = MaterialTheme.typography.subtitle1, color = NeutralText)
+                Text("$lineName ($lineCode)", style = MaterialTheme.typography.h6, color = NeutralText)
             }
             Text(
                 text = lineHint,
@@ -1328,6 +1413,12 @@ private fun DuplicateRuleHint(allowDuplicate: Boolean) {
             backgroundColor = color,
             contentColor = NeutralSurface,
         )
+        Icon(
+            imageVector = if (allowDuplicate) AppIcons.ErrorOutline else AppIcons.CheckCircle,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(16.dp),
+        )
         val hint =
             if (allowDuplicate) {
                 AppStrings.Inspection.DuplicateHintOn
@@ -1537,6 +1628,7 @@ private fun InspectionLoadingState() {
 private fun InspectionActionsBar(
     canSave: Boolean,
     onClearAll: () -> Unit,
+    onConfirmSave: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.sm),
@@ -1546,6 +1638,11 @@ private fun InspectionActionsBar(
         SecondaryButton(
             text = AppStrings.Actions.ClearAll,
             onClick = onClearAll,
+        )
+        PrimaryButton(
+            text = AppStrings.Actions.ConfirmSave,
+            onClick = onConfirmSave,
+            enabled = canSave,
         )
         Spacer(modifier = Modifier.weight(1f))
         AppBadge(
