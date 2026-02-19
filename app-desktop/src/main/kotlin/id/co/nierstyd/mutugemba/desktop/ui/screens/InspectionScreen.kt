@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -81,6 +80,7 @@ import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusInfo
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusSuccess
 import id.co.nierstyd.mutugemba.desktop.ui.theme.StatusWarning
 import id.co.nierstyd.mutugemba.desktop.ui.util.DateTimeFormats
+import id.co.nierstyd.mutugemba.desktop.ui.util.NumberFormats
 import id.co.nierstyd.mutugemba.domain.DefectNameSanitizer
 import id.co.nierstyd.mutugemba.domain.DefectType
 import id.co.nierstyd.mutugemba.domain.InspectionDefectEntry
@@ -218,7 +218,7 @@ private fun InspectionScreenContent(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(max = viewportMaxHeight)
-                    .padding(bottom = 84.dp),
+                    .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             item {
@@ -327,27 +327,12 @@ private fun InspectionScreenContent(
             }
         }
 
-        Surface(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
-            color = NeutralSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
-            elevation = 2.dp,
-        ) {
-            InspectionActionsBar(
-                canSave = state.canSave,
-                onClearAll = { state.clearAllInputs() },
-                onConfirmSave = { state.onSaveRequested() },
-            )
-        }
-
         InspectionFloatingActions(
             showSummaryPanel = showSummaryPanel,
             summary = state.summaryTotals,
             onToggleSummary = { showSummaryPanel = !showSummaryPanel },
             onOpenSearch = { showSearchModal = true },
+            onClearAll = { state.clearAllInputs() },
             canSave = state.canSave,
             onConfirmSave = { state.onSaveRequested() },
         )
@@ -585,6 +570,8 @@ private class InspectionFormState(
             partDefectOverrides[partId] = active
             ensureInputs()
             persistDefectLayout()
+            val defectName = defectTypes.firstOrNull { it.id == defectId }?.name ?: "Jenis NG"
+            feedback = UserFeedback(FeedbackType.SUCCESS, "Jenis NG '$defectName' ditambahkan ke part.")
         }
     }
 
@@ -593,11 +580,16 @@ private class InspectionFormState(
         defectId: Long,
     ) {
         val active = defectTypesForPart(partId).map { it.id }.toMutableList()
-        if (active.size <= 1) return
+        if (active.size <= 1) {
+            feedback = UserFeedback(FeedbackType.WARNING, "Minimal satu Jenis NG harus tetap aktif.")
+            return
+        }
         if (active.remove(defectId)) {
             partDefectOverrides[partId] = active
             ensureInputs()
             persistDefectLayout()
+            val defectName = defectTypes.firstOrNull { it.id == defectId }?.name ?: "Jenis NG"
+            feedback = UserFeedback(FeedbackType.SUCCESS, "Jenis NG '$defectName' dihapus dari part.")
         }
     }
 
@@ -607,13 +599,17 @@ private class InspectionFormState(
     ) {
         val active = defectTypesForPart(partId).map { it.id }.toMutableList()
         val index = active.indexOf(defectId)
-        if (index <= 0) return
+        if (index <= 0) {
+            feedback = UserFeedback(FeedbackType.INFO, "Jenis NG sudah berada di urutan paling atas.")
+            return
+        }
         val previous = active[index - 1]
         active[index - 1] = active[index]
         active[index] = previous
         partDefectOverrides[partId] = active
         ensureInputs()
         persistDefectLayout()
+        feedback = UserFeedback(FeedbackType.SUCCESS, "Urutan Jenis NG berhasil diubah.")
     }
 
     fun moveDefectDown(
@@ -622,13 +618,17 @@ private class InspectionFormState(
     ) {
         val active = defectTypesForPart(partId).map { it.id }.toMutableList()
         val index = active.indexOf(defectId)
-        if (index == -1 || index >= active.lastIndex) return
+        if (index == -1 || index >= active.lastIndex) {
+            feedback = UserFeedback(FeedbackType.INFO, "Jenis NG sudah berada di urutan paling bawah.")
+            return
+        }
         val next = active[index + 1]
         active[index + 1] = active[index]
         active[index] = next
         partDefectOverrides[partId] = active
         ensureInputs()
         persistDefectLayout()
+        feedback = UserFeedback(FeedbackType.SUCCESS, "Urutan Jenis NG berhasil diubah.")
     }
 
     fun totalDefectQuantity(partId: Long): Int = defectTypesForPart(partId).sumOf { defectRowTotal(partId, it.id) }
@@ -762,8 +762,17 @@ private class InspectionFormState(
     }
 
     fun clearAllInputs() {
+        val hasAnyInput =
+            totalCheckInputs.values.any { it.isNotBlank() } ||
+                defectSlotInputs.values.any { it.isNotBlank() }
         totalCheckInputs.keys.toList().forEach { totalCheckInputs[it] = "" }
         defectSlotInputs.keys.toList().forEach { defectSlotInputs[it] = "" }
+        feedback =
+            if (hasAnyInput) {
+                UserFeedback(FeedbackType.SUCCESS, "Semua isian pada line ini berhasil dibersihkan.")
+            } else {
+                UserFeedback(FeedbackType.INFO, "Belum ada data yang perlu dibersihkan.")
+            }
     }
 
     private fun buildInputs(): List<InspectionInput> {
@@ -1177,6 +1186,7 @@ private fun BoxScope.InspectionFloatingActions(
     summary: SummaryTotals,
     onToggleSummary: () -> Unit,
     onOpenSearch: () -> Unit,
+    onClearAll: () -> Unit,
     canSave: Boolean,
     onConfirmSave: () -> Unit,
 ) {
@@ -1194,6 +1204,13 @@ private fun BoxScope.InspectionFloatingActions(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            FloatingActionButton(
+                onClick = onClearAll,
+                backgroundColor = NeutralSurface,
+                contentColor = NeutralText,
+            ) {
+                Icon(imageVector = AppIcons.Delete, contentDescription = AppStrings.Actions.ClearAll)
+            }
             FloatingActionButton(
                 onClick = onToggleSummary,
                 backgroundColor = MaterialTheme.colors.primary,
@@ -1221,6 +1238,12 @@ private fun BoxScope.InspectionFloatingActions(
 
 @Composable
 private fun SummaryCompactPanel(summary: SummaryTotals) {
+    val ngRatio =
+        if (summary.totalCheck > 0) {
+            summary.totalDefect.toDouble() / summary.totalCheck.toDouble()
+        } else {
+            0.0
+        }
     Surface(
         modifier = Modifier.width(340.dp),
         color = NeutralSurface,
@@ -1232,12 +1255,28 @@ private fun SummaryCompactPanel(summary: SummaryTotals) {
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(text = AppStrings.Inspection.SummaryTitle, style = MaterialTheme.typography.subtitle1)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = AppStrings.Inspection.SummaryTitle, style = MaterialTheme.typography.subtitle1)
+                AppBadge(
+                    text = "${summary.totalParts} part",
+                    backgroundColor = NeutralLight,
+                    contentColor = NeutralTextMuted,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 SummaryStatCompact(title = AppStrings.Inspection.TotalCheckLabel, value = summary.totalCheck.toString())
                 SummaryStatCompact(title = AppStrings.Inspection.TotalNgLabel, value = summary.totalDefect.toString())
                 SummaryStatCompact(title = AppStrings.Inspection.TotalOkLabel, value = summary.totalOk.toString())
             }
+            Text(
+                text = "Rasio NG ${NumberFormats.formatPercent(ngRatio)}",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
             val okRatio =
                 if (summary.totalCheck > 0) {
                     summary.totalOk.toFloat() / summary.totalCheck.toFloat()
@@ -1314,35 +1353,70 @@ private fun InspectionSearchModal(
                                 color = NeutralTextMuted,
                             )
                         }
-                        AppBadge(
-                            text = "Ctrl+K",
-                            backgroundColor = NeutralLight,
-                            contentColor = NeutralTextMuted,
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                            AppBadge(
+                                text = "Ctrl+K",
+                                backgroundColor = NeutralLight,
+                                contentColor = NeutralTextMuted,
+                            )
+                            SecondaryButton(
+                                text = AppStrings.Common.Close,
+                                onClick = onClose,
+                            )
+                        }
                     }
                     AppTextField(
                         spec =
                             FieldSpec(
                                 label = AppStrings.Inspection.SearchPartLabel,
-                                placeholder = AppStrings.Inspection.SearchPartPlaceholder,
-                                helperText = AppStrings.Inspection.SearchPartHint,
+                                placeholder = "Ketik UNIQ, part number, nama part, atau material",
+                                helperText = "Hasil akan terfilter otomatis saat Anda mengetik.",
                             ),
                         value = query,
                         onValueChange = onQueryChange,
                         singleLine = true,
                     )
                     if (results.isEmpty()) {
-                        Text(
-                            text = "Part tidak ditemukan.",
-                            style = MaterialTheme.typography.body2,
-                            color = NeutralTextMuted,
-                        )
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = NeutralLight,
+                            shape = MaterialTheme.shapes.small,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NeutralBorder),
+                            elevation = 0.dp,
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                            ) {
+                                Text(
+                                    text = "Part tidak ditemukan.",
+                                    style = MaterialTheme.typography.body2,
+                                    color = NeutralText,
+                                )
+                                Text(
+                                    text = "Coba kata kunci lain, misalnya UNIQ atau nama part.",
+                                    style = MaterialTheme.typography.caption,
+                                    color = NeutralTextMuted,
+                                )
+                            }
+                        }
                     } else {
-                        Text(
-                            text = "Hasil (${results.size}) - klik item atau tekan Enter untuk item teratas.",
-                            style = MaterialTheme.typography.caption,
-                            color = NeutralTextMuted,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Hasil (${results.size})",
+                                style = MaterialTheme.typography.caption,
+                                color = NeutralTextMuted,
+                            )
+                            Text(
+                                text = "Tekan Enter untuk memilih hasil teratas.",
+                                style = MaterialTheme.typography.caption,
+                                color = StatusInfo,
+                            )
+                        }
                         Column(
                             modifier = Modifier.fillMaxWidth().height(240.dp),
                             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
@@ -1350,7 +1424,7 @@ private fun InspectionSearchModal(
                             results.forEachIndexed { index, part ->
                                 SearchResultRow(
                                     part = part,
-                                    hint = if (index == 0) "Tekan Enter untuk langsung fokus" else null,
+                                    hint = if (index == 0) "Item teratas - langsung terpilih saat Enter." else null,
                                     onClick = { onPickPart(part) },
                                 )
                             }
@@ -1386,6 +1460,11 @@ private fun SearchResultRow(
             )
             Text(
                 text = "Part Number ${part.partNumber}",
+                style = MaterialTheme.typography.caption,
+                color = NeutralTextMuted,
+            )
+            Text(
+                text = "Material ${part.material}",
                 style = MaterialTheme.typography.caption,
                 color = NeutralTextMuted,
             )
@@ -1621,35 +1700,6 @@ private fun InspectionLoadingState() {
             SkeletonBlock(width = 320.dp, height = 14.dp, color = NeutralLight)
             SkeletonBlock(width = 280.dp, height = 14.dp, color = NeutralLight)
         }
-    }
-}
-
-@Composable
-private fun InspectionActionsBar(
-    canSave: Boolean,
-    onClearAll: () -> Unit,
-    onConfirmSave: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SecondaryButton(
-            text = AppStrings.Actions.ClearAll,
-            onClick = onClearAll,
-        )
-        PrimaryButton(
-            text = AppStrings.Actions.ConfirmSave,
-            onClick = onConfirmSave,
-            enabled = canSave,
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        AppBadge(
-            text = if (canSave) "Siap disimpan" else "Lengkapi data part",
-            backgroundColor = if (canSave) StatusSuccess else NeutralLight,
-            contentColor = if (canSave) NeutralSurface else NeutralTextMuted,
-        )
     }
 }
 

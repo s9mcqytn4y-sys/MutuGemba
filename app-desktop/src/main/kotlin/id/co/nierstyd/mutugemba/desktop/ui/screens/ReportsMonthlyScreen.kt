@@ -194,6 +194,10 @@ fun ReportsMonthlyScreen(
                 pendingAction = PendingAction.Export(document)
             },
         )
+        StatusBanner(
+            feedback = UserFeedback(FeedbackType.INFO, AppStrings.ReportsMonthly.InfoSync),
+            dense = true,
+        )
 
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             feedback?.let {
@@ -306,7 +310,7 @@ private fun ReportActionPreviewDialog(
     val title = if (action is PendingAction.Print) "Pratinjau Cetak" else "Pratinjau Ekspor PDF"
     val subtitle =
         if (action is PendingAction.Print) {
-            "Dokumen akan dibuat lalu dikirim ke printer default."
+            "Dokumen akan dibuat lalu dikirim ke printer bawaan."
         } else {
             "Dokumen akan dibuat ke folder ekspor lokal."
         }
@@ -324,7 +328,7 @@ private fun ReportActionPreviewDialog(
                 Text(title, style = MaterialTheme.typography.h6)
                 Text(subtitle, style = MaterialTheme.typography.body2, color = NeutralTextMuted)
                 Text(
-                    "Line: ${action.document.header.lineName} • Periode: ${action.document.header.month}",
+                    "Line: ${action.document.header.lineName} - Periode: ${action.document.header.month}",
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )
@@ -361,7 +365,7 @@ private fun ArchiveCompactCard(entries: List<ReportArchiveEntry>) {
             Text("Arsip Laporan Terbaru", style = MaterialTheme.typography.subtitle2)
             entries.forEach { entry ->
                 Text(
-                    text = "${entry.action} • ${entry.line} • ${entry.period}",
+                    text = "${entry.action} - ${entry.line} - ${entry.period}",
                     style = MaterialTheme.typography.caption,
                     color = NeutralTextMuted,
                 )

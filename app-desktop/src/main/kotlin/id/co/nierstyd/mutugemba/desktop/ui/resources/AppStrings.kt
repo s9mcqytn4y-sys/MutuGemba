@@ -245,9 +245,9 @@ object AppStrings {
         fun lineRequired(): String = "Pilih line produksi terlebih dahulu."
 
         const val SearchPartLabel = "Cari Part"
-        const val SearchPartPlaceholder = "Cari UNIQ / part number / nama / material"
+        const val SearchPartPlaceholder = "Ketik UNIQ, part number, nama part, atau material"
         const val SearchPartHint =
-            "Pencarian pintar: cocokkan kata kunci pada UNIQ, nama part, nomor part, dan material."
+            "Hasil akan terfilter otomatis berdasarkan kata kunci yang Anda ketik."
 
         const val CustomDefectTitle = "Tambah Jenis NG"
         const val CustomDefectLabel = "Jenis NG Tambahan"
