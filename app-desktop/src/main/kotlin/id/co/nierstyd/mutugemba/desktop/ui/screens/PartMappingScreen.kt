@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Checkbox
 import androidx.compose.material.MaterialTheme
@@ -48,7 +46,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppBadge
 import id.co.nierstyd.mutugemba.desktop.ui.components.AppTextField
-import id.co.nierstyd.mutugemba.desktop.ui.components.FeedbackHost
 import id.co.nierstyd.mutugemba.desktop.ui.components.FieldSpec
 import id.co.nierstyd.mutugemba.desktop.ui.components.PrimaryButton
 import id.co.nierstyd.mutugemba.desktop.ui.components.SecondaryButton
@@ -133,6 +130,11 @@ enum class PartMappingViewMode {
     MASTER_ONLY,
 }
 
+private enum class CatalogFocusMode {
+    LIST,
+    DETAIL,
+}
+
 @Composable
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 fun PartMappingScreen(
@@ -161,6 +163,7 @@ fun PartMappingScreen(
     var managerTabIndex by rememberSaveable { mutableStateOf(0) }
     var catalogQuery by rememberSaveable { mutableStateOf("") }
     var catalogSort by rememberSaveable { mutableStateOf("uniq") }
+    var catalogFocusMode by rememberSaveable { mutableStateOf(CatalogFocusMode.LIST) }
     var masterParts by remember { mutableStateOf<List<PartMasterListItem>>(emptyList()) }
     var masterMaterials by remember { mutableStateOf<List<MaterialMaster>>(emptyList()) }
     var masterSuppliers by remember { mutableStateOf<List<SupplierMaster>>(emptyList()) }
@@ -278,7 +281,10 @@ fun PartMappingScreen(
     LaunchedEffect(viewMode) {
         when (viewMode) {
             PartMappingViewMode.ALL -> Unit
-            PartMappingViewMode.CATALOG_ONLY -> screenMode = 0
+            PartMappingViewMode.CATALOG_ONLY -> {
+                screenMode = 0
+                catalogFocusMode = CatalogFocusMode.LIST
+            }
             PartMappingViewMode.MASTER_ONLY -> screenMode = 1
         }
     }
@@ -302,10 +308,17 @@ fun PartMappingScreen(
                     }
                 }
 
-        SectionHeader(
-            title = AppStrings.PartMapping.Title,
-            subtitle = "Data part resmi PT. Primaraya Graha Nusantara (tanpa filter).",
-        )
+        val pageTitle =
+            when (viewMode) {
+                PartMappingViewMode.MASTER_ONLY -> AppStrings.PartMaster.Title
+                else -> AppStrings.PartCatalog.Title
+            }
+        val pageSubtitle =
+            when (viewMode) {
+                PartMappingViewMode.MASTER_ONLY -> AppStrings.PartMaster.Subtitle
+                else -> AppStrings.PartCatalog.Subtitle
+            }
+        SectionHeader(title = pageTitle, subtitle = pageSubtitle)
 
         StatusBanner(
             feedback =
@@ -321,7 +334,10 @@ fun PartMappingScreen(
             TabRow(selectedTabIndex = screenMode, backgroundColor = NeutralSurface) {
                 Tab(
                     selected = screenMode == 0,
-                    onClick = { screenMode = 0 },
+                    onClick = {
+                        screenMode = 0
+                        catalogFocusMode = CatalogFocusMode.LIST
+                    },
                     text = { Text("Katalog Part") },
                 )
                 Tab(
@@ -333,7 +349,7 @@ fun PartMappingScreen(
         }
 
         if (screenMode == 1) {
-            PartMasterManagerPanel(
+            PartMasterAdminScreen(
                 tabIndex = managerTabIndex,
                 onTabSelected = { managerTabIndex = it },
                 parts = masterParts,
@@ -544,172 +560,45 @@ fun PartMappingScreen(
                 },
             )
         } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            ) {
-                PartContextCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Periode QA",
-                    value = "${period.monthValue.toString().padStart(2, '0')}-${period.year}",
-                    hint = "Sumber analitik NG bulanan",
-                )
-                PartContextCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Total Part Aktif",
-                    value = parts.size.toString(),
-                    hint = "Part tersedia untuk line produksi",
-                )
-                PartContextCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Aset Gambar",
-                    value = "$assetLoadedCount/${parts.size}",
-                    hint = if (thumbnailLoading) "Memuat thumbnail..." else "Sinkron dari asset hash store",
-                )
-                PartContextCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Part Terpilih",
-                    value = selectedPartLabel,
-                    hint = "Gunakan daftar kiri untuk berpindah cepat",
-                )
-            }
+            when (catalogFocusMode) {
+                CatalogFocusMode.LIST ->
+                    PartCatalogScreen(
+                        period = period,
+                        parts = parts,
+                        filteredParts = catalogParts,
+                        selectedUniqNo = selectedUniqNo,
+                        selectedPartLabel = selectedPartLabel,
+                        assetLoadedCount = assetLoadedCount,
+                        thumbnailLoading = thumbnailLoading,
+                        thumbnailMap = thumbnailMap,
+                        partsLoading = partsLoading,
+                        loadError = loadError,
+                        catalogQuery = catalogQuery,
+                        catalogSort = catalogSort,
+                        onCatalogQueryChange = { catalogQuery = it },
+                        onCatalogSortChange = { catalogSort = it.trim().lowercase() },
+                        onDismissError = { loadError = null },
+                        onSelectPart = { item ->
+                            selectedUniqNo = item.uniqNo
+                            catalogFocusMode = CatalogFocusMode.DETAIL
+                        },
+                    )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            ) {
-                AppTextField(
-                    spec =
-                        FieldSpec(
-                            label = "Cari Katalog Part",
-                            placeholder = "Cari UNIQ / part number / nama part",
-                        ),
-                    value = catalogQuery,
-                    onValueChange = { catalogQuery = it },
-                    modifier = Modifier.weight(2f),
-                    singleLine = true,
-                )
-                AppTextField(
-                    spec =
-                        FieldSpec(
-                            label = "Urutkan (uniq / part_number / ng_desc)",
-                        ),
-                    value = catalogSort,
-                    onValueChange = { catalogSort = it.trim().lowercase() },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-            }
-
-            loadError?.let { message ->
-                FeedbackHost(
-                    feedback = UserFeedback(FeedbackType.ERROR, "Gagal memuat part: $message"),
-                    onDismiss = { loadError = null },
-                    dense = true,
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            ) {
-                Surface(
-                    modifier = Modifier.weight(0.44f).fillMaxHeight(),
-                    color = NeutralSurface,
-                    border = BorderStroke(1.dp, NeutralBorder),
-                    shape = MaterialTheme.shapes.medium,
-                    elevation = 0.dp,
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(Spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    ) {
-                        Text(
-                            text = "${AppStrings.PartMapping.PartListTitle} (${catalogParts.size})",
-                            style = MaterialTheme.typography.subtitle1,
-                        )
-
-                        when {
-                            partsLoading -> {
-                                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                                    repeat(8) {
-                                        SkeletonBlock(width = 420.dp, height = 72.dp, color = NeutralLight)
-                                    }
-                                }
-                            }
-
-                            catalogParts.isEmpty() -> {
-                                Text(
-                                    text = AppStrings.PartMapping.EmptyParts,
-                                    style = MaterialTheme.typography.body2,
-                                    color = NeutralTextMuted,
-                                )
-                            }
-
-                            else -> {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxWidth().weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                                ) {
-                                    items(catalogParts, key = { it.partId }) { item ->
-                                        PartCard(
-                                            item = item,
-                                            thumbnail = thumbnailMap[item.uniqNo],
-                                            thumbnailLoading =
-                                                thumbnailLoading && !thumbnailMap.containsKey(item.uniqNo),
-                                            selected = item.uniqNo == selectedUniqNo,
-                                            onClick = { selectedUniqNo = item.uniqNo },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Surface(
-                    modifier = Modifier.weight(0.56f).fillMaxHeight(),
-                    color = NeutralSurface,
-                    border = BorderStroke(1.dp, NeutralBorder),
-                    shape = MaterialTheme.shapes.medium,
-                    elevation = 0.dp,
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(Spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    ) {
-                        Text(text = AppStrings.PartMapping.DetailTitle, style = MaterialTheme.typography.subtitle1)
-
-                        when {
-                            partDetailLoading -> {
-                                Text(
-                                    "Memuat detail...",
-                                    style = MaterialTheme.typography.body2,
-                                    color = NeutralTextMuted,
-                                )
-                            }
-
-                            partDetail == null -> {
-                                Text(
-                                    AppStrings.PartMapping.EmptyDetail,
-                                    style = MaterialTheme.typography.body2,
-                                    color = NeutralTextMuted,
-                                )
-                            }
-
-                            else -> {
-                                PartDetailContent(detail = partDetail!!, bitmap = detailBitmap)
-                            }
-                        }
-                    }
-                }
+                CatalogFocusMode.DETAIL ->
+                    PartDetailScreen(
+                        selectedUniqNo = selectedUniqNo,
+                        detail = partDetail,
+                        detailBitmap = detailBitmap,
+                        detailLoading = partDetailLoading,
+                        onBack = { catalogFocusMode = CatalogFocusMode.LIST },
+                    )
             }
         }
     }
 }
 
 @Composable
-private fun PartContextCard(
+internal fun PartContextCard(
     modifier: Modifier = Modifier,
     title: String,
     value: String,
@@ -734,7 +623,7 @@ private fun PartContextCard(
 }
 
 @Composable
-private fun PartCard(
+internal fun PartCard(
     item: PartListItem,
     thumbnail: ImageBitmap?,
     thumbnailLoading: Boolean,
@@ -823,7 +712,7 @@ private fun PartCard(
 
 @Composable
 @Suppress("LongMethod")
-private fun PartDetailContent(
+internal fun PartDetailContent(
     detail: PartDetail,
     bitmap: ImageBitmap?,
 ) {
@@ -1041,7 +930,7 @@ private fun PartRequirementTable(requirements: List<Pair<String, Int>>) {
 
 @Suppress("LongParameterList")
 @Composable
-private fun PartMasterManagerPanel(
+internal fun PartMasterManagerPanel(
     tabIndex: Int,
     onTabSelected: (Int) -> Unit,
     parts: List<PartMasterListItem>,

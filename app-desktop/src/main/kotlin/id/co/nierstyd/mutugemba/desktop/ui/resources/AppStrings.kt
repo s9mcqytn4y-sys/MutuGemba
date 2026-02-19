@@ -34,7 +34,7 @@ object AppStrings {
     object Navigation {
         const val Home = "Beranda"
         const val PartCatalog = "Katalog Part"
-        const val PartMaster = "Administrasi Master"
+        const val PartMaster = "Data Master"
         const val PartMapping = "Katalog & Master Part"
         const val Inspection = "Input Inspeksi"
         const val Abnormal = "Tiket Abnormal"
@@ -500,6 +500,16 @@ object AppStrings {
         const val TopDefects = "Top Defects per Model"
         const val Heatmap = "Heatmap Tanggal vs Defect"
         const val ImportBannerOffline = "Offline mode: data dibaca dari SQLite lokal + asset hash store."
+    }
+
+    object PartCatalog {
+        const val Title = "Katalog Part"
+        const val Subtitle = "Jelajahi part produksi melalui kartu thumbnail lalu buka biodata detail part."
+    }
+
+    object PartMaster {
+        const val Title = "Administrasi Data Master"
+        const val Subtitle = "Kelola data master part, bahan, pemasok, dan jenis NG."
     }
 
     object Login {

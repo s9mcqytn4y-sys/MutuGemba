@@ -55,7 +55,7 @@ Validasi:
 
 ---
 
-### Batch 2 (UI split screen internal + detail page)
+### Batch 2 (UI split screen internal + detail page) - SELESAI
 Tujuan:
 - Pisahkan composable besar `PartMappingScreen` menjadi:
   - `PartCatalogScreen`
@@ -75,6 +75,11 @@ Teknis:
 Validasi:
 - Snapshot UI list/detail.
 - UX keyboard (search & enter) tetap berjalan.
+
+Status implementasi:
+- `PartMappingScreen` sekarang berperan sebagai orchestrator state.
+- Klik kartu part pada `PartCatalogScreen` langsung pindah ke `PartDetailScreen` (single focus).
+- `PartMasterAdminScreen` jadi wrapper terpisah untuk panel CRUD master.
 
 ---
 
