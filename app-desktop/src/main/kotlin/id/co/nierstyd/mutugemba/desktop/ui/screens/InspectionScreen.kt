@@ -301,9 +301,9 @@ private fun InspectionScreenContent(
                         status = state.partStatus(part.id),
                         onToggleExpanded = { state.toggleExpanded(part.id) },
                         onTotalCheckChanged = { state.onTotalCheckChanged(part.id, it) },
-                        customDefectInput = state.customDefectInput,
-                        onCustomDefectInputChanged = state::onCustomDefectInputChanged,
-                        onAddCustomDefect = state::addCustomDefectType,
+                        customDefectInput = state.customDefectInput(part.id),
+                        onCustomDefectInputChanged = { state.onCustomDefectInputChanged(part.id, it) },
+                        onAddCustomDefect = { state.addCustomDefectType(part.id) },
                         currentLine = state.selectedLineName,
                         onDefectSlotChanged = { defectId, slot, value ->
                             state.onDefectSlotChanged(part.id, defectId, slot, value)
@@ -392,8 +392,7 @@ private class InspectionFormState(
     var defectTypes by mutableStateOf(emptyList<DefectType>())
         private set
     private var selectedLineId by mutableStateOf<Long?>(defaults.lineId)
-    var customDefectInput by mutableStateOf("")
-        private set
+    private val customDefectInputs = mutableStateMapOf<Long, String>()
     var isMasterLoading by mutableStateOf(false)
         private set
 
@@ -536,16 +535,12 @@ private class InspectionFormState(
             part.recommendedDefectCodes
                 .mapNotNull { code -> defectTypes.firstOrNull { it.code == code } }
                 .distinctBy { it.id }
-        val customForLine =
-            defectTypes
-                .filter { it.category == "CUSTOM" }
-                .filter { it.lineCode == null || it.lineCode == part.lineCode }
-                .sortedBy { it.name }
         if (mapped.isNotEmpty()) {
-            return sanitizeDefectTypesForLine((mapped + customForLine).distinctBy { it.id }, part.lineCode)
+            return sanitizeDefectTypesForLine(mapped, part.lineCode)
         }
         return sanitizeDefectTypesForLine(
             defectTypes
+                .filter { it.category != "CUSTOM" }
                 .filter { it.lineCode == null || it.lineCode == part.lineCode }
                 .sortedBy { it.name },
             part.lineCode,
@@ -672,8 +667,13 @@ private class InspectionFormState(
         defectSlotInputs[PartDefectSlotKey(partId, defectId, slot)] = sanitizeCountInput(value)
     }
 
-    fun onCustomDefectInputChanged(value: String) {
-        customDefectInput = value.take(80)
+    fun customDefectInput(partId: Long): String = customDefectInputs[partId] ?: ""
+
+    fun onCustomDefectInputChanged(
+        partId: Long,
+        value: String,
+    ) {
+        customDefectInputs[partId] = value.take(80)
     }
 
     fun focusPart(partId: Long) {
@@ -681,23 +681,24 @@ private class InspectionFormState(
         expandedPartIds[partId] = true
     }
 
-    fun addCustomDefectType() {
+    fun addCustomDefectType(partId: Long) {
         val line =
             selectedLine
                 ?: run {
                     feedback = UserFeedback(FeedbackType.ERROR, AppStrings.Inspection.ErrorLineRequired)
                     return
                 }
-        val normalized = customDefectInput.trim()
+        val normalized = customDefectInput(partId).trim()
         if (normalized.isBlank()) {
             feedback = UserFeedback(FeedbackType.WARNING, AppStrings.Inspection.CustomDefectEmpty)
             return
         }
-        dependencies.masterData.upsertDefectType.execute(normalized, line.code)
+        val created = dependencies.masterData.upsertDefectType.execute(normalized, line.code)
         defectTypes = dependencies.masterData.getDefectTypes.execute()
+        addDefectToPart(partId, created.id)
         ensureInputs()
         persistDefectLayout()
-        customDefectInput = ""
+        customDefectInputs[partId] = ""
         feedback = UserFeedback(FeedbackType.SUCCESS, AppStrings.Inspection.customDefectAdded(normalized))
     }
 
@@ -832,15 +833,18 @@ private class InspectionFormState(
         selectedLineId = resolveSelection(defaults.qcLineId, defaults.lineId, lines.map { it.id })
     }
 
+    @Suppress("CyclomaticComplexMethod")
     private fun ensureInputs() {
         val validPartIds = partsForLine().map { it.id }.toSet()
         totalCheckInputs.keys.filter { it !in validPartIds }.forEach { totalCheckInputs.remove(it) }
         expandedPartIds.keys.filter { it !in validPartIds }.forEach { expandedPartIds.remove(it) }
         defectSlotInputs.keys.filter { it.partId !in validPartIds }.forEach { defectSlotInputs.remove(it) }
         partDefectOverrides.keys.filter { it !in validPartIds }.forEach { partDefectOverrides.remove(it) }
+        customDefectInputs.keys.filter { it !in validPartIds }.forEach { customDefectInputs.remove(it) }
         validPartIds.forEach { partId ->
             totalCheckInputs.putIfAbsent(partId, "")
             expandedPartIds.putIfAbsent(partId, false)
+            customDefectInputs.putIfAbsent(partId, "")
             val fallbackDefectIds = baseDefectTypesForPart(partId).map { it.id }
             val overrideIds = partDefectOverrides[partId].orEmpty()
             val validDefectIds = defectTypes.map { it.id }.toSet()
